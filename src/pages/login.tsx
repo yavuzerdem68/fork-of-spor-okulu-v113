@@ -46,14 +46,32 @@ export default function Login() {
     setLoading(true);
     setError("");
 
-    // Mock authentication - replace with real authentication
-    if (parentCredentials.email === "veli@example.com" && parentCredentials.password === "veli123") {
-      localStorage.setItem("userRole", "parent");
-      localStorage.setItem("userEmail", parentCredentials.email);
-      router.push("/parent-dashboard");
-    } else {
-      setError("Geçersiz email veya şifre");
+    try {
+      // Check against registered parent users
+      const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+      const user = parentUsers.find((u: any) => 
+        (u.email === parentCredentials.email || u.username === parentCredentials.email) && 
+        u.password === parentCredentials.password
+      );
+
+      if (user) {
+        localStorage.setItem("userRole", "parent");
+        localStorage.setItem("currentUser", JSON.stringify(user));
+        router.push("/parent-dashboard");
+      } else {
+        // Fallback to demo account
+        if (parentCredentials.email === "veli@example.com" && parentCredentials.password === "veli123") {
+          localStorage.setItem("userRole", "parent");
+          localStorage.setItem("userEmail", parentCredentials.email);
+          router.push("/parent-dashboard");
+        } else {
+          setError("Geçersiz kullanıcı adı/email veya şifre");
+        }
+      }
+    } catch (error) {
+      setError("Giriş sırasında bir hata oluştu");
     }
+    
     setLoading(false);
   };
 
@@ -211,7 +229,7 @@ export default function Login() {
               </Tabs>
 
               <div className="mt-6 text-center">
-                <Link href="/register" className="text-sm text-primary hover:underline">
+                <Link href="/parent-signup" className="text-sm text-primary hover:underline">
                   Hesabınız yok mu? Kayıt olun
                 </Link>
               </div>

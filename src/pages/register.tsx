@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trophy, ArrowLeft, User, Users, Phone, Mail, MapPin, Calendar, Heart, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Trophy, ArrowLeft, User, Users, Phone, Mail, MapPin, Calendar, Heart, AlertTriangle, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import TermsModal from "@/components/TermsModal";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -21,7 +23,9 @@ const fadeInUp = {
 };
 
 const sports = [
-  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol"
+  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
+  "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
+  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim"
 ];
 
 const cities = [
@@ -40,6 +44,30 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [isParentLoggedIn, setIsParentLoggedIn] = useState(false);
+
+  // Check if parent is logged in
+  useEffect(() => {
+    const userRole = localStorage.getItem('userRole');
+    const currentUser = localStorage.getItem('currentUser');
+    
+    if (userRole === 'parent' && currentUser) {
+      setIsParentLoggedIn(true);
+      const user = JSON.parse(currentUser);
+      // Pre-fill parent information
+      setFormData(prev => ({
+        ...prev,
+        parentName: user.firstName,
+        parentSurname: user.lastName,
+        parentEmail: user.email,
+        parentPhone: user.phone
+      }));
+    } else {
+      // Redirect to parent signup if not logged in
+      router.push('/parent-signup');
+    }
+  }, [router]);
 
   const [formData, setFormData] = useState({
     // Öğrenci Bilgileri
@@ -282,7 +310,23 @@ export default function Register() {
                   </div>
 
                   <div>
-                    <Label>Katılmak İstediği Spor Branşları *</Label>
+                    <Label>Katılmak İstediği Spor Branşları * (Birden fazla seçebilirsiniz)</Label>
+                    
+                    {/* Selected Sports Display */}
+                    {formData.selectedSports.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 mb-4">
+                        {formData.selectedSports.map((sport) => (
+                          <Badge key={sport} variant="default" className="flex items-center gap-1">
+                            {sport}
+                            <X 
+                              className="h-3 w-3 cursor-pointer" 
+                              onClick={() => handleSportSelection(sport, false)}
+                            />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    
                     <div className="grid md:grid-cols-3 gap-3 mt-2">
                       {sports.map((sport) => (
                         <div key={sport} className="flex items-center space-x-2">
@@ -601,7 +645,14 @@ export default function Register() {
                       onCheckedChange={(checked) => handleInputChange("agreementAccepted", checked)}
                     />
                     <Label htmlFor="agreement" className="text-sm leading-relaxed">
-                      Spor okulu kurallarını ve şartlarını okudum, kabul ediyorum. *
+                      <button
+                        type="button"
+                        onClick={() => setShowTermsModal(true)}
+                        className="text-primary underline hover:text-primary/80"
+                      >
+                        Spor okulu kurallarını ve şartlarını
+                      </button>
+                      {" "}okudum, kabul ediyorum. *
                     </Label>
                   </div>
 
@@ -644,6 +695,12 @@ export default function Register() {
           </motion.form>
         </div>
       </div>
+
+      {/* Terms Modal */}
+      <TermsModal 
+        isOpen={showTermsModal} 
+        onClose={() => setShowTermsModal(false)} 
+      />
     </>
   );
 }

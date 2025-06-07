@@ -120,7 +120,7 @@ export default function Home() {
               className="flex items-center space-x-4"
             >
               <Button variant="ghost" onClick={() => window.location.href = '/login'}>Giriş Yap</Button>
-              <Button onClick={() => window.location.href = '/register'}>Kayıt Ol</Button>
+              <Button onClick={() => window.location.href = '/parent-signup'}>Kayıt Ol</Button>
             </motion.div>
           </div>
         </nav>
