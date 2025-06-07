@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/router";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -145,20 +146,44 @@ const upcomingTrainings = [
   }
 ];
 
-const sidebarItems = [
-  { icon: Home, label: "Dashboard", href: "/dashboard", active: true },
-  { icon: Users, label: "Sporcular", href: "/athletes" },
-  { icon: CreditCard, label: "Ödemeler", href: "/payments" },
-  { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
-  { icon: UserCheck, label: "Yoklama", href: "/attendance" },
-  { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
-  { icon: Camera, label: "Medya", href: "/media" },
-  { icon: FileText, label: "Raporlar", href: "/reports" },
-  { icon: Settings, label: "Ayarlar", href: "/settings" }
-];
-
 export default function Dashboard() {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userRole, setUserRole] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+
+  useEffect(() => {
+    // Check if user is logged in and has admin role
+    const role = localStorage.getItem("userRole");
+    const email = localStorage.getItem("userEmail");
+    
+    if (role !== "admin") {
+      router.push("/login");
+      return;
+    }
+    
+    setUserRole(role);
+    setUserEmail(email || "");
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userEmail");
+    router.push("/");
+  };
+
+  const sidebarItems = [
+    { icon: Home, label: "Dashboard", href: "/dashboard", active: true },
+    { icon: Users, label: "Sporcular", href: "/athletes" },
+    { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+    { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
+    { icon: UserCheck, label: "Yoklama", href: "/attendance" },
+    { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
+    { icon: Camera, label: "Medya", href: "/media" },
+    { icon: FileText, label: "Raporlar", href: "/reports" },
+    { icon: Settings, label: "Ayarlar", href: "/settings" },
+    { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
+  ];
 
   return (
     <>
@@ -226,7 +251,7 @@ export default function Dashboard() {
                   <p className="text-xs text-muted-foreground">Yönetici</p>
                 </div>
               )}
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>

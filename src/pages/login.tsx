@@ -1,0 +1,224 @@
+import React, { useState } from "react";
+import Head from "next/head";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Trophy, Shield, Users, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/router";
+
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6 }
+};
+
+export default function Login() {
+  const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
+  const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
+  const [parentCredentials, setParentCredentials] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    // Mock authentication - replace with real authentication
+    if (adminCredentials.email === "admin@sportscr.com" && adminCredentials.password === "admin123") {
+      localStorage.setItem("userRole", "admin");
+      localStorage.setItem("userEmail", adminCredentials.email);
+      router.push("/dashboard");
+    } else {
+      setError("Geçersiz email veya şifre");
+    }
+    setLoading(false);
+  };
+
+  const handleParentLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    // Mock authentication - replace with real authentication
+    if (parentCredentials.email === "veli@example.com" && parentCredentials.password === "veli123") {
+      localStorage.setItem("userRole", "parent");
+      localStorage.setItem("userEmail", parentCredentials.email);
+      router.push("/parent-dashboard");
+    } else {
+      setError("Geçersiz email veya şifre");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <>
+      <Head>
+        <title>Giriş Yap - SportsCRM</title>
+        <meta name="description" content="SportsCRM sistemine giriş yapın" />
+      </Head>
+
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+        <motion.div 
+          className="w-full max-w-md"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          {/* Header */}
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Ana Sayfaya Dön
+            </Link>
+            
+            <div className="flex items-center justify-center space-x-2 mb-4">
+              <Trophy className="h-8 w-8 text-primary" />
+              <span className="text-2xl font-bold text-primary">SportsCRM</span>
+            </div>
+            <p className="text-muted-foreground">Hesabınıza giriş yapın</p>
+          </div>
+
+          <Card>
+            <CardContent className="p-6">
+              <Tabs defaultValue="admin" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="admin" className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4" />
+                    <span>Yönetici</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="parent" className="flex items-center space-x-2">
+                    <Users className="w-4 h-4" />
+                    <span>Veli</span>
+                  </TabsTrigger>
+                </TabsList>
+
+                {error && (
+                  <Alert className="mb-4" variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Admin Login */}
+                <TabsContent value="admin">
+                  <motion.form onSubmit={handleAdminLogin} variants={fadeInUp}>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="admin-email">Email</Label>
+                        <Input
+                          id="admin-email"
+                          type="email"
+                          placeholder="admin@sportscr.com"
+                          value={adminCredentials.email}
+                          onChange={(e) => setAdminCredentials({...adminCredentials, email: e.target.value})}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="admin-password">Şifre</Label>
+                        <div className="relative">
+                          <Input
+                            id="admin-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            value={adminCredentials.password}
+                            onChange={(e) => setAdminCredentials({...adminCredentials, password: e.target.value})}
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? "Giriş yapılıyor..." : "Yönetici Girişi"}
+                      </Button>
+                    </div>
+                  </motion.form>
+                  
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-2">Demo hesap bilgileri:</p>
+                    <p className="text-xs font-mono">Email: admin@sportscr.com</p>
+                    <p className="text-xs font-mono">Şifre: admin123</p>
+                  </div>
+                </TabsContent>
+
+                {/* Parent Login */}
+                <TabsContent value="parent">
+                  <motion.form onSubmit={handleParentLogin} variants={fadeInUp}>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="parent-email">Email</Label>
+                        <Input
+                          id="parent-email"
+                          type="email"
+                          placeholder="veli@example.com"
+                          value={parentCredentials.email}
+                          onChange={(e) => setParentCredentials({...parentCredentials, email: e.target.value})}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="parent-password">Şifre</Label>
+                        <div className="relative">
+                          <Input
+                            id="parent-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            value={parentCredentials.password}
+                            onChange={(e) => setParentCredentials({...parentCredentials, password: e.target.value})}
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? "Giriş yapılıyor..." : "Veli Girişi"}
+                      </Button>
+                    </div>
+                  </motion.form>
+                  
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-2">Demo hesap bilgileri:</p>
+                    <p className="text-xs font-mono">Email: veli@example.com</p>
+                    <p className="text-xs font-mono">Şifre: veli123</p>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              <div className="mt-6 text-center">
+                <Link href="/register" className="text-sm text-primary hover:underline">
+                  Hesabınız yok mu? Kayıt olun
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </>
+  );
+}

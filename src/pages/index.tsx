@@ -119,8 +119,8 @@ export default function Home() {
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center space-x-4"
             >
-              <Button variant="ghost">Giriş Yap</Button>
-              <Button>Demo İste</Button>
+              <Button variant="ghost" onClick={() => window.location.href = '/login'}>Giriş Yap</Button>
+              <Button onClick={() => window.location.href = '/register'}>Kayıt Ol</Button>
             </motion.div>
           </div>
         </nav>
