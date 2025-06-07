@@ -15,6 +15,7 @@ import { Trophy, ArrowLeft, User, Users, Phone, Mail, MapPin, Calendar, Heart, A
 import Link from "next/link";
 import { useRouter } from "next/router";
 import TermsModal from "@/components/TermsModal";
+import { KvkkModal } from "@/components/KvkkModal";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -46,6 +47,10 @@ export default function Register() {
   const [success, setSuccess] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [isParentLoggedIn, setIsParentLoggedIn] = useState(false);
+  const [tcErrors, setTcErrors] = useState({
+    studentTcNo: "",
+    parentTcNo: ""
+  });
 
   // Check if parent is logged in
   useEffect(() => {
@@ -114,11 +119,48 @@ export default function Register() {
     photoVideoPermission: false
   });
 
+  // TC Kimlik numarası validation function
+  const validateTcNo = (tcNo: string): string => {
+    if (!tcNo) return "";
+    
+    // Remove any non-digit characters
+    const cleanTcNo = tcNo.replace(/\D/g, '');
+    
+    if (cleanTcNo.length !== 11) {
+      return "TC Kimlik numarası 11 haneli olmalıdır";
+    }
+    
+    if (!/^\d{11}$/.test(cleanTcNo)) {
+      return "TC Kimlik numarası sadece rakamlardan oluşmalıdır";
+    }
+    
+    if (cleanTcNo[0] === '0') {
+      return "TC Kimlik numarası 0 ile başlayamaz";
+    }
+    
+    return "";
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // Validate TC numbers on change
+    if (field === 'studentTcNo' || field === 'parentTcNo') {
+      const error = validateTcNo(value);
+      setTcErrors(prev => ({
+        ...prev,
+        [field]: error
+      }));
+    }
+  };
+
+  const handleTcNoChange = (field: string, value: string) => {
+    // Only allow digits and limit to 11 characters
+    const cleanValue = value.replace(/\D/g, '').slice(0, 11);
+    handleInputChange(field, cleanValue);
   };
 
   const handleSportSelection = (sport: string, checked: boolean) => {
@@ -135,7 +177,21 @@ export default function Register() {
     setLoading(true);
     setError("");
 
-    // Validation
+    // TC Kimlik numarası validation
+    const studentTcError = validateTcNo(formData.studentTcNo);
+    const parentTcError = validateTcNo(formData.parentTcNo);
+    
+    if (studentTcError || parentTcError) {
+      setTcErrors({
+        studentTcNo: studentTcError,
+        parentTcNo: parentTcError
+      });
+      setError("Lütfen TC Kimlik numaralarını doğru formatta girin");
+      setLoading(false);
+      return;
+    }
+
+    // Other validations
     if (!formData.agreementAccepted || !formData.dataProcessingAccepted) {
       setError("Lütfen gerekli onayları işaretleyin");
       setLoading(false);
@@ -253,10 +309,15 @@ export default function Register() {
                       <Input
                         id="studentTcNo"
                         value={formData.studentTcNo}
-                        onChange={(e) => handleInputChange("studentTcNo", e.target.value)}
+                        onChange={(e) => handleTcNoChange("studentTcNo", e.target.value)}
                         maxLength={11}
+                        placeholder="11 haneli TC kimlik numarası"
+                        className={tcErrors.studentTcNo ? "border-red-500" : ""}
                         required
                       />
+                      {tcErrors.studentTcNo && (
+                        <p className="text-sm text-red-500 mt-1">{tcErrors.studentTcNo}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="studentBirthDate">Doğum Tarihi *</Label>
@@ -380,10 +441,15 @@ export default function Register() {
                       <Input
                         id="parentTcNo"
                         value={formData.parentTcNo}
-                        onChange={(e) => handleInputChange("parentTcNo", e.target.value)}
+                        onChange={(e) => handleTcNoChange("parentTcNo", e.target.value)}
                         maxLength={11}
+                        placeholder="11 haneli TC kimlik numarası"
+                        className={tcErrors.parentTcNo ? "border-red-500" : ""}
                         required
                       />
+                      {tcErrors.parentTcNo && (
+                        <p className="text-sm text-red-500 mt-1">{tcErrors.parentTcNo}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="parentRelation">Yakınlık Derecesi *</Label>
@@ -663,7 +729,16 @@ export default function Register() {
                       onCheckedChange={(checked) => handleInputChange("dataProcessingAccepted", checked)}
                     />
                     <Label htmlFor="dataProcessing" className="text-sm leading-relaxed">
-                      Kişisel verilerimin işlenmesine ve KVKK kapsamında kullanılmasına onay veriyorum. *
+                      Kişisel verilerimin işlenmesine ve{" "}
+                      <KvkkModal>
+                        <button
+                          type="button"
+                          className="text-primary underline hover:text-primary/80"
+                        >
+                          KVKK kapsamında
+                        </button>
+                      </KvkkModal>
+                      {" "}kullanılmasına onay veriyorum. *
                     </Label>
                   </div>
 
