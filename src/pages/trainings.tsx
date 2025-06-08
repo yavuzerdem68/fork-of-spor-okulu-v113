@@ -41,7 +41,8 @@ import {
   CalendarDays,
   Timer,
   Target,
-  Activity
+  Activity,
+  Zap
 } from "lucide-react";
 
 const fadeInUp = {
