@@ -36,7 +36,11 @@ const fadeInUp = {
   transition: { duration: 0.4 }
 };
 
-const sports = ["Basketbol", "Futbol", "Voleybol", "Hentbol", "Yüzme", "Satranç", "Akıl ve Zeka Oyunları"];
+const sports = [
+  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
+  "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
+  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim"
+];
 
 export default function Athletes() {
   const router = useRouter();

@@ -175,9 +175,10 @@ export default function Dashboard() {
   const sidebarItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard", active: true },
     { icon: Users, label: "Sporcular", href: "/athletes" },
-    { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+    { icon: Zap, label: "Antrenörler", href: "/coaches" },
     { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
     { icon: UserCheck, label: "Yoklama", href: "/attendance" },
+    { icon: CreditCard, label: "Ödemeler", href: "/payments" },
     { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
     { icon: Camera, label: "Medya", href: "/media" },
     { icon: FileText, label: "Raporlar", href: "/reports" },

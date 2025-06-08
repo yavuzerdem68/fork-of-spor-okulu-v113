@@ -137,16 +137,21 @@ const trainings = [
 const sidebarItems = [
   { icon: Home, label: "Dashboard", href: "/dashboard" },
   { icon: Users, label: "Sporcular", href: "/athletes" },
-  { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+  { icon: Zap, label: "Antrenörler", href: "/coaches" },
   { icon: Calendar, label: "Antrenmanlar", href: "/trainings", active: true },
   { icon: UserCheck, label: "Yoklama", href: "/attendance" },
+  { icon: CreditCard, label: "Ödemeler", href: "/payments" },
   { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
   { icon: Camera, label: "Medya", href: "/media" },
   { icon: FileText, label: "Raporlar", href: "/reports" },
   { icon: Settings, label: "Ayarlar", href: "/settings" }
 ];
 
-const sports = ["Basketbol", "Futbol", "Voleybol", "Hentbol", "Yüzme", "Satranç", "Akıl ve Zeka Oyunları"];
+const sports = [
+  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
+  "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
+  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim"
+];
 const coaches = ["Mehmet Özkan", "Ayşe Kaya", "Ali Demir", "Fatma Şen", "Hasan Yıldız"];
 const locations = ["Spor Salonu A", "Spor Salonu B", "Futbol Sahası", "Yüzme Havuzu", "Satranç Odası"];
 const ageGroups = ["U8", "U10", "U12", "U14", "U16", "U18", "Yetişkin"];
