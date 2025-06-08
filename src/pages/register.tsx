@@ -85,6 +85,14 @@ export default function Register() {
     studentClass: "",
     selectedSports: [] as string[],
     
+    // Fiziksel Bilgiler
+    studentHeight: "",
+    studentWeight: "",
+    bloodType: "",
+    dominantHand: "",
+    dominantFoot: "",
+    sportsPosition: "",
+    
     // Veli Bilgileri
     parentName: "",
     parentSurname: "",
@@ -92,6 +100,14 @@ export default function Register() {
     parentPhone: "",
     parentEmail: "",
     parentRelation: "",
+    parentOccupation: "",
+    
+    // İkinci Veli Bilgileri
+    secondParentName: "",
+    secondParentSurname: "",
+    secondParentPhone: "",
+    secondParentEmail: "",
+    secondParentRelation: "",
     
     // İletişim Bilgileri
     address: "",
@@ -107,6 +123,13 @@ export default function Register() {
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelation: "",
+    specialDiet: "",
+    
+    // Sporcu Geçmişi
+    previousClubs: "",
+    achievements: "",
+    sportsGoals: "",
+    motivation: "",
     
     // Diğer Bilgiler
     howDidYouHear: "",
@@ -404,6 +427,97 @@ export default function Register() {
                 </CardContent>
               </Card>
 
+              {/* Fiziksel Bilgiler */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Heart className="w-5 h-5" />
+                    <span>Fiziksel Bilgiler</span>
+                  </CardTitle>
+                  <CardDescription>Sporcu performansı için gerekli fiziksel bilgiler</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="studentHeight">Boy (cm)</Label>
+                      <Input
+                        id="studentHeight"
+                        type="number"
+                        placeholder="170"
+                        value={formData.studentHeight}
+                        onChange={(e) => handleInputChange("studentHeight", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="studentWeight">Kilo (kg)</Label>
+                      <Input
+                        id="studentWeight"
+                        type="number"
+                        placeholder="65"
+                        value={formData.studentWeight}
+                        onChange={(e) => handleInputChange("studentWeight", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bloodType">Kan Grubu</Label>
+                      <Select value={formData.bloodType} onValueChange={(value) => handleInputChange("bloodType", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Kan grubu seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A+">A Rh+</SelectItem>
+                          <SelectItem value="A-">A Rh-</SelectItem>
+                          <SelectItem value="B+">B Rh+</SelectItem>
+                          <SelectItem value="B-">B Rh-</SelectItem>
+                          <SelectItem value="AB+">AB Rh+</SelectItem>
+                          <SelectItem value="AB-">AB Rh-</SelectItem>
+                          <SelectItem value="0+">0 Rh+</SelectItem>
+                          <SelectItem value="0-">0 Rh-</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="dominantHand">Dominant El</Label>
+                      <Select value={formData.dominantHand} onValueChange={(value) => handleInputChange("dominantHand", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seçiniz" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sag">Sağ</SelectItem>
+                          <SelectItem value="sol">Sol</SelectItem>
+                          <SelectItem value="her-ikisi">Her İkisi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="dominantFoot">Dominant Ayak</Label>
+                      <Select value={formData.dominantFoot} onValueChange={(value) => handleInputChange("dominantFoot", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seçiniz" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sag">Sağ</SelectItem>
+                          <SelectItem value="sol">Sol</SelectItem>
+                          <SelectItem value="her-ikisi">Her İkisi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="sportsPosition">Tercih Edilen Pozisyon</Label>
+                      <Input
+                        id="sportsPosition"
+                        placeholder="Örn: Kaleci, Forvet, Guard"
+                        value={formData.sportsPosition}
+                        onChange={(e) => handleInputChange("sportsPosition", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Veli Bilgileri */}
               <Card>
                 <CardHeader>
@@ -469,7 +583,7 @@ export default function Register() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid md:grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="parentPhone">Telefon Numarası *</Label>
                       <Input
@@ -491,6 +605,85 @@ export default function Register() {
                         onChange={(e) => handleInputChange("parentEmail", e.target.value)}
                         required
                       />
+                    </div>
+                    <div>
+                      <Label htmlFor="parentOccupation">Meslek</Label>
+                      <Input
+                        id="parentOccupation"
+                        placeholder="Meslek bilgisi"
+                        value={formData.parentOccupation}
+                        onChange={(e) => handleInputChange("parentOccupation", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* İkinci Veli Bilgileri */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="w-5 h-5" />
+                    <span>İkinci Veli Bilgileri (Opsiyonel)</span>
+                  </CardTitle>
+                  <CardDescription>İkinci velinin iletişim bilgilerini girin</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="secondParentName">İkinci Veli Adı</Label>
+                      <Input
+                        id="secondParentName"
+                        value={formData.secondParentName}
+                        onChange={(e) => handleInputChange("secondParentName", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="secondParentSurname">İkinci Veli Soyadı</Label>
+                      <Input
+                        id="secondParentSurname"
+                        value={formData.secondParentSurname}
+                        onChange={(e) => handleInputChange("secondParentSurname", e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="secondParentPhone">Telefon Numarası</Label>
+                      <Input
+                        id="secondParentPhone"
+                        type="tel"
+                        placeholder="0555 123 45 67"
+                        value={formData.secondParentPhone}
+                        onChange={(e) => handleInputChange("secondParentPhone", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="secondParentEmail">Email Adresi</Label>
+                      <Input
+                        id="secondParentEmail"
+                        type="email"
+                        placeholder="veli2@example.com"
+                        value={formData.secondParentEmail}
+                        onChange={(e) => handleInputChange("secondParentEmail", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="secondParentRelation">Yakınlık Derecesi</Label>
+                      <Select value={formData.secondParentRelation} onValueChange={(value) => handleInputChange("secondParentRelation", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seçiniz" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="anne">Anne</SelectItem>
+                          <SelectItem value="baba">Baba</SelectItem>
+                          <SelectItem value="vasi">Vasi</SelectItem>
+                          <SelectItem value="büyükanne">Büyükanne</SelectItem>
+                          <SelectItem value="büyükbaba">Büyükbaba</SelectItem>
+                          <SelectItem value="diğer">Diğer</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardContent>
@@ -647,6 +840,68 @@ export default function Register() {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="specialDiet">Özel Diyet Gereksinimleri</Label>
+                    <Textarea
+                      id="specialDiet"
+                      placeholder="Varsa özel beslenme gereksinimleri belirtin"
+                      value={formData.specialDiet}
+                      onChange={(e) => handleInputChange("specialDiet", e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Sporcu Geçmişi */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Trophy className="w-5 h-5" />
+                    <span>Sporcu Geçmişi ve Hedefler</span>
+                  </CardTitle>
+                  <CardDescription>Sporcunun geçmiş deneyimleri ve gelecek hedefleri</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="previousClubs">Önceki Kulüp Deneyimleri</Label>
+                    <Textarea
+                      id="previousClubs"
+                      placeholder="Daha önce üye olduğu spor kulüpleri varsa belirtin"
+                      value={formData.previousClubs}
+                      onChange={(e) => handleInputChange("previousClubs", e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="achievements">Başarılar ve Ödüller</Label>
+                    <Textarea
+                      id="achievements"
+                      placeholder="Aldığı ödüller, başarılar, dereceler varsa belirtin"
+                      value={formData.achievements}
+                      onChange={(e) => handleInputChange("achievements", e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="sportsGoals">Spor Hedefleri</Label>
+                    <Textarea
+                      id="sportsGoals"
+                      placeholder="Sporda ulaşmak istediği hedefler"
+                      value={formData.sportsGoals}
+                      onChange={(e) => handleInputChange("sportsGoals", e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="motivation">Motivasyon ve İlgi Alanları</Label>
+                    <Textarea
+                      id="motivation"
+                      placeholder="Sporu neden seçtiği, motivasyon kaynakları"
+                      value={formData.motivation}
+                      onChange={(e) => handleInputChange("motivation", e.target.value)}
+                    />
                   </div>
                 </CardContent>
               </Card>
