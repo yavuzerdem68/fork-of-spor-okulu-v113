@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trophy, Shield, Users, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Trophy, Shield, Users, Eye, EyeOff, ArrowLeft, Whistle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
@@ -22,6 +22,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
   const [parentCredentials, setParentCredentials] = useState({ email: "", password: "" });
+  const [coachCredentials, setCoachCredentials] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,6 +39,50 @@ export default function Login() {
     } else {
       setError("Geçersiz email veya şifre");
     }
+    setLoading(false);
+  };
+
+  const handleCoachLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      // Check against registered coaches
+      const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
+      const coach = coaches.find((c: any) => 
+        c.email === coachCredentials.email && c.password === coachCredentials.password
+      );
+
+      if (coach) {
+        localStorage.setItem("userRole", "coach");
+        localStorage.setItem("currentUser", JSON.stringify(coach));
+        router.push("/coach-dashboard");
+      } else {
+        // Demo coach account
+        if (coachCredentials.email === "antrenor@example.com" && coachCredentials.password === "antrenor123") {
+          const demoCoach = {
+            id: "demo-coach",
+            name: "Ahmet",
+            surname: "Yılmaz",
+            email: "antrenor@example.com",
+            phone: "0532 123 45 67",
+            sportsBranches: ["Basketbol", "Futbol"],
+            trainingGroups: ["U12 Basketbol", "U14 Futbol"],
+            specialization: "Basketbol Antrenörü",
+            experience: "5 yıl"
+          };
+          localStorage.setItem("userRole", "coach");
+          localStorage.setItem("currentUser", JSON.stringify(demoCoach));
+          router.push("/coach-dashboard");
+        } else {
+          setError("Geçersiz email veya şifre");
+        }
+      }
+    } catch (error) {
+      setError("Giriş sırasında bir hata oluştu");
+    }
+    
     setLoading(false);
   };
 
@@ -106,10 +151,14 @@ export default function Login() {
           <Card>
             <CardContent className="p-6">
               <Tabs defaultValue="admin" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
                   <TabsTrigger value="admin" className="flex items-center space-x-2">
                     <Shield className="w-4 h-4" />
                     <span>Yönetici</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="coach" className="flex items-center space-x-2">
+                    <Whistle className="w-4 h-4" />
+                    <span>Antrenör</span>
                   </TabsTrigger>
                   <TabsTrigger value="parent" className="flex items-center space-x-2">
                     <Users className="w-4 h-4" />
@@ -172,6 +221,58 @@ export default function Login() {
                     <p className="text-sm text-muted-foreground mb-2">Demo hesap bilgileri:</p>
                     <p className="text-xs font-mono">Email: admin@sportscr.com</p>
                     <p className="text-xs font-mono">Şifre: admin123</p>
+                  </div>
+                </TabsContent>
+
+                {/* Coach Login */}
+                <TabsContent value="coach">
+                  <motion.form onSubmit={handleCoachLogin} variants={fadeInUp}>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="coach-email">Email</Label>
+                        <Input
+                          id="coach-email"
+                          type="email"
+                          placeholder="antrenor@example.com"
+                          value={coachCredentials.email}
+                          onChange={(e) => setCoachCredentials({...coachCredentials, email: e.target.value})}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="coach-password">Şifre</Label>
+                        <div className="relative">
+                          <Input
+                            id="coach-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            value={coachCredentials.password}
+                            onChange={(e) => setCoachCredentials({...coachCredentials, password: e.target.value})}
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? "Giriş yapılıyor..." : "Antrenör Girişi"}
+                      </Button>
+                    </div>
+                  </motion.form>
+                  
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-2">Demo hesap bilgileri:</p>
+                    <p className="text-xs font-mono">Email: antrenor@example.com</p>
+                    <p className="text-xs font-mono">Şifre: antrenor123</p>
                   </div>
                 </TabsContent>
 
