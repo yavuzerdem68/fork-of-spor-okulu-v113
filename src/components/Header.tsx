@@ -6,7 +6,7 @@ import {
   Trophy, 
   Shield, 
   Users, 
-  Whistle, 
+  Zap, 
   LogOut,
   Menu,
   X
@@ -75,7 +75,7 @@ const Header = () => {
     } else if (userRole === 'coach') {
       return (
         <Badge variant="secondary" className="flex items-center space-x-1">
-          <Whistle className="w-3 h-3" />
+          <Zap className="w-3 h-3" />
           <span>Antrenör</span>
         </Badge>
       );

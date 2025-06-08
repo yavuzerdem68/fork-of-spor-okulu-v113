@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Plus, 
-  Whistle, 
+  Zap, 
   Edit, 
   Trash2, 
   Users, 
@@ -231,7 +231,7 @@ export default function Coaches() {
                 <Link href="/dashboard" className="text-muted-foreground hover:text-primary">
                   <ArrowLeft className="w-4 h-4" />
                 </Link>
-                <Whistle className="w-6 h-6 text-primary" />
+                <Zap className="w-6 h-6 text-primary" />
                 <h1 className="text-3xl font-bold">Antrenör Yönetimi</h1>
               </div>
               <p className="text-muted-foreground">
@@ -420,7 +420,7 @@ export default function Coaches() {
                     <p className="text-sm font-medium text-muted-foreground">Toplam Antrenör</p>
                     <p className="text-2xl font-bold">{coaches.length}</p>
                   </div>
-                  <Whistle className="h-8 w-8 text-primary" />
+                  <Zap className="h-8 w-8 text-primary" />
                 </div>
               </CardContent>
             </Card>
@@ -431,7 +431,7 @@ export default function Coaches() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Aktif Branş</p>
                     <p className="text-2xl font-bold">
-                      {[...new Set(coaches.flatMap(c => c.sportsBranches || []))].length}
+                      {Array.from(new Set(coaches.flatMap(c => c.sportsBranches || []))).length}
                     </p>
                   </div>
                   <Trophy className="h-8 w-8 text-primary" />
@@ -445,7 +445,7 @@ export default function Coaches() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Antrenman Grupları</p>
                     <p className="text-2xl font-bold">
-                      {[...new Set(coaches.flatMap(c => c.trainingGroups || []))].length}
+                      {Array.from(new Set(coaches.flatMap(c => c.trainingGroups || []))).length}
                     </p>
                   </div>
                   <Target className="h-8 w-8 text-primary" />
@@ -560,7 +560,7 @@ export default function Coaches() {
                   </Table>
                 ) : (
                   <div className="text-center py-8">
-                    <Whistle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <Zap className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">Henüz antrenör eklenmemiş</p>
                     <Button 
                       className="mt-4" 

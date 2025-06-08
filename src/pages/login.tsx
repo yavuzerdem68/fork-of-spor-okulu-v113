@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trophy, Shield, Users, Eye, EyeOff, ArrowLeft, Whistle } from "lucide-react";
+import { Trophy, Shield, Users, Eye, EyeOff, ArrowLeft, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
@@ -157,7 +157,7 @@ export default function Login() {
                     <span>Yönetici</span>
                   </TabsTrigger>
                   <TabsTrigger value="coach" className="flex items-center space-x-2">
-                    <Whistle className="w-4 h-4" />
+                    <Zap className="w-4 h-4" />
                     <span>Antrenör</span>
                   </TabsTrigger>
                   <TabsTrigger value="parent" className="flex items-center space-x-2">

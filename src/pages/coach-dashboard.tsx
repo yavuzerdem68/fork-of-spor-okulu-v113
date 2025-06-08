@@ -19,7 +19,7 @@ import {
   Phone,
   Mail,
   LogOut,
-  Whistle,
+  Zap,
   Activity
 } from "lucide-react";
 import { useRouter } from "next/router";
@@ -109,7 +109,7 @@ export default function CoachDashboard() {
                   <span className="text-2xl font-bold text-primary">SportsCRM</span>
                 </div>
                 <Badge variant="secondary" className="flex items-center space-x-1">
-                  <Whistle className="w-3 h-3" />
+                  <Zap className="w-3 h-3" />
                   <span>Antrenör</span>
                 </Badge>
               </div>
