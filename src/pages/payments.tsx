@@ -44,6 +44,166 @@ import Header from "@/components/Header";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 
+// Turkish character normalization for better matching
+const normalizeTurkishText = (text: string): string => {
+  if (!text) return '';
+  
+  return text
+    .toLowerCase()
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .trim();
+};
+
+// Parse Turkish date formats (DD/MM/YYYY, DD.MM.YYYY)
+const parseTurkishDate = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  
+  // Handle various Turkish date formats
+  const patterns = [
+    /(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})/, // DD/MM/YYYY or DD.MM.YYYY
+    /(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2})/, // DD/MM/YY or DD.MM.YY
+    /(\d{4})[\.\/\-](\d{1,2})[\.\/\-](\d{1,2})/ // YYYY/MM/DD or YYYY-MM-DD
+  ];
+  
+  for (const pattern of patterns) {
+    const match = dateStr.match(pattern);
+    if (match) {
+      let day, month, year;
+      
+      if (pattern === patterns[2]) { // YYYY/MM/DD format
+        year = parseInt(match[1]);
+        month = parseInt(match[2]) - 1; // JavaScript months are 0-indexed
+        day = parseInt(match[3]);
+      } else { // DD/MM/YYYY format
+        day = parseInt(match[1]);
+        month = parseInt(match[2]) - 1; // JavaScript months are 0-indexed
+        year = parseInt(match[3]);
+        
+        // Handle 2-digit years
+        if (year < 100) {
+          year += year < 50 ? 2000 : 1900;
+        }
+      }
+      
+      const date = new Date(year, month, day);
+      
+      // Validate the date
+      if (date.getFullYear() === year && 
+          date.getMonth() === month && 
+          date.getDate() === day) {
+        return date;
+      }
+    }
+  }
+  
+  return null;
+};
+
+// Calculate similarity between two strings using Levenshtein distance
+const calculateSimilarity = (str1: string, str2: string): number => {
+  const norm1 = normalizeTurkishText(str1);
+  const norm2 = normalizeTurkishText(str2);
+  
+  if (norm1 === norm2) return 100;
+  if (!norm1 || !norm2) return 0;
+  
+  const matrix = [];
+  const len1 = norm1.length;
+  const len2 = norm2.length;
+  
+  // Initialize matrix
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= len2; j++) {
+    matrix[0][j] = j;
+  }
+  
+  // Calculate Levenshtein distance
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      const cost = norm1[i - 1] === norm2[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,     // deletion
+        matrix[i][j - 1] + 1,     // insertion
+        matrix[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+  
+  const distance = matrix[len1][len2];
+  const maxLength = Math.max(len1, len2);
+  
+  return maxLength === 0 ? 100 : Math.round((1 - distance / maxLength) * 100);
+};
+
+// Find closest matching athletes for a given description
+const findClosestMatches = (description: string, athletes: any[], limit: number = 5): SuggestedMatch[] => {
+  const suggestions: SuggestedMatch[] = [];
+  
+  for (const athlete of athletes) {
+    const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
+    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+    
+    // Calculate similarity with athlete name
+    const athleteSimilarity = calculateSimilarity(description, athleteName);
+    
+    // Calculate similarity with parent name
+    const parentSimilarity = calculateSimilarity(description, parentName);
+    
+    // Use the higher similarity score
+    const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
+    
+    // Also check for partial word matches
+    const descWords = normalizeTurkishText(description).split(' ');
+    const athleteWords = normalizeTurkishText(athleteName).split(' ');
+    const parentWords = normalizeTurkishText(parentName).split(' ');
+    
+    let wordMatchScore = 0;
+    for (const descWord of descWords) {
+      if (descWord.length > 2) { // Only consider words longer than 2 characters
+        for (const athleteWord of athleteWords) {
+          if (athleteWord.includes(descWord) || descWord.includes(athleteWord)) {
+            wordMatchScore += 20;
+          }
+        }
+        for (const parentWord of parentWords) {
+          if (parentWord.includes(descWord) || descWord.includes(parentWord)) {
+            wordMatchScore += 20;
+          }
+        }
+      }
+    }
+    
+    const finalSimilarity = Math.max(maxSimilarity, Math.min(wordMatchScore, 100));
+    
+    if (finalSimilarity > 20) { // Only include if similarity is above 20%
+      suggestions.push({
+        athleteId: athlete.id.toString(),
+        athleteName: athleteName,
+        similarity: finalSimilarity
+      });
+    }
+  }
+  
+  // Sort by similarity (highest first) and return top matches
+  return suggestions
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
+};
+
+interface SuggestedMatch {
+  athleteId: string;
+  athleteName: string;
+  similarity: number;
+}
+
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -255,13 +415,13 @@ export default function Payments() {
         let description = '';
         let reference = '';
         
-        // Look for date in various formats
+        // Look for date in various formats with improved Turkish date parsing
         for (let j = 0; j < row.length; j++) {
           const cell = row[j];
           if (cell && typeof cell === 'string') {
-            // Check if it's a date (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD formats)
-            const dateMatch = cell.match(/(\d{1,2})[\.\/\-](\d{1,2})[\.\/\-](\d{4})|(\d{4})[\.\/\-](\d{1,2})[\.\/\-](\d{1,2})/);
-            if (dateMatch && !date) {
+            // Try to parse Turkish date format first
+            const parsedDate = parseTurkishDate(cell);
+            if (parsedDate && !date) {
               date = cell;
             }
             
@@ -293,7 +453,7 @@ export default function Payments() {
           excelData.push({
             date: date,
             amount: amount,
-            description: description.toUpperCase(), // Convert to uppercase for better matching
+            description: description, // Keep original case for better Turkish character handling
             reference: reference || `REF${i}`,
             rowIndex: i + 1
           });
@@ -312,7 +472,7 @@ export default function Payments() {
         athletes = JSON.parse(storedAthletes);
       }
 
-      // Payment matching algorithm
+      // Enhanced payment matching algorithm with Turkish character support
       const matches: any[] = [];
       
       for (const excelRow of excelData) {
@@ -325,40 +485,54 @@ export default function Payments() {
           
           let confidence = 0;
           
-          // Name matching in description
-          const parentNameWords = payment.parentName.toLowerCase().split(' ');
-          const athleteNameWords = payment.athleteName.toLowerCase().split(' ');
-          const descriptionLower = excelRow.description.toLowerCase();
+          // Enhanced name matching with Turkish character normalization
+          const normalizedDescription = normalizeTurkishText(excelRow.description);
+          const normalizedParentName = normalizeTurkishText(payment.parentName);
+          const normalizedAthleteName = normalizeTurkishText(payment.athleteName);
           
-          // Check parent name match
-          let parentNameMatches = 0;
-          for (const word of parentNameWords) {
-            if (word.length > 2 && descriptionLower.includes(word)) {
-              parentNameMatches++;
+          // Calculate similarity scores using Levenshtein distance
+          const parentSimilarity = calculateSimilarity(excelRow.description, payment.parentName);
+          const athleteSimilarity = calculateSimilarity(excelRow.description, payment.athleteName);
+          
+          // Use the higher similarity score
+          const nameSimilarity = Math.max(parentSimilarity, athleteSimilarity);
+          
+          // Word-based matching for partial matches
+          const parentWords = normalizedParentName.split(' ').filter(w => w.length > 2);
+          const athleteWords = normalizedAthleteName.split(' ').filter(w => w.length > 2);
+          const descWords = normalizedDescription.split(' ').filter(w => w.length > 2);
+          
+          let wordMatches = 0;
+          let totalWords = parentWords.length + athleteWords.length;
+          
+          // Check parent name word matches
+          for (const word of parentWords) {
+            if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
+              wordMatches++;
             }
           }
           
-          // Check athlete name match
-          let athleteNameMatches = 0;
-          for (const word of athleteNameWords) {
-            if (word.length > 2 && descriptionLower.includes(word)) {
-              athleteNameMatches++;
+          // Check athlete name word matches
+          for (const word of athleteWords) {
+            if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
+              wordMatches++;
             }
           }
           
-          // Calculate name confidence
-          const totalNameWords = parentNameWords.length + athleteNameWords.length;
-          const totalMatches = parentNameMatches + athleteNameMatches;
-          const nameConfidence = totalMatches > 0 ? (totalMatches / totalNameWords) * 60 : 0;
+          // Calculate word-based confidence
+          const wordConfidence = totalWords > 0 ? (wordMatches / totalWords) * 50 : 0;
           
-          // Amount matching (±20 TL tolerance for flexibility)
+          // Use the higher of similarity-based or word-based confidence
+          const nameConfidence = Math.max(nameSimilarity * 0.6, wordConfidence);
+          
+          // Amount matching with ±30 TL tolerance (increased for better flexibility)
           const amountDiff = Math.abs(excelRow.amount - payment.amount);
-          const amountConfidence = amountDiff <= 20 ? 40 - (amountDiff * 2) : 0;
+          const amountConfidence = amountDiff <= 30 ? 40 - (amountDiff * 1.3) : 0;
           
           confidence = nameConfidence + amountConfidence;
           
-          // Require minimum confidence of 30% for a match
-          if (confidence > 30 && confidence > bestConfidence) {
+          // Lower minimum confidence threshold to 25% for better matching
+          if (confidence > 25 && confidence > bestConfidence) {
             bestMatch = payment;
             bestConfidence = confidence;
           }
@@ -372,11 +546,21 @@ export default function Payments() {
             status: 'matched'
           });
         } else {
+          // For unmatched payments, find closest suggestions
+          const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+          let athletes = [];
+          if (storedAthletes) {
+            athletes = JSON.parse(storedAthletes);
+          }
+          
+          const suggestions = findClosestMatches(excelRow.description, athletes, 3);
+          
           matches.push({
             excelData: excelRow,
             payment: null,
             confidence: 0,
-            status: 'unmatched'
+            status: 'unmatched',
+            suggestions: suggestions
           });
         }
       }
@@ -1689,13 +1873,65 @@ export default function Payments() {
                                   </div>
                                 </div>
 
-                                {/* Manual Matching for Unmatched Payments */}
+                                {/* Manual Matching for Unmatched Payments with Smart Suggestions */}
                                 {match.status === 'unmatched' && (
                                   <div className="border-t pt-4">
+                                    {/* Show closest suggestions first */}
+                                    {match.suggestions && match.suggestions.length > 0 && (
+                                      <div className="mb-4">
+                                        <Label className="text-sm font-medium text-blue-700 mb-2 block">
+                                          En Yakın Eşleşmeler (Akıllı Öneriler):
+                                        </Label>
+                                        <div className="grid grid-cols-1 gap-2">
+                                          {match.suggestions.map((suggestion: SuggestedMatch) => {
+                                            const payment = getAvailablePaymentsForMatching().find(p => p.id.toString() === suggestion.athleteId);
+                                            if (!payment) return null;
+                                            
+                                            return (
+                                              <div 
+                                                key={suggestion.athleteId}
+                                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
+                                                onClick={() => {
+                                                  setManualMatches(prev => ({
+                                                    ...prev,
+                                                    [index]: suggestion.athleteId
+                                                  }));
+                                                }}
+                                              >
+                                                <div className="flex-1">
+                                                  <div className="flex items-center space-x-2">
+                                                    <span className="font-medium">{payment.athleteName}</span>
+                                                    <Badge variant="outline" className="text-xs">
+                                                      %{suggestion.similarity} benzerlik
+                                                    </Badge>
+                                                  </div>
+                                                  <p className="text-xs text-muted-foreground">
+                                                    {payment.parentName} - ₺{payment.amount} - {payment.sport}
+                                                  </p>
+                                                </div>
+                                                <Button 
+                                                  size="sm" 
+                                                  variant="outline"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleManualMatch(index, suggestion.athleteId);
+                                                  }}
+                                                >
+                                                  <Check className="h-4 w-4 mr-1" />
+                                                  Eşleştir
+                                                </Button>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Fallback manual selection */}
                                     <div className="flex items-center space-x-4">
                                       <div className="flex-1">
                                         <Label className="text-sm font-medium text-orange-700">
-                                          Manuel Eşleştirme - Sporcu Seçin:
+                                          Manuel Eşleştirme - Tüm Sporcular:
                                         </Label>
                                         <Select 
                                           value={manualMatches[index] || ""} 
@@ -1707,7 +1943,7 @@ export default function Payments() {
                                           }}
                                         >
                                           <SelectTrigger className="mt-2">
-                                            <SelectValue placeholder="Sporcu seçin..." />
+                                            <SelectValue placeholder="Diğer sporculardan seçin..." />
                                           </SelectTrigger>
                                           <SelectContent>
                                             {getAvailablePaymentsForMatching().map(payment => (
@@ -1739,8 +1975,8 @@ export default function Payments() {
                                     <Alert className="mt-3">
                                       <AlertTriangle className="h-4 w-4" />
                                       <AlertDescription className="text-xs">
-                                        Bu ödeme otomatik eşleştirilemedi. Türkçe karakter, büyük/küçük harf farklılıkları 
-                                        veya açıklamada sporcu adının bulunmaması nedeniyle manuel eşleştirme gerekiyor.
+                                        Bu ödeme otomatik eşleştirilemedi. Yukarıdaki akıllı öneriler Türkçe karakter normalizasyonu ve 
+                                        benzerlik algoritması kullanılarak oluşturulmuştur. En yakın eşleşmeyi seçin veya manuel olarak arayın.
                                       </AlertDescription>
                                     </Alert>
                                   </div>
