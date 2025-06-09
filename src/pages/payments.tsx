@@ -42,6 +42,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Header from "@/components/Header";
 import { toast } from "sonner";
+import * as XLSX from 'xlsx';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -209,65 +210,163 @@ export default function Payments() {
     setUploadProgress(0);
 
     try {
-      // Simüle edilmiş Excel işleme
+      // Progress simulation
       const interval = setInterval(() => {
         setUploadProgress(prev => {
-          if (prev >= 100) {
+          if (prev >= 90) {
             clearInterval(interval);
-            return 100;
+            return 90;
           }
           return prev + 10;
         });
-      }, 200);
+      }, 100);
 
-      // 2 saniye bekle (gerçek Excel işleme simülasyonu)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Read Excel file
+      const arrayBuffer = await uploadedFile.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      
+      // Get first worksheet
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Convert to JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      // Clear interval and set progress to 100%
+      clearInterval(interval);
+      setUploadProgress(100);
 
-      // Mock Excel verisi - gerçek uygulamada Excel dosyası parse edilecek
-      const mockExcelData = [
-        {
-          date: "2024-06-10",
-          amount: 350,
-          description: "MEHMET YILMAZ BASKETBOL AIDATI",
-          reference: "TRF123456789"
-        },
-        {
-          date: "2024-06-16", 
-          amount: 320,
-          description: "FATMA KAYA HENTBOL AIDATI",
-          reference: "TRF987654321"
-        },
-        {
-          date: "2024-06-12",
-          amount: 280,
-          description: "ALI OZKAN FUTBOL AIDATI", 
-          reference: "TRF456789123"
+      // Process Excel data
+      const excelData: any[] = [];
+      
+      // Skip header row and process data
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i] as any[];
+        
+        // Skip empty rows
+        if (!row || row.length === 0 || !row.some(cell => cell)) continue;
+        
+        // Try to extract data from common bank statement formats
+        // This is a flexible approach that works with different bank formats
+        let date = '';
+        let amount = 0;
+        let description = '';
+        let reference = '';
+        
+        // Look for date in various formats
+        for (let j = 0; j < row.length; j++) {
+          const cell = row[j];
+          if (cell && typeof cell === 'string') {
+            // Check if it's a date (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD formats)
+            const dateMatch = cell.match(/(\d{1,2})[\.\/\-](\d{1,2})[\.\/\-](\d{4})|(\d{4})[\.\/\-](\d{1,2})[\.\/\-](\d{1,2})/);
+            if (dateMatch && !date) {
+              date = cell;
+            }
+            
+            // Look for description (usually the longest text field)
+            if (cell.length > description.length && cell.length > 10) {
+              description = cell;
+            }
+            
+            // Look for reference number (usually contains letters and numbers)
+            if (cell.match(/^[A-Z0-9]{6,}$/i) && !reference) {
+              reference = cell;
+            }
+          }
+          
+          // Look for amount (number)
+          if (typeof cell === 'number' && cell > 0 && amount === 0) {
+            amount = cell;
+          } else if (typeof cell === 'string') {
+            // Try to parse amount from string (handle Turkish number format)
+            const amountMatch = cell.replace(/\./g, '').replace(',', '.').match(/(\d+\.?\d*)/);
+            if (amountMatch && parseFloat(amountMatch[1]) > 0 && amount === 0) {
+              amount = parseFloat(amountMatch[1]);
+            }
+          }
         }
-      ];
+        
+        // Only add if we have essential data
+        if (date && amount > 0 && description) {
+          excelData.push({
+            date: date,
+            amount: amount,
+            description: description.toUpperCase(), // Convert to uppercase for better matching
+            reference: reference || `REF${i}`,
+            rowIndex: i + 1
+          });
+        }
+      }
 
-      // Ödeme eşleştirme algoritması
+      if (excelData.length === 0) {
+        toast.error("Excel dosyasında geçerli ödeme verisi bulunamadı. Lütfen dosya formatını kontrol edin.");
+        return;
+      }
+
+      // Get athletes and parents data for matching
+      const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+      let athletes = [];
+      if (storedAthletes) {
+        athletes = JSON.parse(storedAthletes);
+      }
+
+      // Payment matching algorithm
       const matches: any[] = [];
-      for (const excelRow of mockExcelData) {
-        const matchedPayment = payments.find(payment => {
-          // İsim eşleştirmesi (açıklamada veli adı geçiyor mu?)
-          const parentNameMatch = excelRow.description.toLowerCase().includes(
-            payment.parentName.toLowerCase().replace(' ', '')
-          );
+      
+      for (const excelRow of excelData) {
+        let bestMatch = null;
+        let bestConfidence = 0;
+        
+        // Try to match with existing payments first
+        for (const payment of payments) {
+          if (payment.status === "Ödendi") continue; // Skip already paid
           
-          // Tutar eşleştirmesi (±10 TL tolerans)
-          const amountMatch = Math.abs(excelRow.amount - payment.amount) <= 10;
+          let confidence = 0;
           
-          // Ödenmemiş olması gerekiyor
-          const unpaidMatch = payment.status !== "Ödendi";
+          // Name matching in description
+          const parentNameWords = payment.parentName.toLowerCase().split(' ');
+          const athleteNameWords = payment.athleteName.toLowerCase().split(' ');
+          const descriptionLower = excelRow.description.toLowerCase();
           
-          return parentNameMatch && amountMatch && unpaidMatch;
-        });
-
-        if (matchedPayment) {
+          // Check parent name match
+          let parentNameMatches = 0;
+          for (const word of parentNameWords) {
+            if (word.length > 2 && descriptionLower.includes(word)) {
+              parentNameMatches++;
+            }
+          }
+          
+          // Check athlete name match
+          let athleteNameMatches = 0;
+          for (const word of athleteNameWords) {
+            if (word.length > 2 && descriptionLower.includes(word)) {
+              athleteNameMatches++;
+            }
+          }
+          
+          // Calculate name confidence
+          const totalNameWords = parentNameWords.length + athleteNameWords.length;
+          const totalMatches = parentNameMatches + athleteNameMatches;
+          const nameConfidence = totalMatches > 0 ? (totalMatches / totalNameWords) * 60 : 0;
+          
+          // Amount matching (±20 TL tolerance for flexibility)
+          const amountDiff = Math.abs(excelRow.amount - payment.amount);
+          const amountConfidence = amountDiff <= 20 ? 40 - (amountDiff * 2) : 0;
+          
+          confidence = nameConfidence + amountConfidence;
+          
+          // Require minimum confidence of 30% for a match
+          if (confidence > 30 && confidence > bestConfidence) {
+            bestMatch = payment;
+            bestConfidence = confidence;
+          }
+        }
+        
+        if (bestMatch) {
           matches.push({
             excelData: excelRow,
-            payment: matchedPayment,
-            confidence: 95, // Eşleşme güven skoru
+            payment: bestMatch,
+            confidence: Math.round(bestConfidence),
             status: 'matched'
           });
         } else {
@@ -281,10 +380,15 @@ export default function Payments() {
       }
 
       setMatchedPayments(matches);
-      toast.success(`Excel dosyası işlendi! ${matches.filter(m => m.status === 'matched').length} ödeme eşleştirildi.`);
+      
+      const matchedCount = matches.filter(m => m.status === 'matched').length;
+      const unmatchedCount = matches.filter(m => m.status === 'unmatched').length;
+      
+      toast.success(`Excel dosyası işlendi! ${excelData.length} kayıt bulundu. ${matchedCount} ödeme eşleştirildi, ${unmatchedCount} eşleştirilemedi.`);
       
     } catch (error) {
-      toast.error("Excel dosyası işlenirken hata oluştu");
+      console.error('Excel processing error:', error);
+      toast.error("Excel dosyası işlenirken hata oluştu. Lütfen dosya formatını kontrol edin.");
     } finally {
       setIsProcessing(false);
     }
@@ -308,10 +412,47 @@ export default function Payments() {
       return payment;
     });
 
+    // Sporcu cari hesaplarına ödeme girişi yap
+    const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+    let athletes = [];
+    if (storedAthletes) {
+      athletes = JSON.parse(storedAthletes);
+    }
+
+    confirmedMatches.forEach(match => {
+      // Sporcu ID'sini bul
+      const athlete = athletes.find(a => 
+        a.studentName === match.payment.athleteName.split(' ')[0] && 
+        a.studentSurname === match.payment.athleteName.split(' ')[1]
+      );
+      
+      if (athlete) {
+        // Mevcut cari hesap kayıtlarını al
+        const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+        
+        // Ödeme girişi oluştur (tahsil edildi)
+        const paymentEntry = {
+          id: Date.now() + Math.random(),
+          date: new Date(match.excelData.date).toISOString(),
+          month: new Date(match.excelData.date).toISOString().slice(0, 7),
+          description: `Banka Havalesi - ${match.excelData.reference}`,
+          amountExcludingVat: match.excelData.amount,
+          vatRate: 0, // Tahsilat için KDV yok
+          vatAmount: 0,
+          amountIncludingVat: match.excelData.amount,
+          unitCode: 'Adet',
+          type: 'credit' // Tahsilat (alacak)
+        };
+        
+        existingEntries.push(paymentEntry);
+        localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+      }
+    });
+
     setPayments(updatedPayments);
     localStorage.setItem('payments', JSON.stringify(updatedPayments));
     
-    toast.success(`${confirmedMatches.length} ödeme başarıyla güncellendi!`);
+    toast.success(`${confirmedMatches.length} ödeme başarıyla güncellendi ve sporcu hesaplarına kaydedildi!`);
     setIsUploadDialogOpen(false);
     setMatchedPayments([]);
     setUploadedFile(null);
