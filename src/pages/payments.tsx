@@ -64,6 +64,8 @@ const normalizeTurkishText = (text: string): string => {
 const parseTurkishDate = (dateStr: string): Date | null => {
   if (!dateStr) return null;
   
+  const cleanDateStr = dateStr.toString().trim();
+  
   // Handle various Turkish date formats
   const patterns = [
     /(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})/, // DD/MM/YYYY or DD.MM.YYYY
@@ -72,7 +74,7 @@ const parseTurkishDate = (dateStr: string): Date | null => {
   ];
   
   for (const pattern of patterns) {
-    const match = dateStr.match(pattern);
+    const match = cleanDateStr.match(pattern);
     if (match) {
       let day, month, year;
       
@@ -80,7 +82,7 @@ const parseTurkishDate = (dateStr: string): Date | null => {
         year = parseInt(match[1]);
         month = parseInt(match[2]) - 1; // JavaScript months are 0-indexed
         day = parseInt(match[3]);
-      } else { // DD/MM/YYYY format
+      } else { // DD/MM/YYYY format (Turkish standard)
         day = parseInt(match[1]);
         month = parseInt(match[2]) - 1; // JavaScript months are 0-indexed
         year = parseInt(match[3]);
@@ -91,13 +93,16 @@ const parseTurkishDate = (dateStr: string): Date | null => {
         }
       }
       
-      const date = new Date(year, month, day);
-      
-      // Validate the date
-      if (date.getFullYear() === year && 
-          date.getMonth() === month && 
-          date.getDate() === day) {
-        return date;
+      // Validate date components before creating Date object
+      if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && year >= 1900) {
+        const date = new Date(year, month, day);
+        
+        // Double-check the date is valid
+        if (date.getFullYear() === year && 
+            date.getMonth() === month && 
+            date.getDate() === day) {
+          return date;
+        }
       }
     }
   }
@@ -436,12 +441,14 @@ export default function Payments() {
             }
           }
           
-          // Look for amount (number)
+          // Look for amount (number) - ignore negative amounts
           if (typeof cell === 'number' && cell > 0 && amount === 0) {
             amount = cell;
           } else if (typeof cell === 'string') {
             // Try to parse amount from string (handle Turkish number format)
-            const amountMatch = cell.replace(/\./g, '').replace(',', '.').match(/(\d+\.?\d*)/);
+            // Remove minus signs and only consider positive amounts
+            const cleanAmount = cell.replace(/[-]/g, '').replace(/\./g, '').replace(',', '.');
+            const amountMatch = cleanAmount.match(/(\d+\.?\d*)/);
             if (amountMatch && parseFloat(amountMatch[1]) > 0 && amount === 0) {
               amount = parseFloat(amountMatch[1]);
             }
@@ -581,8 +588,33 @@ export default function Payments() {
   };
 
   const handleManualMatch = (matchIndex: number, paymentId: string) => {
-    const selectedPayment = payments.find(p => p.id.toString() === paymentId);
-    if (!selectedPayment) return;
+    // First try to find from payments, then from athletes for suggestions
+    let selectedPayment = payments.find(p => p.id.toString() === paymentId);
+    
+    // If not found in payments, it might be from athlete suggestions
+    if (!selectedPayment) {
+      const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+      if (storedAthletes) {
+        const athletes = JSON.parse(storedAthletes);
+        const athlete = athletes.find((a: any) => a.id.toString() === paymentId);
+        if (athlete) {
+          // Create a mock payment object for the athlete
+          selectedPayment = {
+            id: athlete.id,
+            athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+            parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+            amount: matchedPayments[matchIndex].excelData.amount, // Use the Excel amount
+            status: 'Bekliyor',
+            sport: athlete.selectedSports ? athlete.selectedSports[0] : 'Genel'
+          };
+        }
+      }
+    }
+    
+    if (!selectedPayment) {
+      toast.error("Seçilen sporcu bulunamadı");
+      return;
+    }
 
     const updatedMatches = [...matchedPayments];
     updatedMatches[matchIndex] = {
@@ -639,12 +671,17 @@ export default function Payments() {
         // Mevcut cari hesap kayıtlarını al
         const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
         
-        // Ödeme girişi oluştur (tahsil edildi)
+        // Parse Turkish date correctly for account entry
+        const parsedDate = parseTurkishDate(match.excelData.date);
+        const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
+        const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelData.date;
+        
+        // Ödeme girişi oluştur (tahsil edildi) - net açıklama ile
         const paymentEntry = {
           id: Date.now() + Math.random(),
-          date: new Date(match.excelData.date).toISOString(),
-          month: new Date(match.excelData.date).toISOString().slice(0, 7),
-          description: `Banka Havalesi - ${match.excelData.reference}`,
+          date: entryDate,
+          month: entryDate.slice(0, 7),
+          description: `EFT/Havale Tahsilatı - ${displayDate} - ₺${match.excelData.amount} - Ref: ${match.excelData.reference}`,
           amountExcludingVat: match.excelData.amount,
           vatRate: 0, // Tahsilat için KDV yok
           vatAmount: 0,
