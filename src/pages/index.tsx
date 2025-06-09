@@ -45,27 +45,27 @@ const features = [
   {
     icon: Users,
     title: "Sporcu & Veli Kayıt Yönetimi",
-    description: "Tüm sporcu ve veli bilgilerini merkezi sistemde güvenle saklayın ve yönetin."
+    description: "Tüm sporcu ve veli bilgilerini merkezi sistemde güvenle saklayın ve yönetin. Çoklu spor branşı desteği ile."
   },
   {
     icon: CreditCard,
-    title: "Aidat Takip Sistemi",
-    description: "Ödeme durumlarını takip edin, otomatik hatırlatmalar gönderin."
+    title: "Gelişmiş Cari Hesap Sistemi",
+    description: "Sporcu bazında detaylı cari hesap takibi, otomatik KDV hesaplamaları (%10 ve %20) ve toplu aidat yönetimi."
   },
   {
     icon: FileText,
     title: "E-Fatura Entegrasyonu",
-    description: "Aylık faturaları otomatik oluşturun ve Excel formatında dışa aktarın."
+    description: "Aylık faturaları otomatik oluşturun, Excel formatında dışa aktarın ve e-fatura entegratörü ile uyumlu CSV çıktısı alın."
   },
   {
     icon: Calendar,
     title: "Antrenman Programları",
-    description: "Antrenman takvimlerini oluşturun ve velilerle anında paylaşın."
+    description: "Antrenman takvimlerini oluşturun, yoklama alın ve velilerle anında paylaşın."
   },
   {
     icon: MessageCircle,
     title: "WhatsApp Entegrasyonu",
-    description: "Grup oluşturma, devamsızlık bildirimleri ve toplu mesaj gönderimi."
+    description: "Grup oluşturma, devamsızlık bildirimleri ve toplu mesaj gönderimi ile etkili iletişim."
   },
   {
     icon: Camera,
@@ -74,13 +74,13 @@ const features = [
   },
   {
     icon: UserCheck,
-    title: "Yoklama Sistemi",
-    description: "Dijital yoklama alın, devamsızlıkları otomatik takip edin."
+    title: "Akıllı Yoklama Sistemi",
+    description: "Dijital yoklama alın, devamsızlıkları otomatik takip edin ve WhatsApp bildirimleri gönderin."
   },
   {
     icon: BarChart3,
-    title: "Veli Portalı",
-    description: "Veliler kendi hesaplarından aidat durumlarını takip edebilir."
+    title: "Veli Portalı & Raporlama",
+    description: "Veliler kendi hesaplarından aidat durumlarını takip edebilir. Detaylı raporlar ve analizler."
   }
 ];
 
@@ -146,8 +146,8 @@ export default function Home() {
               </h1>
               
               <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
-                Sporcu kayıtlarından aidat takibine, antrenman programlarından veli iletişimine kadar 
-                tüm süreçlerinizi tek platformda yönetin.
+                Sporcu kayıtlarından aidat takibine, e-fatura entegrasyonundan toplu ödeme yönetimine kadar 
+                tüm süreçlerinizi tek platformda yönetin. Gelişmiş cari hesap sistemi ve otomatik KDV hesaplamaları ile.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">

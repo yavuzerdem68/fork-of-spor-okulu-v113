@@ -676,36 +676,43 @@ export default function Payments() {
   };
 
   const downloadBulkImportTemplate = () => {
-    // Create template data
-    const templateData = [
-      {
-        'Sporcu ID': 'all',
-        'Ay/Yıl': '2024-06',
-        'Açıklama': 'Haziran 2024 Aylık Aidat',
-        'Tutar (KDV Hariç)': 350,
-        'KDV Oranı (%)': 20,
-        'Birim Kod': 'Ay',
-        'Tür': 'debit'
-      },
-      {
-        'Sporcu ID': 'all',
-        'Ay/Yıl': '2024-06',
-        'Açıklama': 'Forma Ücreti',
-        'Tutar (KDV Hariç)': 150,
-        'KDV Oranı (%)': 20,
-        'Birim Kod': 'Adet',
-        'Tür': 'debit'
-      },
-      {
-        'Sporcu ID': 'all',
-        'Ay/Yıl': '2024-06',
-        'Açıklama': 'Spor Çantası',
-        'Tutar (KDV Hariç)': 200,
-        'KDV Oranı (%)': 20,
-        'Birim Kod': 'Adet',
-        'Tür': 'debit'
+    // Get active athletes from localStorage
+    const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+    let activeAthletes = [];
+    
+    if (storedAthletes) {
+      const allAthletes = JSON.parse(storedAthletes);
+      activeAthletes = allAthletes.filter((athlete: any) => athlete.status === 'active' || athlete.status === 'Aktif' || !athlete.status);
+    }
+
+    // Create template data with active athletes
+    const templateData = [];
+    
+    // Add rows for each active athlete
+    if (activeAthletes.length > 0) {
+      activeAthletes.forEach((athlete: any) => {
+        templateData.push({
+          'Sporcu ID': athlete.id || athlete.studentId || `ID_${athlete.studentName}_${athlete.studentSurname}`,
+          'Açıklama': '',
+          'Tutar': '',
+          'KDV Oranı (%)': '10', // Default to 10%
+          'Toplam': '',
+          'Birim Kod': 'Ay'
+        });
+      });
+    } else {
+      // If no athletes found, create sample template
+      for (let i = 1; i <= 5; i++) {
+        templateData.push({
+          'Sporcu ID': `SPORCU_${i}`,
+          'Açıklama': '',
+          'Tutar': '',
+          'KDV Oranı (%)': '10',
+          'Toplam': '',
+          'Birim Kod': 'Ay'
+        });
       }
-    ];
+    }
 
     // Create CSV
     const headers = Object.keys(templateData[0]);
@@ -738,7 +745,7 @@ export default function Payments() {
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
-    toast.success("Şablon dosyası indirildi!");
+    toast.success(`Şablon dosyası indirildi! (${activeAthletes.length || 5} sporcu için)`);
   };
 
   return (
@@ -1211,41 +1218,37 @@ export default function Payments() {
                                     <TableHeader>
                                       <TableRow>
                                         <TableHead>Sporcu ID</TableHead>
-                                        <TableHead>Ay/Yıl</TableHead>
                                         <TableHead>Açıklama</TableHead>
-                                        <TableHead>Tutar (KDV Hariç)</TableHead>
+                                        <TableHead>Tutar</TableHead>
                                         <TableHead>KDV Oranı (%)</TableHead>
+                                        <TableHead>Toplam</TableHead>
                                         <TableHead>Birim Kod</TableHead>
-                                        <TableHead>Tür</TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                       <TableRow>
-                                        <TableCell>all</TableCell>
-                                        <TableCell>2024-06</TableCell>
+                                        <TableCell>SPORCU_1</TableCell>
                                         <TableCell>Haziran 2024 Aylık Aidat</TableCell>
                                         <TableCell>350</TableCell>
-                                        <TableCell>20</TableCell>
+                                        <TableCell>10</TableCell>
+                                        <TableCell>385</TableCell>
                                         <TableCell>Ay</TableCell>
-                                        <TableCell>debit</TableCell>
                                       </TableRow>
                                       <TableRow>
-                                        <TableCell>all</TableCell>
-                                        <TableCell>2024-06</TableCell>
+                                        <TableCell>SPORCU_2</TableCell>
                                         <TableCell>Forma Ücreti</TableCell>
                                         <TableCell>150</TableCell>
                                         <TableCell>20</TableCell>
+                                        <TableCell>180</TableCell>
                                         <TableCell>Adet</TableCell>
-                                        <TableCell>debit</TableCell>
                                       </TableRow>
                                       <TableRow>
-                                        <TableCell>all</TableCell>
-                                        <TableCell>2024-06</TableCell>
+                                        <TableCell>SPORCU_3</TableCell>
                                         <TableCell>Spor Çantası</TableCell>
                                         <TableCell>200</TableCell>
                                         <TableCell>20</TableCell>
+                                        <TableCell>240</TableCell>
                                         <TableCell>Adet</TableCell>
-                                        <TableCell>debit</TableCell>
                                       </TableRow>
                                     </TableBody>
                                   </Table>
