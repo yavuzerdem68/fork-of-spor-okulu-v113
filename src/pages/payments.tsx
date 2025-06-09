@@ -68,6 +68,7 @@ export default function Payments() {
   const [matchedPayments, setMatchedPayments] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
+  const [manualMatches, setManualMatches] = useState<{[key: number]: string}>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -208,6 +209,7 @@ export default function Payments() {
 
     setIsProcessing(true);
     setUploadProgress(0);
+    setManualMatches({}); // Reset manual matches
 
     try {
       // Progress simulation
@@ -394,6 +396,29 @@ export default function Payments() {
     }
   };
 
+  const handleManualMatch = (matchIndex: number, paymentId: string) => {
+    const selectedPayment = payments.find(p => p.id.toString() === paymentId);
+    if (!selectedPayment) return;
+
+    const updatedMatches = [...matchedPayments];
+    updatedMatches[matchIndex] = {
+      ...updatedMatches[matchIndex],
+      payment: selectedPayment,
+      status: 'matched',
+      confidence: 100, // Manual match gets 100% confidence
+      isManual: true
+    };
+    
+    setMatchedPayments(updatedMatches);
+    
+    // Remove from manual matches state
+    const newManualMatches = { ...manualMatches };
+    delete newManualMatches[matchIndex];
+    setManualMatches(newManualMatches);
+    
+    toast.success(`Ödeme manuel olarak ${selectedPayment.athleteName} ile eşleştirildi`);
+  };
+
   const confirmMatches = () => {
     const confirmedMatches = matchedPayments.filter(match => match.status === 'matched');
     
@@ -452,11 +477,27 @@ export default function Payments() {
     setPayments(updatedPayments);
     localStorage.setItem('payments', JSON.stringify(updatedPayments));
     
-    toast.success(`${confirmedMatches.length} ödeme başarıyla güncellendi ve sporcu hesaplarına kaydedildi!`);
+    const manualMatchCount = confirmedMatches.filter(m => m.isManual).length;
+    const autoMatchCount = confirmedMatches.length - manualMatchCount;
+    
+    toast.success(`${confirmedMatches.length} ödeme başarıyla güncellendi! (${autoMatchCount} otomatik, ${manualMatchCount} manuel eşleştirme)`);
     setIsUploadDialogOpen(false);
     setMatchedPayments([]);
+    setManualMatches({});
     setUploadedFile(null);
     setUploadProgress(0);
+  };
+
+  // Get available payments for manual matching (unpaid payments only)
+  const getAvailablePaymentsForMatching = () => {
+    const alreadyMatchedPaymentIds = matchedPayments
+      .filter(m => m.status === 'matched' && m.payment)
+      .map(m => m.payment.id);
+    
+    return payments.filter(payment => 
+      payment.status !== "Ödendi" && 
+      !alreadyMatchedPaymentIds.includes(payment.id)
+    );
   };
 
   const generateInvoices = () => {
@@ -1022,7 +1063,16 @@ export default function Payments() {
                       </div>
                       
                       <div className="flex gap-2">
-                        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                        <Dialog open={isUploadDialogOpen} onOpenChange={(open) => {
+                          setIsUploadDialogOpen(open);
+                          if (!open) {
+                            // Reset all states when dialog is closed
+                            setMatchedPayments([]);
+                            setManualMatches({});
+                            setUploadedFile(null);
+                            setUploadProgress(0);
+                          }
+                        }}>
                           <DialogTrigger asChild>
                             <Button variant="outline">
                               <Upload className="h-4 w-4 mr-2" />
@@ -1599,45 +1649,102 @@ export default function Payments() {
                         {matchedPayments.map((match, index) => (
                           <Card key={index} className={`border ${match.status === 'matched' ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50'}`}>
                             <CardContent className="p-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground">Excel Verisi:</span>
+                                    <p className="font-medium">{match.excelData.description}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {match.excelData.date} - ₺{match.excelData.amount}
+                                    </p>
+                                  </div>
+                                  
+                                  {match.payment && (
                                     <div>
-                                      <span className="text-muted-foreground">Excel Verisi:</span>
-                                      <p className="font-medium">{match.excelData.description}</p>
+                                      <span className="text-muted-foreground">Eşleşen Ödeme:</span>
+                                      <p className="font-medium">{match.payment.athleteName}</p>
                                       <p className="text-xs text-muted-foreground">
-                                        {match.excelData.date} - ₺{match.excelData.amount}
+                                        {match.payment.parentName} - ₺{match.payment.amount}
                                       </p>
                                     </div>
-                                    
-                                    {match.payment && (
-                                      <div>
-                                        <span className="text-muted-foreground">Eşleşen Ödeme:</span>
-                                        <p className="font-medium">{match.payment.athleteName}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                          {match.payment.parentName} - ₺{match.payment.amount}
-                                        </p>
-                                      </div>
-                                    )}
-                                    
-                                    <div>
-                                      <span className="text-muted-foreground">Durum:</span>
-                                      <div className="flex items-center space-x-2 mt-1">
-                                        {match.status === 'matched' ? (
-                                          <>
-                                            <Check className="h-4 w-4 text-green-600" />
-                                            <span className="text-sm text-green-600">Eşleştirildi (%{match.confidence})</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <X className="h-4 w-4 text-orange-600" />
-                                            <span className="text-sm text-orange-600">Eşleştirilemedi</span>
-                                          </>
-                                        )}
-                                      </div>
+                                  )}
+                                  
+                                  <div>
+                                    <span className="text-muted-foreground">Durum:</span>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      {match.status === 'matched' ? (
+                                        <>
+                                          <Check className="h-4 w-4 text-green-600" />
+                                          <span className="text-sm text-green-600">
+                                            Eşleştirildi {match.isManual ? '(Manuel)' : `(%${match.confidence})`}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <X className="h-4 w-4 text-orange-600" />
+                                          <span className="text-sm text-orange-600">Eşleştirilemedi</span>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
+
+                                {/* Manual Matching for Unmatched Payments */}
+                                {match.status === 'unmatched' && (
+                                  <div className="border-t pt-4">
+                                    <div className="flex items-center space-x-4">
+                                      <div className="flex-1">
+                                        <Label className="text-sm font-medium text-orange-700">
+                                          Manuel Eşleştirme - Sporcu Seçin:
+                                        </Label>
+                                        <Select 
+                                          value={manualMatches[index] || ""} 
+                                          onValueChange={(value) => {
+                                            setManualMatches(prev => ({
+                                              ...prev,
+                                              [index]: value
+                                            }));
+                                          }}
+                                        >
+                                          <SelectTrigger className="mt-2">
+                                            <SelectValue placeholder="Sporcu seçin..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {getAvailablePaymentsForMatching().map(payment => (
+                                              <SelectItem key={payment.id} value={payment.id.toString()}>
+                                                <div className="flex flex-col">
+                                                  <span className="font-medium">{payment.athleteName}</span>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {payment.parentName} - ₺{payment.amount} - {payment.sport}
+                                                  </span>
+                                                </div>
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      
+                                      {manualMatches[index] && (
+                                        <Button 
+                                          size="sm" 
+                                          onClick={() => handleManualMatch(index, manualMatches[index])}
+                                          className="mt-6"
+                                        >
+                                          <Check className="h-4 w-4 mr-2" />
+                                          Eşleştir
+                                        </Button>
+                                      )}
+                                    </div>
+                                    
+                                    <Alert className="mt-3">
+                                      <AlertTriangle className="h-4 w-4" />
+                                      <AlertDescription className="text-xs">
+                                        Bu ödeme otomatik eşleştirilemedi. Türkçe karakter, büyük/küçük harf farklılıkları 
+                                        veya açıklamada sporcu adının bulunmaması nedeniyle manuel eşleştirme gerekiyor.
+                                      </AlertDescription>
+                                    </Alert>
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
@@ -1651,9 +1758,19 @@ export default function Payments() {
                           </Button>
                           <Button onClick={confirmMatches}>
                             <Check className="h-4 w-4 mr-2" />
-                            Eşleştirmeleri Onayla
+                            Eşleştirmeleri Onayla ({matchedPayments.filter(m => m.status === 'matched').length})
                           </Button>
                         </div>
+                      )}
+                      
+                      {matchedPayments.filter(m => m.status === 'unmatched').length > 0 && 
+                       matchedPayments.filter(m => m.status === 'matched').length === 0 && (
+                        <Alert className="mt-4">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertDescription>
+                            Hiçbir ödeme otomatik olarak eşleştirilemedi. Lütfen yukarıdaki manuel eşleştirme seçeneklerini kullanın.
+                          </AlertDescription>
+                        </Alert>
                       )}
                     </CardContent>
                   </Card>
