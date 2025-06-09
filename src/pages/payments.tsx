@@ -316,39 +316,122 @@ export default function Payments() {
   };
 
   const generateInvoices = () => {
-    // Aktif tüm sporcular için fatura oluştur
-    const students = JSON.parse(localStorage.getItem('students') || '[]');
-    const activeStudents = students.filter((student: any) => student.status === 'Aktif');
-    
-    const invoiceData = activeStudents.map((student: any, index: number) => ({
-      'Fatura No': `INV-${new Date().getFullYear()}-${String(index + 1).padStart(3, '0')}`,
-      'Sporcu Adı': `${student.studentName} ${student.studentSurname}`,
-      'Veli Adı': `${student.parentName} ${student.parentSurname}`,
-      'Spor Branşı': student.sportsBranches?.join(', ') || '',
-      'Tutar': 350, // Sabit tutar - gerçek uygulamada branşa göre değişebilir
-      'Vade Tarihi': new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
-      'Oluşturma Tarihi': new Date().toLocaleDateString('tr-TR'),
-      'Durum': 'Bekliyor'
-    }));
+    try {
+      // Get athletes from localStorage or use mock data
+      const storedAthletes = localStorage.getItem('athletes');
+      let activeStudents = [];
+      
+      if (storedAthletes) {
+        const allAthletes = JSON.parse(storedAthletes);
+        activeStudents = allAthletes.filter((student: any) => student.status === 'active' || !student.status);
+      }
+      
+      // If no stored athletes, use mock data
+      if (activeStudents.length === 0) {
+        activeStudents = [
+          { 
+            id: 1, 
+            studentName: 'Ahmet', 
+            studentSurname: 'Yılmaz', 
+            parentName: 'Mehmet', 
+            parentSurname: 'Yılmaz',
+            selectedSports: ['Basketbol'], 
+            phone: '05551234567' 
+          },
+          { 
+            id: 2, 
+            studentName: 'Ayşe', 
+            studentSurname: 'Demir', 
+            parentName: 'Fatma', 
+            parentSurname: 'Demir',
+            selectedSports: ['Yüzme'], 
+            phone: '05559876543' 
+          },
+          { 
+            id: 3, 
+            studentName: 'Can', 
+            studentSurname: 'Öztürk', 
+            parentName: 'Ali', 
+            parentSurname: 'Öztürk',
+            selectedSports: ['Futbol'], 
+            phone: '05555555555' 
+          },
+          { 
+            id: 4, 
+            studentName: 'Elif', 
+            studentSurname: 'Kaya', 
+            parentName: 'Zeynep', 
+            parentSurname: 'Kaya',
+            selectedSports: ['Voleybol'], 
+            phone: '05554444444' 
+          },
+          { 
+            id: 5, 
+            studentName: 'Murat', 
+            studentSurname: 'Şen', 
+            parentName: 'Hasan', 
+            parentSurname: 'Şen',
+            selectedSports: ['Hentbol'], 
+            phone: '05553333333' 
+          }
+        ];
+      }
+      
+      const invoiceData = activeStudents.map((student: any, index: number) => {
+        const sports = student.selectedSports || student.sportsBranches || ['Genel'];
+        const amount = sports.length * 350; // 350 TL per sport
+        
+        return {
+          'Fatura No': `INV-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(index + 1).padStart(3, '0')}`,
+          'Sporcu Adı': `${student.studentName || 'Bilinmiyor'} ${student.studentSurname || ''}`.trim(),
+          'Veli Adı': `${student.parentName || 'Bilinmiyor'} ${student.parentSurname || ''}`.trim(),
+          'Spor Branşı': sports.join(', '),
+          'Tutar': `${amount} TL`,
+          'Vade Tarihi': new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
+          'Oluşturma Tarihi': new Date().toLocaleDateString('tr-TR'),
+          'Telefon': student.phone || student.parentPhone || 'Bilinmiyor',
+          'Durum': 'Bekliyor'
+        };
+      });
 
-    // CSV formatında indir (Excel benzeri)
-    const csvContent = [
-      Object.keys(invoiceData[0]).join(','),
-      ...invoiceData.map(row => Object.values(row).join(','))
-    ].join('\n');
+      if (invoiceData.length === 0) {
+        toast.error("Fatura oluşturulacak aktif sporcu bulunamadı!");
+        return;
+      }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `faturalar_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      // CSV formatında indir (Excel benzeri) with proper Turkish character support
+      const headers = Object.keys(invoiceData[0]);
+      const csvContent = [
+        headers.map(header => `"${header}"`).join(','),
+        ...invoiceData.map(row => 
+          headers.map(header => `"${row[header as keyof typeof row]}"`).join(',')
+        )
+      ].join('\n');
 
-    toast.success(`${invoiceData.length} fatura Excel formatında indirildi!`);
-    setIsInvoiceDialogOpen(false);
+      // Add UTF-8 BOM for proper Turkish character display in Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      
+      const fileName = `Aylik_Faturalar_${new Date().getFullYear()}_${String(new Date().getMonth() + 1).padStart(2, '0')}.csv`;
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL object
+      URL.revokeObjectURL(url);
+
+      toast.success(`${invoiceData.length} fatura Excel formatında indirildi! (${fileName})`);
+      setIsInvoiceDialogOpen(false);
+      
+    } catch (error) {
+      console.error('Fatura oluşturma hatası:', error);
+      toast.error("Fatura oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
+    }
   };
 
   const getInitials = (name: string) => {
