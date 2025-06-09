@@ -38,19 +38,19 @@ const staggerContainer = {
 };
 
 const sports = [
-  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol"
+  "Basketbol", "Hentbol", "Yüzme", "Futbol", "Voleybol", "Jimnastik", "Satranç", "Zihin Oyunları"
 ];
 
 const features = [
   {
     icon: Users,
-    title: "Sporcu & Veli Kayıt Yönetimi",
-    description: "Tüm sporcu ve veli bilgilerini merkezi sistemde güvenle saklayın ve yönetin. Çoklu spor branşı desteği ile."
+    title: "Toplu Sporcu Yükleme",
+    description: "Excel ile yüzlerce sporcuyu tek seferde sisteme aktarın. TC Kimlik doğrulama, çoklu spor branşı desteği ve otomatik veri kontrolü."
   },
   {
     icon: CreditCard,
-    title: "Gelişmiş Cari Hesap Sistemi",
-    description: "Sporcu bazında detaylı cari hesap takibi, otomatik KDV hesaplamaları (%10 ve %20) ve toplu aidat yönetimi."
+    title: "Akıllı Banka Dekont Eşleştirme",
+    description: "Banka Excel dekontlarını otomatik sporcu eşleştirme. Türkçe karakter desteği, benzerlik algoritması ve manuel düzeltme seçenekleri."
   },
   {
     icon: FileText,
@@ -59,8 +59,8 @@ const features = [
   },
   {
     icon: Calendar,
-    title: "Antrenman Programları",
-    description: "Antrenman takvimlerini oluşturun, yoklama alın ve velilerle anında paylaşın."
+    title: "Dijital Yoklama Sistemi",
+    description: "Tablet/telefon ile kolay yoklama alma. Devamsızlık durumunda otomatik WhatsApp bildirimi ve detaylı istatistikler."
   },
   {
     icon: MessageCircle,
@@ -69,26 +69,26 @@ const features = [
   },
   {
     icon: Camera,
-    title: "Medya Paylaşımı",
-    description: "Antrenman ve maç fotoğraf/videolarını güvenle velilerle paylaşın."
+    title: "Çoklu Rol Yönetimi",
+    description: "Admin, Antrenör ve Veli rolleri. Yetki bazlı erişim kontrolü ile güvenli veri paylaşımı."
   },
   {
     icon: UserCheck,
-    title: "Akıllı Yoklama Sistemi",
-    description: "Dijital yoklama alın, devamsızlıkları otomatik takip edin ve WhatsApp bildirimleri gönderin."
+    title: "Toplu Aidat Yönetimi",
+    description: "Excel template ile toplu ücret tanımlama. KDV hesaplama (%10, %20) ve otomatik fatura kesimi."
   },
   {
     icon: BarChart3,
-    title: "Veli Portalı & Raporlama",
-    description: "Veliler kendi hesaplarından aidat durumlarını takip edebilir. Detaylı raporlar ve analizler."
+    title: "Gelişmiş Raporlama",
+    description: "Finansal raporlar, sporcu istatistikleri, devamsızlık analizleri ve Excel çıktıları."
   }
 ];
 
 const stats = [
-  { number: "7", label: "Spor Branşı" },
-  { number: "500+", label: "Aktif Sporcu" },
-  { number: "1000+", label: "Kayıtlı Veli" },
-  { number: "99%", label: "Memnuniyet" }
+  { number: "8+", label: "Spor Branşı" },
+  { number: "90%", label: "Zaman Tasarrufu" },
+  { number: "100%", label: "Otomatik İşlem" },
+  { number: "7/24", label: "Erişim" }
 ];
 
 export default function Home() {
@@ -137,17 +137,17 @@ export default function Home() {
             >
               <Badge variant="secondary" className="mb-6">
                 <Zap className="w-4 h-4 mr-2" />
-                Türkiye'nin En Gelişmiş Spor Okulu CRM'i
+                Türkiye'nin En Gelişmiş Spor Okulu CRM'i - Spor Okulunuzu Dijitalleştirin
               </Badge>
               
               <h1 className="text-5xl md:text-7xl font-bold text-primary mb-6 leading-tight">
-                Spor Okulunuzu
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60"> Dijitalleştirin</span>
+                Artık Kağıt-Kalem
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60"> Devri Bitti!</span>
               </h1>
               
               <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
-                Sporcu kayıtlarından aidat takibine, e-fatura entegrasyonundan toplu ödeme yönetimine kadar 
-                tüm süreçlerinizi tek platformda yönetin. Gelişmiş cari hesap sistemi ve otomatik KDV hesaplamaları ile.
+                Spor okulunuzu 21. yüzyıla taşıyan, tamamen Türkçe ve kullanıcı dostu CRM sistemi. 
+                Manuel işlemleri %90 azaltın, otomatik fatura kesimi, toplu Excel yüklemeleri ve akıllı banka dekont eşleştirme ile.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -289,11 +289,12 @@ export default function Home() {
                 
                 <div className="space-y-4">
                   {[
-                    "Zaman tasarrufu: %80'e varan verimlilik artışı",
-                    "Maliyet azaltma: Kağıt işlemlerden kurtulun",
-                    "Hata oranı: Manuel işlemlerdeki hataları minimize edin",
-                    "Veli memnuniyeti: Şeffaf ve hızlı iletişim",
-                    "Profesyonel görünüm: Kurumsal imajınızı güçlendirin"
+                    "Manuel işlemleri %90 azaltın - Saatlerce zaman kazanın",
+                    "Toplu Excel yüklemeleri - Yüzlerce sporcu tek seferde",
+                    "Akıllı banka eşleştirme - Türkçe karakter desteği",
+                    "Otomatik fatura kesimi - E-fatura entegrasyonu",
+                    "WhatsApp bildirimleri - Devamsızlık takibi",
+                    "Çoklu rol sistemi - Güvenli yetki yönetimi"
                   ].map((benefit, index) => (
                     <motion.div 
                       key={index}
