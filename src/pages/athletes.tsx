@@ -66,6 +66,7 @@ export default function Athletes() {
     amountExcludingVat: '',
     vatRate: '20',
     amountIncludingVat: '',
+    unitCode: 'Ay',
     type: 'debit' // debit (borç) or credit (alacak)
   });
 
@@ -160,6 +161,7 @@ export default function Athletes() {
       vatRate: vatRate,
       vatAmount: vatAmount,
       amountIncludingVat: amountIncluding,
+      unitCode: newEntry.unitCode,
       type: newEntry.type
     };
 
@@ -174,6 +176,7 @@ export default function Athletes() {
       amountExcludingVat: '',
       vatRate: '20',
       amountIncludingVat: '',
+      unitCode: 'Ay',
       type: 'debit'
     });
   };
@@ -613,6 +616,19 @@ export default function Athletes() {
                           disabled
                           className="bg-muted"
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="unitCode">Birim Kod</Label>
+                        <Select value={newEntry.unitCode} onValueChange={(value) => setNewEntry(prev => ({ ...prev, unitCode: value }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Ay">Ay (Aylık aidat için)</SelectItem>
+                            <SelectItem value="Adet">Adet (Forma, çanta vb. için)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div className="space-y-2">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -60,11 +60,15 @@ export default function Payments() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
   const [payments, setPayments] = useState<any[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [matchedPayments, setMatchedPayments] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+=======
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -396,14 +400,18 @@ export default function Payments() {
         const invoiceDate = currentDate.toLocaleDateString('tr-TR');
         const invoiceTime = currentDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
         
+        // Get unit code from account entries for this student
+        const accountEntries = JSON.parse(localStorage.getItem(`account_${student.id}`) || '[]');
+        const unitCode = accountEntries.length > 0 && accountEntries[0].unitCode ? accountEntries[0].unitCode : 'Ay';
+        
         return {
           'Id': index + 1,
-          'Fatura Numarası': invoiceNumber,
+          'Fatura Numarası': '', // Should be empty as requested
           'ETTN': '',
           'Fatura Tarihi': invoiceDate,
           'Fatura Saati': invoiceTime,
           'Fatura Tipi': 'SATIS',
-          'Fatura Profili': 'TICARIFATURA',
+          'Fatura Profili': 'EARSIVFATURA', // Fixed as requested
           'Not1': '',
           'Not2': '',
           'Not3': '',
@@ -440,14 +448,14 @@ export default function Payments() {
           'Gönderim Türü': 'ELEKTRONIK',
           'Satışın Yapıldığı Web Sitesi': '',
           'Ödeme Tarihi': '',
-          'Ödeme Türü': 'NAKIT',
+          'Ödeme Türü': 'EFT/HAVALE', // Fixed as requested
           'Ödeyen Adı': '',
           'Taşıyıcı Ünvanı': '',
           'Taşıyıcı Tckn/Vkn': '',
           'Gönderim Tarihi': '',
           'Mal/Hizmet Adı': `${sports.join(', ')} Spor Eğitimi - ${student.studentName} ${student.studentSurname}`,
           'Miktar': quantity,
-          'Birim Kodu': 'C62',
+          'Birim Kodu': unitCode, // Get from account entries
           'Birim Fiyat': baseAmount.toFixed(2),
           'KDV Oranı': '20',
           'KDV Muafiyet Kodu': '',
@@ -546,6 +554,192 @@ export default function Payments() {
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  // Bulk import functions
+  const handleBulkImportFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && 
+          file.type !== 'application/vnd.ms-excel') {
+        toast.error("Lütfen Excel dosyası (.xlsx veya .xls) seçin");
+        return;
+      }
+      setBulkImportFile(file);
+    }
+  };
+
+  const processBulkImport = async () => {
+    if (!bulkImportFile) return;
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+
+    try {
+      // Simulated Excel processing
+      const interval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      // Wait 2 seconds (simulated Excel processing)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Mock Excel data - in real app this would parse the Excel file
+      const mockBulkData = [
+        {
+          athleteId: 'all', // 'all' means apply to all athletes
+          month: '2024-06',
+          description: 'Haziran 2024 Aylık Aidat',
+          amountExcludingVat: 350,
+          vatRate: 20,
+          unitCode: 'Ay',
+          type: 'debit'
+        },
+        {
+          athleteId: 'all',
+          month: '2024-06',
+          description: 'Forma Ücreti',
+          amountExcludingVat: 150,
+          vatRate: 20,
+          unitCode: 'Adet',
+          type: 'debit'
+        },
+        {
+          athleteId: 'all',
+          month: '2024-06',
+          description: 'Spor Çantası',
+          amountExcludingVat: 200,
+          vatRate: 20,
+          unitCode: 'Adet',
+          type: 'debit'
+        }
+      ];
+
+      // Get all athletes
+      const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+      let athletes = [];
+      
+      if (storedAthletes) {
+        athletes = JSON.parse(storedAthletes);
+      }
+
+      if (athletes.length === 0) {
+        toast.error("Sporcu bulunamadı! Önce sporcu kayıtları yapılmalı.");
+        return;
+      }
+
+      // Apply bulk entries to all athletes
+      let totalEntriesAdded = 0;
+      
+      for (const athlete of athletes) {
+        const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+        
+        for (const bulkEntry of mockBulkData) {
+          const vatAmount = (bulkEntry.amountExcludingVat * bulkEntry.vatRate) / 100;
+          const amountIncludingVat = bulkEntry.amountExcludingVat + vatAmount;
+          
+          const newEntry = {
+            id: Date.now() + Math.random(), // Ensure unique ID
+            date: new Date().toISOString(),
+            month: bulkEntry.month,
+            description: bulkEntry.description,
+            amountExcludingVat: bulkEntry.amountExcludingVat,
+            vatRate: bulkEntry.vatRate,
+            vatAmount: vatAmount,
+            amountIncludingVat: amountIncludingVat,
+            unitCode: bulkEntry.unitCode,
+            type: bulkEntry.type
+          };
+          
+          existingEntries.push(newEntry);
+          totalEntriesAdded++;
+        }
+        
+        localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+      }
+
+      toast.success(`Toplu içe aktarma tamamlandı! ${athletes.length} sporcuya ${mockBulkData.length} kayıt eklendi. Toplam ${totalEntriesAdded} kayıt oluşturuldu.`);
+      setIsBulkImportDialogOpen(false);
+      setBulkImportFile(null);
+      setUploadProgress(0);
+      
+    } catch (error) {
+      toast.error("Toplu içe aktarma sırasında hata oluştu");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const downloadBulkImportTemplate = () => {
+    // Create template data
+    const templateData = [
+      {
+        'Sporcu ID': 'all',
+        'Ay/Yıl': '2024-06',
+        'Açıklama': 'Haziran 2024 Aylık Aidat',
+        'Tutar (KDV Hariç)': 350,
+        'KDV Oranı (%)': 20,
+        'Birim Kod': 'Ay',
+        'Tür': 'debit'
+      },
+      {
+        'Sporcu ID': 'all',
+        'Ay/Yıl': '2024-06',
+        'Açıklama': 'Forma Ücreti',
+        'Tutar (KDV Hariç)': 150,
+        'KDV Oranı (%)': 20,
+        'Birim Kod': 'Adet',
+        'Tür': 'debit'
+      },
+      {
+        'Sporcu ID': 'all',
+        'Ay/Yıl': '2024-06',
+        'Açıklama': 'Spor Çantası',
+        'Tutar (KDV Hariç)': 200,
+        'KDV Oranı (%)': 20,
+        'Birim Kod': 'Adet',
+        'Tür': 'debit'
+      }
+    ];
+
+    // Create CSV
+    const headers = Object.keys(templateData[0]);
+    const csvRows = [];
+    
+    // Add header row
+    csvRows.push(headers.join(';'));
+    
+    // Add data rows
+    templateData.forEach(row => {
+      const rowValues = headers.map(header => {
+        const value = row[header as keyof typeof row];
+        return `"${String(value || '')}"`;
+      });
+      csvRows.push(rowValues.join(';'));
+    });
+    
+    const csvContent = csvRows.join('\r\n');
+
+    // Add UTF-8 BOM for proper Turkish character display
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'Toplu_Aidat_Sablonu.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    URL.revokeObjectURL(url);
+    toast.success("Şablon dosyası indirildi!");
   };
 
   return (
@@ -853,7 +1047,7 @@ export default function Payments() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex gap-4">
+                      <div className="flex gap-4 flex-wrap">
                         <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
                           <DialogTrigger asChild>
                             <Button>
@@ -899,10 +1093,19 @@ export default function Payments() {
                             </div>
                           </DialogContent>
                         </Dialog>
+
+                        <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline">
+                              <Upload className="h-4 w-4 mr-2" />
+                              Toplu Aidat İçe Aktar
+                            </Button>
+                          </DialogTrigger>
+                        </Dialog>
                         
-                        <Button variant="outline">
+                        <Button variant="outline" onClick={downloadBulkImportTemplate}>
                           <Download className="h-4 w-4 mr-2" />
-                          Excel Şablonu İndir
+                          Toplu İçe Aktarma Şablonu
                         </Button>
                       </div>
                       
@@ -1141,6 +1344,169 @@ export default function Payments() {
                     </CardContent>
                   </Card>
                 )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Bulk Import Dialog */}
+          <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Toplu Aidat İçe Aktarma</DialogTitle>
+                <DialogDescription>
+                  Excel dosyası ile tüm sporcular için aylık aidat, forma, çanta vb. ücretleri toplu olarak ekleyin
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Bu işlem tüm aktif sporcuların cari hesaplarına kayıt ekleyecektir. İşlem geri alınamaz!
+                  </AlertDescription>
+                </Alert>
+
+                {/* Instructions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Nasıl Kullanılır?</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-start space-x-2">
+                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">1</span>
+                        <p>"Toplu İçe Aktarma Şablonu" butonuna tıklayarak örnek Excel dosyasını indirin</p>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">2</span>
+                        <p>İndirilen dosyayı açın ve kendi verilerinizle doldurun</p>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">3</span>
+                        <p>Sporcu ID: "all" yazarsanız tüm sporcular için geçerli olur, belirli bir sporcu için ID numarasını yazın</p>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">4</span>
+                        <p>Birim Kod: "Ay" (aylık aidat için) veya "Adet" (forma, çanta vb. için)</p>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">5</span>
+                        <p>Tür: "debit" (borç/ücret) veya "credit" (alacak/ödeme)</p>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">6</span>
+                        <p>Dosyayı kaydedin ve aşağıdan yükleyin</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* File Upload */}
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                        <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Toplu aidat Excel dosyasını seçin</p>
+                          <p className="text-xs text-muted-foreground">
+                            Desteklenen formatlar: .xlsx, .xls
+                          </p>
+                        </div>
+                        <Input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handleBulkImportFileUpload}
+                          className="mt-4"
+                          ref={fileInputRef}
+                        />
+                      </div>
+                      
+                      {bulkImportFile && (
+                        <Alert>
+                          <FileSpreadsheet className="h-4 w-4" />
+                          <AlertDescription>
+                            Seçilen dosya: {bulkImportFile.name} ({(bulkImportFile.size / 1024).toFixed(1)} KB)
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {bulkImportFile && !isProcessing && (
+                        <Button onClick={processBulkImport} className="w-full">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Toplu İçe Aktarmayı Başlat
+                        </Button>
+                      )}
+                      
+                      {isProcessing && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span>Dosya işleniyor ve kayıtlar ekleniyor...</span>
+                            <span>{uploadProgress}%</span>
+                          </div>
+                          <Progress value={uploadProgress} className="w-full" />
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Sample Data Preview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Örnek Veri Formatı</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Sporcu ID</TableHead>
+                          <TableHead>Ay/Yıl</TableHead>
+                          <TableHead>Açıklama</TableHead>
+                          <TableHead>Tutar (KDV Hariç)</TableHead>
+                          <TableHead>KDV Oranı (%)</TableHead>
+                          <TableHead>Birim Kod</TableHead>
+                          <TableHead>Tür</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell>all</TableCell>
+                          <TableCell>2024-06</TableCell>
+                          <TableCell>Haziran 2024 Aylık Aidat</TableCell>
+                          <TableCell>350</TableCell>
+                          <TableCell>20</TableCell>
+                          <TableCell>Ay</TableCell>
+                          <TableCell>debit</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>all</TableCell>
+                          <TableCell>2024-06</TableCell>
+                          <TableCell>Forma Ücreti</TableCell>
+                          <TableCell>150</TableCell>
+                          <TableCell>20</TableCell>
+                          <TableCell>Adet</TableCell>
+                          <TableCell>debit</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>all</TableCell>
+                          <TableCell>2024-06</TableCell>
+                          <TableCell>Spor Çantası</TableCell>
+                          <TableCell>200</TableCell>
+                          <TableCell>20</TableCell>
+                          <TableCell>Adet</TableCell>
+                          <TableCell>debit</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setIsBulkImportDialogOpen(false)}>
+                  Kapat
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
