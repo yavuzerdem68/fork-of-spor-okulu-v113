@@ -24,7 +24,11 @@ import {
   Eye,
   UserPlus,
   ArrowLeft,
-  CreditCard
+  CreditCard,
+  Calculator,
+  Calendar,
+  TrendingUp,
+  Minus
 } from "lucide-react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -53,6 +57,17 @@ export default function Athletes() {
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [selectedAthlete, setSelectedAthlete] = useState<any>(null);
+  const [accountEntries, setAccountEntries] = useState<any[]>([]);
+  const [newEntry, setNewEntry] = useState({
+    month: new Date().toISOString().slice(0, 7),
+    description: '',
+    amountExcludingVat: '',
+    vatRate: '20',
+    amountIncludingVat: '',
+    type: 'debit' // debit (borç) or credit (alacak)
+  });
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -120,6 +135,76 @@ export default function Athletes() {
     const thisMonth = new Date();
     return regDate.getMonth() === thisMonth.getMonth() && regDate.getFullYear() === thisMonth.getFullYear();
   }).length;
+
+  const loadAccountEntries = (athleteId: string) => {
+    const entries = JSON.parse(localStorage.getItem(`account_${athleteId}`) || '[]');
+    setAccountEntries(entries);
+  };
+
+  const saveAccountEntry = () => {
+    if (!selectedAthlete || !newEntry.description || !newEntry.amountExcludingVat) {
+      return;
+    }
+
+    const amountExcluding = parseFloat(newEntry.amountExcludingVat);
+    const vatRate = parseFloat(newEntry.vatRate);
+    const vatAmount = (amountExcluding * vatRate) / 100;
+    const amountIncluding = amountExcluding + vatAmount;
+
+    const entry = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      month: newEntry.month,
+      description: newEntry.description,
+      amountExcludingVat: amountExcluding,
+      vatRate: vatRate,
+      vatAmount: vatAmount,
+      amountIncludingVat: amountIncluding,
+      type: newEntry.type
+    };
+
+    const updatedEntries = [...accountEntries, entry];
+    setAccountEntries(updatedEntries);
+    localStorage.setItem(`account_${selectedAthlete.id}`, JSON.stringify(updatedEntries));
+
+    // Reset form
+    setNewEntry({
+      month: new Date().toISOString().slice(0, 7),
+      description: '',
+      amountExcludingVat: '',
+      vatRate: '20',
+      amountIncludingVat: '',
+      type: 'debit'
+    });
+  };
+
+  const openAccountDialog = (athlete: any) => {
+    setSelectedAthlete(athlete);
+    loadAccountEntries(athlete.id);
+    setIsAccountDialogOpen(true);
+  };
+
+  const calculateVatAmount = (excludingVat: string, vatRate: string) => {
+    const excluding = parseFloat(excludingVat) || 0;
+    const rate = parseFloat(vatRate) || 0;
+    const vatAmount = (excluding * rate) / 100;
+    const including = excluding + vatAmount;
+    
+    setNewEntry(prev => ({
+      ...prev,
+      amountExcludingVat: excludingVat,
+      vatRate: vatRate,
+      amountIncludingVat: including.toFixed(2)
+    }));
+  };
+
+  const getTotalBalance = () => {
+    return accountEntries.reduce((total, entry) => {
+      return entry.type === 'debit' 
+        ? total + entry.amountIncludingVat 
+        : total - entry.amountIncludingVat;
+    }, 0);
+  };
 
   return (
     <>
@@ -375,6 +460,14 @@ export default function Athletes() {
                               </Button>
                               {userRole === 'admin' && (
                                 <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => openAccountDialog(athlete)}
+                                    title="Cari Hesap"
+                                  >
+                                    <Calculator className="h-4 w-4" />
+                                  </Button>
                                   <Button variant="ghost" size="sm">
                                     <Edit className="h-4 w-4" />
                                   </Button>
@@ -403,6 +496,212 @@ export default function Athletes() {
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* Account Management Dialog */}
+          <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Calculator className="h-5 w-5" />
+                  <span>Cari Hesap - {selectedAthlete?.studentName} {selectedAthlete?.studentSurname}</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Sporcu için aylık aidat ve ödeme kayıtlarını yönetin
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Balance Summary */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Toplam Borç</p>
+                        <p className="text-2xl font-bold text-red-600">
+                          ₺{accountEntries.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amountIncludingVat, 0).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Toplam Alacak</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          ₺{accountEntries.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amountIncludingVat, 0).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Net Bakiye</p>
+                        <p className={`text-2xl font-bold ${getTotalBalance() >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          ₺{Math.abs(getTotalBalance()).toFixed(2)} {getTotalBalance() >= 0 ? '(Borç)' : '(Alacak)'}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* New Entry Form */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Yeni Kayıt Ekle</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="month">Ay/Yıl</Label>
+                        <Input
+                          id="month"
+                          type="month"
+                          value={newEntry.month}
+                          onChange={(e) => setNewEntry(prev => ({ ...prev, month: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="type">İşlem Türü</Label>
+                        <Select value={newEntry.type} onValueChange={(value) => setNewEntry(prev => ({ ...prev, type: value }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="debit">Borç (Aidat/Ücret)</SelectItem>
+                            <SelectItem value="credit">Alacak (Ödeme)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="description">Açıklama</Label>
+                        <Input
+                          id="description"
+                          placeholder="Örn: Haziran 2024 Basketbol Aidatı"
+                          value={newEntry.description}
+                          onChange={(e) => setNewEntry(prev => ({ ...prev, description: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="amountExcludingVat">Tutar (KDV Hariç) ₺</Label>
+                        <Input
+                          id="amountExcludingVat"
+                          type="number"
+                          step="0.01"
+                          placeholder="350.00"
+                          value={newEntry.amountExcludingVat}
+                          onChange={(e) => calculateVatAmount(e.target.value, newEntry.vatRate)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="vatRate">KDV Oranı (%)</Label>
+                        <Select value={newEntry.vatRate} onValueChange={(value) => calculateVatAmount(newEntry.amountExcludingVat, value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">%0</SelectItem>
+                            <SelectItem value="1">%1</SelectItem>
+                            <SelectItem value="8">%8</SelectItem>
+                            <SelectItem value="18">%18</SelectItem>
+                            <SelectItem value="20">%20</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>KDV Tutarı ₺</Label>
+                        <Input
+                          value={newEntry.amountExcludingVat && newEntry.vatRate ? 
+                            ((parseFloat(newEntry.amountExcludingVat) * parseFloat(newEntry.vatRate)) / 100).toFixed(2) : '0.00'}
+                          disabled
+                          className="bg-muted"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Toplam Tutar (KDV Dahil) ₺</Label>
+                        <Input
+                          value={newEntry.amountIncludingVat}
+                          disabled
+                          className="bg-muted font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end mt-4">
+                      <Button onClick={saveAccountEntry} disabled={!newEntry.description || !newEntry.amountExcludingVat}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Kayıt Ekle
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Account Entries Table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Hesap Hareketleri</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {accountEntries.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tarih</TableHead>
+                            <TableHead>Ay/Yıl</TableHead>
+                            <TableHead>Açıklama</TableHead>
+                            <TableHead>Tür</TableHead>
+                            <TableHead>KDV Hariç</TableHead>
+                            <TableHead>KDV</TableHead>
+                            <TableHead>KDV Dahil</TableHead>
+                            <TableHead>İşlemler</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {accountEntries.map((entry) => (
+                            <TableRow key={entry.id}>
+                              <TableCell>{new Date(entry.date).toLocaleDateString('tr-TR')}</TableCell>
+                              <TableCell>{entry.month}</TableCell>
+                              <TableCell>{entry.description}</TableCell>
+                              <TableCell>
+                                <Badge variant={entry.type === 'debit' ? 'destructive' : 'default'}>
+                                  {entry.type === 'debit' ? 'Borç' : 'Alacak'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>₺{entry.amountExcludingVat.toFixed(2)}</TableCell>
+                              <TableCell>₺{entry.vatAmount.toFixed(2)} (%{entry.vatRate})</TableCell>
+                              <TableCell className="font-bold">₺{entry.amountIncludingVat.toFixed(2)}</TableCell>
+                              <TableCell>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const updatedEntries = accountEntries.filter(e => e.id !== entry.id);
+                                    setAccountEntries(updatedEntries);
+                                    localStorage.setItem(`account_${selectedAthlete.id}`, JSON.stringify(updatedEntries));
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Calculator className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Henüz hesap hareketi bulunmuyor</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setIsAccountDialogOpen(false)}>
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>
