@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import { 
   Users, 
   Plus,
@@ -28,12 +30,18 @@ import {
   Calculator,
   Calendar,
   TrendingUp,
-  Minus
+  Minus,
+  Upload,
+  FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle,
+  X
 } from "lucide-react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import Header from "@/components/Header";
 import NewAthleteForm from "@/components/NewAthleteForm";
+import * as XLSX from 'xlsx';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -58,8 +66,14 @@ export default function Athletes() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
   const [selectedAthlete, setSelectedAthlete] = useState<any>(null);
   const [accountEntries, setAccountEntries] = useState<any[]>([]);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadResults, setUploadResults] = useState<any[]>([]);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
@@ -209,6 +223,295 @@ export default function Athletes() {
     }, 0);
   };
 
+  // Bulk Upload Functions
+  const generateBulkUploadTemplate = () => {
+    const templateData = [
+      {
+        // Öğrenci Bilgileri
+        'Öğrenci Adı': '',
+        'Öğrenci Soyadı': '',
+        'TC Kimlik No': '',
+        'Doğum Tarihi (DD/MM/YYYY)': '',
+        'Cinsiyet (Erkek/Kız)': '',
+        'Okul': '',
+        'Sınıf': '',
+        'Spor Branşları (virgülle ayırın)': '',
+        
+        // Fiziksel Bilgiler
+        'Boy (cm)': '',
+        'Kilo (kg)': '',
+        'Kan Grubu': '',
+        'Dominant El (Sağ/Sol/Her İkisi)': '',
+        'Dominant Ayak (Sağ/Sol/Her İkisi)': '',
+        'Tercih Edilen Pozisyon': '',
+        
+        // Veli Bilgileri
+        'Veli Adı': '',
+        'Veli Soyadı': '',
+        'Veli TC Kimlik No': '',
+        'Veli Telefon': '',
+        'Veli Email': '',
+        'Yakınlık Derecesi': '',
+        'Veli Meslek': '',
+        
+        // İkinci Veli Bilgileri
+        'İkinci Veli Adı': '',
+        'İkinci Veli Soyadı': '',
+        'İkinci Veli Telefon': '',
+        'İkinci Veli Email': '',
+        'İkinci Veli Yakınlık': '',
+        
+        // İletişim Bilgileri
+        'Adres': '',
+        'İl': '',
+        'İlçe': '',
+        'Posta Kodu': '',
+        
+        // Sağlık Bilgileri
+        'Sağlık Sorunu (Evet/Hayır)': '',
+        'Sağlık Sorunu Detayı': '',
+        'Kullandığı İlaçlar': '',
+        'Alerjiler': '',
+        'Acil Durum Kişisi': '',
+        'Acil Durum Telefonu': '',
+        'Acil Durum Yakınlık': '',
+        'Özel Diyet': '',
+        
+        // Sporcu Geçmişi
+        'Önceki Kulüpler': '',
+        'Başarılar': '',
+        'Spor Hedefleri': '',
+        'Motivasyon': '',
+        
+        // Diğer Bilgiler
+        'Bizi Nasıl Duydunuz': '',
+        'Önceki Spor Deneyimi': '',
+        'Beklentiler': '',
+        
+        // Sistem Bilgileri
+        'Durum (Aktif/Pasif)': 'Aktif',
+        'Ödeme Durumu (Güncel/Gecikmiş)': 'Güncel',
+        'Kayıt Tarihi (DD/MM/YYYY)': new Date().toLocaleDateString('tr-TR')
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sporcu Toplu Yükleme Şablonu');
+    
+    // Set column widths
+    const colWidths = Object.keys(templateData[0]).map(() => ({ wch: 20 }));
+    ws['!cols'] = colWidths;
+    
+    XLSX.writeFile(wb, 'Sporcu_Toplu_Yukleme_Sablonu.xlsx');
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      setUploadErrors([]);
+      setUploadResults([]);
+    }
+  };
+
+  const processExcelFile = async () => {
+    if (!uploadedFile) return;
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+    setUploadErrors([]);
+    setUploadResults([]);
+
+    try {
+      const data = await uploadedFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      const results: any[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row: any = jsonData[i];
+        setUploadProgress(((i + 1) / jsonData.length) * 100);
+
+        try {
+          // Validate required fields
+          if (!row['Öğrenci Adı'] || !row['Öğrenci Soyadı'] || !row['TC Kimlik No'] || 
+              !row['Veli Adı'] || !row['Veli Soyadı'] || !row['Veli Telefon'] || !row['Veli Email']) {
+            errors.push(`Satır ${i + 2}: Zorunlu alanlar eksik`);
+            continue;
+          }
+
+          // Validate TC numbers
+          const studentTc = row['TC Kimlik No']?.toString().replace(/\D/g, '');
+          const parentTc = row['Veli TC Kimlik No']?.toString().replace(/\D/g, '');
+          
+          if (studentTc?.length !== 11) {
+            errors.push(`Satır ${i + 2}: Öğrenci TC Kimlik numarası 11 haneli olmalıdır`);
+            continue;
+          }
+          
+          if (parentTc && parentTc.length !== 11) {
+            errors.push(`Satır ${i + 2}: Veli TC Kimlik numarası 11 haneli olmalıdır`);
+            continue;
+          }
+
+          // Parse sports branches
+          const sportsBranches = row['Spor Branşları (virgülle ayırın)']
+            ?.split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0) || [];
+
+          // Parse birth date
+          let birthDate = '';
+          if (row['Doğum Tarihi (DD/MM/YYYY)']) {
+            const dateStr = row['Doğum Tarihi (DD/MM/YYYY)'].toString();
+            const dateParts = dateStr.split('/');
+            if (dateParts.length === 3) {
+              birthDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+            }
+          }
+
+          // Parse registration date
+          let registrationDate = new Date().toISOString();
+          if (row['Kayıt Tarihi (DD/MM/YYYY)']) {
+            const dateStr = row['Kayıt Tarihi (DD/MM/YYYY)'].toString();
+            const dateParts = dateStr.split('/');
+            if (dateParts.length === 3) {
+              registrationDate = new Date(`${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`).toISOString();
+            }
+          }
+
+          // Calculate age
+          let age = '';
+          if (birthDate) {
+            const today = new Date();
+            const birth = new Date(birthDate);
+            age = (today.getFullYear() - birth.getFullYear()).toString();
+          }
+
+          const athleteData = {
+            id: Date.now() + i,
+            // Öğrenci Bilgileri
+            studentName: row['Öğrenci Adı'],
+            studentSurname: row['Öğrenci Soyadı'],
+            studentTcNo: studentTc,
+            studentBirthDate: birthDate,
+            studentAge: age,
+            studentGender: row['Cinsiyet (Erkek/Kız)'] || '',
+            studentSchool: row['Okul'] || '',
+            studentClass: row['Sınıf'] || '',
+            sportsBranches: sportsBranches,
+            selectedSports: sportsBranches,
+            
+            // Fiziksel Bilgiler
+            studentHeight: row['Boy (cm)'] || '',
+            studentWeight: row['Kilo (kg)'] || '',
+            bloodType: row['Kan Grubu'] || '',
+            dominantHand: row['Dominant El (Sağ/Sol/Her İkisi)'] || '',
+            dominantFoot: row['Dominant Ayak (Sağ/Sol/Her İkisi)'] || '',
+            sportsPosition: row['Tercih Edilen Pozisyon'] || '',
+            
+            // Veli Bilgileri
+            parentName: row['Veli Adı'],
+            parentSurname: row['Veli Soyadı'],
+            parentTcNo: parentTc || '',
+            parentPhone: row['Veli Telefon'],
+            parentEmail: row['Veli Email'],
+            parentRelation: row['Yakınlık Derecesi'] || '',
+            parentOccupation: row['Veli Meslek'] || '',
+            
+            // İkinci Veli Bilgileri
+            secondParentName: row['İkinci Veli Adı'] || '',
+            secondParentSurname: row['İkinci Veli Soyadı'] || '',
+            secondParentPhone: row['İkinci Veli Telefon'] || '',
+            secondParentEmail: row['İkinci Veli Email'] || '',
+            secondParentRelation: row['İkinci Veli Yakınlık'] || '',
+            
+            // İletişim Bilgileri
+            address: row['Adres'] || '',
+            city: row['İl'] || '',
+            district: row['İlçe'] || '',
+            postalCode: row['Posta Kodu'] || '',
+            
+            // Sağlık Bilgileri
+            hasHealthIssues: row['Sağlık Sorunu (Evet/Hayır)'] || 'Hayır',
+            healthIssuesDetail: row['Sağlık Sorunu Detayı'] || '',
+            medications: row['Kullandığı İlaçlar'] || '',
+            allergies: row['Alerjiler'] || '',
+            emergencyContactName: row['Acil Durum Kişisi'] || '',
+            emergencyContactPhone: row['Acil Durum Telefonu'] || '',
+            emergencyContactRelation: row['Acil Durum Yakınlık'] || '',
+            specialDiet: row['Özel Diyet'] || '',
+            
+            // Sporcu Geçmişi
+            previousClubs: row['Önceki Kulüpler'] || '',
+            achievements: row['Başarılar'] || '',
+            sportsGoals: row['Spor Hedefleri'] || '',
+            motivation: row['Motivasyon'] || '',
+            
+            // Diğer Bilgiler
+            howDidYouHear: row['Bizi Nasıl Duydunuz'] || '',
+            previousSportsExperience: row['Önceki Spor Deneyimi'] || '',
+            expectations: row['Beklentiler'] || '',
+            
+            // Sistem Bilgileri
+            status: row['Durum (Aktif/Pasif)'] || 'Aktif',
+            paymentStatus: row['Ödeme Durumu (Güncel/Gecikmiş)'] || 'Güncel',
+            registrationDate: registrationDate,
+            createdAt: registrationDate,
+            
+            // Onaylar (default values for bulk upload)
+            agreementAccepted: true,
+            dataProcessingAccepted: true,
+            photoVideoPermission: false
+          };
+
+          results.push(athleteData);
+        } catch (error) {
+          errors.push(`Satır ${i + 2}: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+        }
+      }
+
+      setUploadResults(results);
+      setUploadErrors(errors);
+      
+    } catch (error) {
+      setUploadErrors(['Excel dosyası işlenirken hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata')]);
+    } finally {
+      setIsProcessing(false);
+      setUploadProgress(100);
+    }
+  };
+
+  const confirmBulkUpload = () => {
+    if (uploadResults.length === 0) return;
+
+    // Get existing students
+    const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    
+    // Add new students
+    const updatedStudents = [...existingStudents, ...uploadResults];
+    localStorage.setItem('students', JSON.stringify(updatedStudents));
+    
+    // Reload athletes
+    loadAthletes(userRole!, currentUser);
+    
+    // Reset upload state
+    setUploadedFile(null);
+    setUploadResults([]);
+    setUploadErrors([]);
+    setUploadProgress(0);
+    setIsBulkUploadDialogOpen(false);
+    
+    // Show success message (you can implement a toast notification here)
+    alert(`${uploadResults.length} sporcu başarıyla eklendi!`);
+  };
+=======
+
   return (
     <>
       <Head>
@@ -246,24 +549,251 @@ export default function Athletes() {
             </div>
             
             {userRole === 'admin' && (
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Yeni Sporcu
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Yeni Sporcu Kaydı</DialogTitle>
-                    <DialogDescription>
-                      Veli kayıt formu + sporcu bilgileri aşamasından kayıt yapmamış sporcu eklemek için tüm bilgileri girin
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <NewAthleteForm onClose={() => setIsAddDialogOpen(false)} />
-                </DialogContent>
-              </Dialog>
+              <div className="flex space-x-2">
+                <Dialog open={isBulkUploadDialogOpen} onOpenChange={setIsBulkUploadDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Toplu Yükleme
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center space-x-2">
+                        <FileSpreadsheet className="h-5 w-5" />
+                        <span>Sporcu Toplu Yükleme</span>
+                      </DialogTitle>
+                      <DialogDescription>
+                        Excel dosyası ile birden fazla sporcu kaydını sisteme toplu olarak ekleyin
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                      {/* Template Download */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">1. Şablon İndir</CardTitle>
+                          <CardDescription>
+                            Önce Excel şablonunu indirin ve sporcu bilgilerini doldurun
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Button onClick={generateBulkUploadTemplate} variant="outline" className="w-full">
+                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                            Excel Şablonunu İndir
+                          </Button>
+                          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                            <h4 className="font-medium text-blue-900 mb-2">Şablon Bilgileri:</h4>
+                            <ul className="text-sm text-blue-800 space-y-1">
+                              <li>• Kayıt formundaki tüm alanları içerir</li>
+                              <li>• Zorunlu alanlar: Öğrenci Adı, Soyadı, TC No, Veli Adı, Soyadı, Telefon, Email</li>
+                              <li>• TC Kimlik numaraları 11 haneli olmalıdır</li>
+                              <li>• Spor branşları virgülle ayrılmalıdır (örn: Basketbol, Futbol)</li>
+                              <li>• Tarih formatı: DD/MM/YYYY</li>
+                            </ul>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* File Upload */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">2. Dosya Yükle</CardTitle>
+                          <CardDescription>
+                            Doldurduğunuz Excel dosyasını seçin
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                              <input
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleFileUpload}
+                                className="hidden"
+                                id="bulk-upload-file"
+                              />
+                              <label htmlFor="bulk-upload-file" className="cursor-pointer">
+                                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <p className="text-lg font-medium text-gray-900 mb-2">
+                                  Excel dosyasını seçin
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  .xlsx veya .xls formatında olmalıdır
+                                </p>
+                              </label>
+                            </div>
+
+                            {uploadedFile && (
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div className="flex items-center space-x-2">
+                                  <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                                  <span className="text-sm font-medium text-green-900">
+                                    {uploadedFile.name}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setUploadedFile(null);
+                                    setUploadResults([]);
+                                    setUploadErrors([]);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+
+                            {uploadedFile && (
+                              <Button 
+                                onClick={processExcelFile} 
+                                disabled={isProcessing}
+                                className="w-full"
+                              >
+                                {isProcessing ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    İşleniyor...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Dosyayı İşle
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Progress */}
+                      {isProcessing && (
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span>İşleniyor...</span>
+                                <span>{Math.round(uploadProgress)}%</span>
+                              </div>
+                              <Progress value={uploadProgress} className="w-full" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Results */}
+                      {(uploadResults.length > 0 || uploadErrors.length > 0) && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">3. Sonuçlar</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {uploadResults.length > 0 && (
+                                <div className="p-4 bg-green-50 rounded-lg">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                    <span className="font-medium text-green-900">
+                                      {uploadResults.length} sporcu başarıyla işlendi
+                                    </span>
+                                  </div>
+                                  <div className="max-h-32 overflow-y-auto">
+                                    {uploadResults.slice(0, 5).map((result, index) => (
+                                      <div key={index} className="text-sm text-green-800">
+                                        • {result.studentName} {result.studentSurname}
+                                      </div>
+                                    ))}
+                                    {uploadResults.length > 5 && (
+                                      <div className="text-sm text-green-700 mt-1">
+                                        ... ve {uploadResults.length - 5} sporcu daha
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {uploadErrors.length > 0 && (
+                                <div className="p-4 bg-red-50 rounded-lg">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                                    <span className="font-medium text-red-900">
+                                      {uploadErrors.length} hata bulundu
+                                    </span>
+                                  </div>
+                                  <div className="max-h-32 overflow-y-auto space-y-1">
+                                    {uploadErrors.map((error, index) => (
+                                      <div key={index} className="text-sm text-red-800">
+                                        • {error}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {uploadResults.length > 0 && (
+                                <div className="flex justify-end space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      setUploadedFile(null);
+                                      setUploadResults([]);
+                                      setUploadErrors([]);
+                                      setUploadProgress(0);
+                                    }}
+                                  >
+                                    Temizle
+                                  </Button>
+                                  <Button onClick={confirmBulkUpload}>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    {uploadResults.length} Sporcuyu Sisteme Ekle
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end space-x-2 mt-6">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setIsBulkUploadDialogOpen(false);
+                          setUploadedFile(null);
+                          setUploadResults([]);
+                          setUploadErrors([]);
+                          setUploadProgress(0);
+                        }}
+                      >
+                        Kapat
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Yeni Sporcu
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Yeni Sporcu Kaydı</DialogTitle>
+                      <DialogDescription>
+                        Veli kayıt formu + sporcu bilgileri aşamasından kayıt yapmamış sporcu eklemek için tüm bilgileri girin
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <NewAthleteForm onClose={() => setIsAddDialogOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              </div>
             )}
           </motion.div>
 
