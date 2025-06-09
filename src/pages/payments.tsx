@@ -345,7 +345,19 @@ export default function Payments() {
             postalCode: '34710',
             selectedSports: ['Basketbol'],
             studentBirthDate: '2010-05-15',
-            parentRelation: 'baba'
+            parentRelation: 'baba',
+            studentGender: 'erkek',
+            studentSchool: 'Atatürk İlkokulu',
+            studentClass: '5. Sınıf',
+            studentHeight: '140',
+            studentWeight: '35',
+            bloodType: 'A+',
+            dominantHand: 'sag',
+            dominantFoot: 'sag',
+            parentOccupation: 'Mühendis',
+            emergencyContactName: 'Mehmet Yılmaz',
+            emergencyContactPhone: '05551234567',
+            emergencyContactRelation: 'baba'
           },
           { 
             id: 2, 
@@ -363,7 +375,19 @@ export default function Payments() {
             postalCode: '06420',
             selectedSports: ['Yüzme'],
             studentBirthDate: '2011-08-22',
-            parentRelation: 'anne'
+            parentRelation: 'anne',
+            studentGender: 'kız',
+            studentSchool: 'Cumhuriyet Ortaokulu',
+            studentClass: '6. Sınıf',
+            studentHeight: '135',
+            studentWeight: '32',
+            bloodType: 'B+',
+            dominantHand: 'sag',
+            dominantFoot: 'sag',
+            parentOccupation: 'Öğretmen',
+            emergencyContactName: 'Fatma Demir',
+            emergencyContactPhone: '05559876543',
+            emergencyContactRelation: 'anne'
           },
           { 
             id: 3, 
@@ -381,43 +405,19 @@ export default function Payments() {
             postalCode: '35220',
             selectedSports: ['Futbol'],
             studentBirthDate: '2009-12-10',
-            parentRelation: 'baba'
-          },
-          { 
-            id: 4, 
-            studentName: 'Elif', 
-            studentSurname: 'Kaya',
-            studentTcNo: '45678901234',
-            parentName: 'Zeynep', 
-            parentSurname: 'Kaya',
-            parentTcNo: '65432109876',
-            parentPhone: '05554444444',
-            parentEmail: 'zeynep.kaya@email.com',
-            address: 'Güneş Mahallesi, Çiçek Sokak No:12/4',
-            city: 'Antalya',
-            district: 'Muratpaşa',
-            postalCode: '07100',
-            selectedSports: ['Voleybol'],
-            studentBirthDate: '2012-03-18',
-            parentRelation: 'anne'
-          },
-          { 
-            id: 5, 
-            studentName: 'Murat', 
-            studentSurname: 'Şen',
-            studentTcNo: '56789012345',
-            parentName: 'Hasan', 
-            parentSurname: 'Şen',
-            parentTcNo: '54321098765',
-            parentPhone: '05553333333',
-            parentEmail: 'hasan.sen@email.com',
-            address: 'Kültür Mahallesi, Eğitim Caddesi No:30/6',
-            city: 'Bursa',
-            district: 'Nilüfer',
-            postalCode: '16110',
-            selectedSports: ['Hentbol'],
-            studentBirthDate: '2010-11-05',
-            parentRelation: 'baba'
+            parentRelation: 'baba',
+            studentGender: 'erkek',
+            studentSchool: 'Gazi Ortaokulu',
+            studentClass: '7. Sınıf',
+            studentHeight: '150',
+            studentWeight: '42',
+            bloodType: '0+',
+            dominantHand: 'sol',
+            dominantFoot: 'sag',
+            parentOccupation: 'Doktor',
+            emergencyContactName: 'Ali Öztürk',
+            emergencyContactPhone: '05555555555',
+            emergencyContactRelation: 'baba'
           }
         ];
       }
@@ -426,47 +426,45 @@ export default function Payments() {
       const currentMonth = currentDate.getMonth() + 1;
       const currentYear = currentDate.getFullYear();
       
+      // Create simplified invoice data based on registration form structure
       const invoiceData = activeStudents.map((student: any, index: number) => {
         const sports = student.selectedSports || student.sportsBranches || ['Genel'];
         const amount = sports.length * 350; // 350 TL per sport
         const invoiceNumber = `${currentYear}${String(currentMonth).padStart(2, '0')}${String(index + 1).padStart(4, '0')}`;
-        const dueDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
         
         return {
-          'BELGE_TUR': 'FATURA',
-          'BELGE_NO': invoiceNumber,
-          'BELGE_TARIH': currentDate.toLocaleDateString('tr-TR'),
-          'VADE_TARIH': dueDate.toLocaleDateString('tr-TR'),
-          'ALICI_VKN_TCKN': student.parentTcNo || '11111111111',
-          'ALICI_UNVAN': `${student.parentName || ''} ${student.parentSurname || ''}`.trim(),
-          'ALICI_ADRES': student.address || 'Adres bilgisi eksik',
-          'ALICI_SEHIR': student.city || 'İstanbul',
-          'ALICI_ILCE': student.district || 'Merkez',
-          'ALICI_POSTA_KODU': student.postalCode || '34000',
-          'ALICI_ULKE': 'TÜRKİYE',
-          'ALICI_TEL': student.parentPhone || student.phone || '',
-          'ALICI_EMAIL': student.parentEmail || '',
-          'KALEM_HIZMET_ADI': `${sports.join(', ')} Spor Eğitimi Aidatı`,
-          'KALEM_MIKTAR': '1',
-          'KALEM_BIRIM': 'ADET',
-          'KALEM_BIRIM_FIYAT': amount.toString(),
-          'KALEM_KDV_ORAN': '18',
-          'KALEM_KDV_TUTAR': (amount * 0.18).toFixed(2),
-          'KALEM_TOPLAM': (amount * 1.18).toFixed(2),
-          'TOPLAM_TUTAR': amount.toString(),
-          'TOPLAM_KDV': (amount * 0.18).toFixed(2),
-          'GENEL_TOPLAM': (amount * 1.18).toFixed(2),
-          'PARA_BIRIMI': 'TRY',
-          'SPORCU_ADI': `${student.studentName || ''} ${student.studentSurname || ''}`.trim(),
-          'SPORCU_TC': student.studentTcNo || '',
-          'SPORCU_DOGUM_TARIH': student.studentBirthDate || '',
-          'SPOR_DALI': sports.join(', '),
-          'AIDAT_DONEMI': `${currentYear}-${String(currentMonth).padStart(2, '0')}`,
-          'ODEME_DURUMU': 'BEKLIYOR',
-          'ACIKLAMA': `${currentYear} yılı ${String(currentMonth).padStart(2, '0')} ayı spor eğitimi aidatı`,
-          'VELI_YAKINLIK': student.parentRelation || 'veli',
-          'KAYIT_TARIH': currentDate.toLocaleDateString('tr-TR'),
-          'DURUM': 'AKTİF'
+          'Sıra No': index + 1,
+          'Fatura No': invoiceNumber,
+          'Sporcu Adı': student.studentName || '',
+          'Sporcu Soyadı': student.studentSurname || '',
+          'Sporcu TC': student.studentTcNo || '',
+          'Doğum Tarihi': student.studentBirthDate || '',
+          'Cinsiyet': student.studentGender || '',
+          'Okul': student.studentSchool || '',
+          'Sınıf': student.studentClass || '',
+          'Boy': student.studentHeight || '',
+          'Kilo': student.studentWeight || '',
+          'Kan Grubu': student.bloodType || '',
+          'Dominant El': student.dominantHand || '',
+          'Dominant Ayak': student.dominantFoot || '',
+          'Veli Adı': student.parentName || '',
+          'Veli Soyadı': student.parentSurname || '',
+          'Veli TC': student.parentTcNo || '',
+          'Veli Telefon': student.parentPhone || '',
+          'Veli Email': student.parentEmail || '',
+          'Yakınlık': student.parentRelation || '',
+          'Veli Meslek': student.parentOccupation || '',
+          'Adres': student.address || '',
+          'İl': student.city || '',
+          'İlçe': student.district || '',
+          'Posta Kodu': student.postalCode || '',
+          'Spor Dalları': sports.join(', '),
+          'Acil Durum Kişi': student.emergencyContactName || '',
+          'Acil Durum Tel': student.emergencyContactPhone || '',
+          'Acil Durum Yakınlık': student.emergencyContactRelation || '',
+          'Aylık Ücret': amount,
+          'Kayıt Tarihi': currentDate.toLocaleDateString('tr-TR'),
+          'Durum': 'Aktif'
         };
       });
 
@@ -475,27 +473,25 @@ export default function Payments() {
         return;
       }
 
-      // CSV formatını doğru şekilde oluştur - her başlık ayrı sütünda olacak
+      // Create CSV with semicolon separator for better Excel compatibility in Turkish locale
       const headers = Object.keys(invoiceData[0]);
-      
-      // Tüm değerleri tırnak içine alarak CSV formatını oluştur
       const csvRows = [];
       
-      // Header satırını oluştur (her başlığı tırnak içinde)
-      csvRows.push(headers.map(header => `"${header}"`).join(','));
+      // Add header row
+      csvRows.push(headers.join(';'));
       
-      // Data satırlarını oluştur (her değeri tırnak içinde)
+      // Add data rows
       invoiceData.forEach(row => {
         const rowValues = headers.map(header => {
           const value = row[header as keyof typeof row];
-          // Tüm değerleri string'e çevir ve tırnak içine al
-          return `"${String(value || '')}"`;
+          const stringValue = String(value || '');
+          // Escape semicolons and quotes in data
+          return stringValue.replace(/;/g, ',').replace(/"/g, '""');
         });
-        csvRows.push(rowValues.join(','));
+        csvRows.push(rowValues.join(';'));
       });
       
-      // Tüm CSV içeriğini birleştir
-      const csvContent = csvRows.join('\n');
+      const csvContent = csvRows.join('\r\n');
 
       // Add UTF-8 BOM for proper Turkish character display in Excel
       const BOM = '\uFEFF';
@@ -504,7 +500,7 @@ export default function Payments() {
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
       
-      const fileName = `E_Fatura_${currentYear}_${String(currentMonth).padStart(2, '0')}.csv`;
+      const fileName = `Sporcu_Kayit_Listesi_${currentYear}_${String(currentMonth).padStart(2, '0')}.csv`;
       link.setAttribute('download', fileName);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
@@ -514,7 +510,7 @@ export default function Payments() {
       // Clean up the URL object
       URL.revokeObjectURL(url);
 
-      toast.success(`${invoiceData.length} e-fatura Excel formatında indirildi! (${fileName})`);
+      toast.success(`${invoiceData.length} sporcu kaydı Excel formatında indirildi! (${fileName})`);
       setIsInvoiceDialogOpen(false);
       
     } catch (error) {
