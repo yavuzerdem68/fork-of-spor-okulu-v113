@@ -691,8 +691,9 @@ export default function Payments() {
     // Add rows for each active athlete
     if (activeAthletes.length > 0) {
       activeAthletes.forEach((athlete: any) => {
+        const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
         templateData.push({
-          'Sporcu ID': athlete.id || athlete.studentId || `ID_${athlete.studentName}_${athlete.studentSurname}`,
+          'Sporcu Adı Soyadı': athleteName || `Sporcu_${athlete.id}`,
           'Açıklama': '',
           'Tutar': '',
           'KDV Oranı (%)': '10', // Default to 10%
@@ -704,7 +705,7 @@ export default function Payments() {
       // If no athletes found, create sample template
       for (let i = 1; i <= 5; i++) {
         templateData.push({
-          'Sporcu ID': `SPORCU_${i}`,
+          'Sporcu Adı Soyadı': `Örnek Sporcu ${i}`,
           'Açıklama': '',
           'Tutar': '',
           'KDV Oranı (%)': '10',
@@ -714,17 +715,24 @@ export default function Payments() {
       }
     }
 
-    // Create CSV
+    // Create CSV with Excel formulas for automatic calculation
     const headers = Object.keys(templateData[0]);
     const csvRows = [];
     
     // Add header row
     csvRows.push(headers.join(';'));
     
-    // Add data rows
-    templateData.forEach(row => {
+    // Add data rows with Excel formulas
+    templateData.forEach((row, index) => {
       const rowValues = headers.map(header => {
-        const value = row[header as keyof typeof row];
+        let value = row[header as keyof typeof row];
+        
+        // Add Excel formula for automatic total calculation
+        if (header === 'Toplam') {
+          // Excel formula for automatic calculation (row index + 2 because of header)
+          value = `=C${index + 2}*(1+D${index + 2}/100)`;
+        }
+        
         return `"${String(value || '')}"`;
       });
       csvRows.push(rowValues.join(';'));
@@ -745,7 +753,7 @@ export default function Payments() {
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
-    toast.success(`Şablon dosyası indirildi! (${activeAthletes.length || 5} sporcu için)`);
+    toast.success(`Şablon dosyası indirildi! (${activeAthletes.length || 5} sporcu için) - KDV oranı için 10 veya 20 yazın, toplam otomatik hesaplanacak.`);
   };
 
   return (
@@ -1140,18 +1148,22 @@ export default function Payments() {
                                     </div>
                                     <div className="flex items-start space-x-2">
                                       <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">3</span>
-                                      <p>Sporcu ID: "all" yazarsanız tüm sporcular için geçerli olur, belirli bir sporcu için ID numarasını yazın</p>
+                                      <p>Sporcu Adı Soyadı: Sporcunun tam adını yazın</p>
                                     </div>
                                     <div className="flex items-start space-x-2">
                                       <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">4</span>
-                                      <p>Birim Kod: "Ay" (aylık aidat için) veya "Adet" (forma, çanta vb. için)</p>
+                                      <p>KDV Oranı: 10 veya 20 yazın (çoktan seçmeli)</p>
                                     </div>
                                     <div className="flex items-start space-x-2">
                                       <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">5</span>
-                                      <p>Tür: "debit" (borç/ücret) veya "credit" (alacak/ödeme)</p>
+                                      <p>Toplam: Otomatik hesaplanacak (Excel formülü ile)</p>
                                     </div>
                                     <div className="flex items-start space-x-2">
                                       <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">6</span>
+                                      <p>Birim Kod: "Ay" (aylık aidat için) veya "Adet" (forma, çanta vb. için)</p>
+                                    </div>
+                                    <div className="flex items-start space-x-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">7</span>
                                       <p>Dosyayı kaydedin ve aşağıdan yükleyin</p>
                                     </div>
                                   </div>
@@ -1217,7 +1229,7 @@ export default function Payments() {
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
-                                        <TableHead>Sporcu ID</TableHead>
+                                        <TableHead>Sporcu Adı Soyadı</TableHead>
                                         <TableHead>Açıklama</TableHead>
                                         <TableHead>Tutar</TableHead>
                                         <TableHead>KDV Oranı (%)</TableHead>
@@ -1227,27 +1239,27 @@ export default function Payments() {
                                     </TableHeader>
                                     <TableBody>
                                       <TableRow>
-                                        <TableCell>SPORCU_1</TableCell>
+                                        <TableCell>Ahmet Yılmaz</TableCell>
                                         <TableCell>Haziran 2024 Aylık Aidat</TableCell>
                                         <TableCell>350</TableCell>
-                                        <TableCell>10</TableCell>
-                                        <TableCell>385</TableCell>
+                                        <TableCell>10 veya 20</TableCell>
+                                        <TableCell>385 (otomatik)</TableCell>
                                         <TableCell>Ay</TableCell>
                                       </TableRow>
                                       <TableRow>
-                                        <TableCell>SPORCU_2</TableCell>
+                                        <TableCell>Elif Demir</TableCell>
                                         <TableCell>Forma Ücreti</TableCell>
                                         <TableCell>150</TableCell>
-                                        <TableCell>20</TableCell>
-                                        <TableCell>180</TableCell>
+                                        <TableCell>10 veya 20</TableCell>
+                                        <TableCell>180 (otomatik)</TableCell>
                                         <TableCell>Adet</TableCell>
                                       </TableRow>
                                       <TableRow>
-                                        <TableCell>SPORCU_3</TableCell>
+                                        <TableCell>Can Özkan</TableCell>
                                         <TableCell>Spor Çantası</TableCell>
                                         <TableCell>200</TableCell>
-                                        <TableCell>20</TableCell>
-                                        <TableCell>240</TableCell>
+                                        <TableCell>10 veya 20</TableCell>
+                                        <TableCell>240 (otomatik)</TableCell>
                                         <TableCell>Adet</TableCell>
                                       </TableRow>
                                     </TableBody>
