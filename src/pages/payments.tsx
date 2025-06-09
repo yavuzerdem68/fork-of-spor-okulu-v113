@@ -414,7 +414,6 @@ export default function Payments() {
         if (!row || row.length === 0 || !row.some(cell => cell)) continue;
         
         // Try to extract data from common bank statement formats
-        // This is a flexible approach that works with different bank formats
         let date = '';
         let amount = 0;
         let description = '';
@@ -445,12 +444,47 @@ export default function Payments() {
           if (typeof cell === 'number' && cell > 0 && amount === 0) {
             amount = cell;
           } else if (typeof cell === 'string') {
+            // Skip if contains minus sign (negative amount)
+            if (cell.includes('-')) continue;
+            
             // Try to parse amount from string (handle Turkish number format)
-            // Remove minus signs and only consider positive amounts
-            const cleanAmount = cell.replace(/[-]/g, '').replace(/\./g, '').replace(',', '.');
-            const amountMatch = cleanAmount.match(/(\d+\.?\d*)/);
-            if (amountMatch && parseFloat(amountMatch[1]) > 0 && amount === 0) {
-              amount = parseFloat(amountMatch[1]);
+            let cleanAmount = cell.toString().trim();
+            
+            // Remove currency symbols and spaces
+            cleanAmount = cleanAmount.replace(/[₺\s]/g, '');
+            
+            // Check if it looks like an amount (contains digits and possibly comma/dot)
+            if (/^\d+[.,]?\d*$/.test(cleanAmount) || /^\d{1,3}(\.\d{3})*,\d{2}$/.test(cleanAmount)) {
+              let parsedAmount = 0;
+              
+              // Handle Turkish format: 1.234,56
+              if (cleanAmount.includes('.') && cleanAmount.includes(',')) {
+                parsedAmount = parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.'));
+              }
+              // Handle format with comma as decimal: 1234,56
+              else if (cleanAmount.includes(',') && !cleanAmount.includes('.')) {
+                parsedAmount = parseFloat(cleanAmount.replace(',', '.'));
+              }
+              // Handle format with dot as decimal: 1234.56
+              else if (cleanAmount.includes('.') && !cleanAmount.includes(',')) {
+                // Check if it's thousands separator or decimal
+                const parts = cleanAmount.split('.');
+                if (parts.length === 2 && parts[1].length <= 2) {
+                  // Likely decimal: 1234.56
+                  parsedAmount = parseFloat(cleanAmount);
+                } else {
+                  // Likely thousands separator: 1.234
+                  parsedAmount = parseFloat(cleanAmount.replace(/\./g, ''));
+                }
+              }
+              // Handle integer: 1234
+              else {
+                parsedAmount = parseFloat(cleanAmount);
+              }
+              
+              if (parsedAmount > 0 && amount === 0) {
+                amount = parsedAmount;
+              }
             }
           }
         }
@@ -460,7 +494,7 @@ export default function Payments() {
           excelData.push({
             date: date,
             amount: amount,
-            description: description, // Keep original case for better Turkish character handling
+            description: description,
             reference: reference || `REF${i}`,
             rowIndex: i + 1
           });
@@ -554,12 +588,6 @@ export default function Payments() {
           });
         } else {
           // For unmatched payments, find closest suggestions
-          const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
-          let athletes = [];
-          if (storedAthletes) {
-            athletes = JSON.parse(storedAthletes);
-          }
-          
           const suggestions = findClosestMatches(excelRow.description, athletes, 3);
           
           matches.push({
@@ -587,27 +615,30 @@ export default function Payments() {
     }
   };
 
-  const handleManualMatch = (matchIndex: number, paymentId: string) => {
-    // First try to find from payments, then from athletes for suggestions
-    let selectedPayment = payments.find(p => p.id.toString() === paymentId);
+  const handleManualMatch = (matchIndex: number, athleteId: string) => {
+    // Get all available athletes for matching
+    const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+    let athletes = [];
+    if (storedAthletes) {
+      athletes = JSON.parse(storedAthletes);
+    }
+
+    // First try to find from payments
+    let selectedPayment = payments.find(p => p.id.toString() === athleteId);
     
-    // If not found in payments, it might be from athlete suggestions
+    // If not found in payments, find from athletes
     if (!selectedPayment) {
-      const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
-      if (storedAthletes) {
-        const athletes = JSON.parse(storedAthletes);
-        const athlete = athletes.find((a: any) => a.id.toString() === paymentId);
-        if (athlete) {
-          // Create a mock payment object for the athlete
-          selectedPayment = {
-            id: athlete.id,
-            athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
-            parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-            amount: matchedPayments[matchIndex].excelData.amount, // Use the Excel amount
-            status: 'Bekliyor',
-            sport: athlete.selectedSports ? athlete.selectedSports[0] : 'Genel'
-          };
-        }
+      const athlete = athletes.find((a: any) => a.id.toString() === athleteId);
+      if (athlete) {
+        // Create a payment object for the athlete
+        selectedPayment = {
+          id: athlete.id,
+          athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+          parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+          amount: matchedPayments[matchIndex].excelData.amount, // Use the Excel amount
+          status: 'Bekliyor',
+          sport: athlete.selectedSports ? athlete.selectedSports[0] : 'Genel'
+        };
       }
     }
     
@@ -642,10 +673,14 @@ export default function Payments() {
     const updatedPayments = payments.map(payment => {
       const match = confirmedMatches.find(m => m.payment?.id === payment.id);
       if (match) {
+        // Parse Turkish date correctly for payment date
+        const parsedDate = parseTurkishDate(match.excelData.date);
+        const paymentDate = parsedDate ? parsedDate.toISOString().split('T')[0] : match.excelData.date;
+        
         return {
           ...payment,
           status: "Ödendi",
-          paymentDate: match.excelData.date,
+          paymentDate: paymentDate,
           method: "Havale/EFT",
           reference: match.excelData.reference
         };
@@ -661,11 +696,26 @@ export default function Payments() {
     }
 
     confirmedMatches.forEach(match => {
-      // Sporcu ID'sini bul
-      const athlete = athletes.find(a => 
-        a.studentName === match.payment.athleteName.split(' ')[0] && 
-        a.studentSurname === match.payment.athleteName.split(' ')[1]
-      );
+      // Sporcu ID'sini bul - daha güvenli eşleştirme
+      let athlete = null;
+      
+      // First try to find by exact ID match
+      if (match.payment.id) {
+        athlete = athletes.find(a => a.id === match.payment.id);
+      }
+      
+      // If not found, try name matching
+      if (!athlete) {
+        const nameParts = match.payment.athleteName.split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ');
+        
+        athlete = athletes.find(a => {
+          const athleteFirstName = a.studentName || a.firstName || '';
+          const athleteLastName = a.studentSurname || a.lastName || '';
+          return athleteFirstName === firstName && athleteLastName === lastName;
+        });
+      }
       
       if (athlete) {
         // Mevcut cari hesap kayıtlarını al
@@ -707,6 +757,30 @@ export default function Payments() {
     setManualMatches({});
     setUploadedFile(null);
     setUploadProgress(0);
+  };
+
+  // Get available athletes for manual matching (including all athletes, not just payments)
+  const getAvailableAthletesForMatching = () => {
+    const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+    let athletes = [];
+    if (storedAthletes) {
+      athletes = JSON.parse(storedAthletes);
+    }
+    
+    const alreadyMatchedAthleteIds = matchedPayments
+      .filter(m => m.status === 'matched' && m.payment)
+      .map(m => m.payment.id);
+    
+    // Return all athletes that haven't been matched yet
+    return athletes.filter(athlete => 
+      !alreadyMatchedAthleteIds.includes(athlete.id)
+    ).map(athlete => ({
+      id: athlete.id,
+      athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+      parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+      sport: athlete.selectedSports ? athlete.selectedSports[0] : 'Genel',
+      amount: 0 // Will be set from Excel data
+    }));
   };
 
   // Get available payments for manual matching (unpaid payments only)
@@ -1921,8 +1995,14 @@ export default function Payments() {
                                         </Label>
                                         <div className="grid grid-cols-1 gap-2">
                                           {match.suggestions.map((suggestion: SuggestedMatch) => {
-                                            const payment = getAvailablePaymentsForMatching().find(p => p.id.toString() === suggestion.athleteId);
-                                            if (!payment) return null;
+                                            // Get athlete from suggestions
+                                            const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+                                            let athletes = [];
+                                            if (storedAthletes) {
+                                              athletes = JSON.parse(storedAthletes);
+                                            }
+                                            const athlete = athletes.find((a: any) => a.id.toString() === suggestion.athleteId);
+                                            if (!athlete) return null;
                                             
                                             return (
                                               <div 
@@ -1937,13 +2017,13 @@ export default function Payments() {
                                               >
                                                 <div className="flex-1">
                                                   <div className="flex items-center space-x-2">
-                                                    <span className="font-medium">{payment.athleteName}</span>
+                                                    <span className="font-medium">{suggestion.athleteName}</span>
                                                     <Badge variant="outline" className="text-xs">
                                                       %{suggestion.similarity} benzerlik
                                                     </Badge>
                                                   </div>
                                                   <p className="text-xs text-muted-foreground">
-                                                    {payment.parentName} - ₺{payment.amount} - {payment.sport}
+                                                    {athlete.parentName || ''} {athlete.parentSurname || ''} - {athlete.selectedSports ? athlete.selectedSports[0] : 'Genel'}
                                                   </p>
                                                 </div>
                                                 <Button 
@@ -1983,6 +2063,16 @@ export default function Payments() {
                                             <SelectValue placeholder="Diğer sporculardan seçin..." />
                                           </SelectTrigger>
                                           <SelectContent>
+                                            {getAvailableAthletesForMatching().map(athlete => (
+                                              <SelectItem key={athlete.id} value={athlete.id.toString()}>
+                                                <div className="flex flex-col">
+                                                  <span className="font-medium">{athlete.athleteName}</span>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {athlete.parentName} - {athlete.sport}
+                                                  </span>
+                                                </div>
+                                              </SelectItem>
+                                            ))}
                                             {getAvailablePaymentsForMatching().map(payment => (
                                               <SelectItem key={payment.id} value={payment.id.toString()}>
                                                 <div className="flex flex-col">
