@@ -1,6 +1,8 @@
 import type { AppProps } from 'next/app'
 import '../styles/globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
+import NetworkStatus from '@/components/NetworkStatus'
 import { useEffect, useState } from 'react';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -28,6 +30,8 @@ export default function App({ Component, pageProps }: AppProps) {
     <div className="min-h-screen">
       <Component {...pageProps} />
       <Toaster />
+      <PWAInstallPrompt />
+      <NetworkStatus />
     </div>
   )
 }

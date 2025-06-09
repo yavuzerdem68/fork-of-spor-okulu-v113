@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="64" fill="#3b82f6"/>
+  <circle cx="256" cy="256" r="180" fill="white" opacity="0.1"/>
+  <circle cx="256" cy="256" r="120" fill="white" opacity="0.2"/>
+  
+  <!-- Basketball -->
+  <circle cx="256" cy="256" r="80" fill="#ff6b35" stroke="white" stroke-width="4"/>
+  <path d="M176 256 C176 200, 200 176, 256 176 C312 176, 336 200, 336 256 C336 312, 312 336, 256 336 C200 336, 176 312, 176 256" stroke="white" stroke-width="3" fill="none"/>
+  <path d="M256 176 L256 336" stroke="white" stroke-width="3"/>
+  <path d="M176 256 L336 256" stroke="white" stroke-width="3"/>
+  
+  <!-- Text -->
+  <text x="256" y="420" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="36" font-weight="bold">SPOR CRM</text>
+</svg>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PWA Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas" style="border: 1px solid #ccc;"></canvas>
+    <br><br>
+    <button onclick="generateIcon(72)">72x72</button>
+    <button onclick="generateIcon(96)">96x96</button>
+    <button onclick="generateIcon(128)">128x128</button>
+    <button onclick="generateIcon(144)">144x144</button>
+    <button onclick="generateIcon(152)">152x152</button>
+    <button onclick="generateIcon(192)">192x192</button>
+    <button onclick="generateIcon(384)">384x384</button>
+    <button onclick="generateIcon(512)">512x512</button>
+    
+    <script>
+        function generateIcon(size) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Background
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Center circle (basketball)
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = size * 0.15;
+            
+            ctx.fillStyle = '#ff6b35';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Basketball lines
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.006;
+            
+            // Vertical line
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - radius);
+            ctx.lineTo(centerX, centerY + radius);
+            ctx.stroke();
+            
+            // Horizontal line
+            ctx.beginPath();
+            ctx.moveTo(centerX - radius, centerY);
+            ctx.lineTo(centerX + radius, centerY);
+            ctx.stroke();
+            
+            // Curved lines
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.7, 0, Math.PI);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.7, Math.PI, 2 * Math.PI);
+            ctx.stroke();
+            
+            // Text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.08}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('SPOR', centerX, centerY + radius + size * 0.15);
+            ctx.fillText('CRM', centerX, centerY + radius + size * 0.25);
+            
+            // Download
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>
