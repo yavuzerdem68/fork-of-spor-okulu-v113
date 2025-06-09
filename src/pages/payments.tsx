@@ -243,7 +243,7 @@ export default function Payments() {
       ];
 
       // Ödeme eşleştirme algoritması
-      const matches = [];
+      const matches: any[] = [];
       for (const excelRow of mockExcelData) {
         const matchedPayment = payments.find(payment => {
           // İsim eşleştirmesi (açıklamada veli adı geçiyor mu?)
