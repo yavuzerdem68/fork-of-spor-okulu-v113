@@ -29,6 +29,7 @@ import {
 import { useRouter } from "next/router";
 import Link from "next/link";
 import Header from "@/components/Header";
+import NewAthleteForm from "@/components/NewAthleteForm";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -164,68 +165,15 @@ export default function Athletes() {
                     Yeni Sporcu
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Yeni Sporcu Kaydı</DialogTitle>
                     <DialogDescription>
-                      Yeni sporcu bilgilerini girin
+                      Veli kayıt formu + sporcu bilgileri aşamasından kayıt yapmamış sporcu eklemek için tüm bilgileri girin
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="grid grid-cols-2 gap-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Sporcu Adı Soyadı</Label>
-                      <Input id="name" placeholder="Ahmet Yılmaz" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="age">Yaş</Label>
-                      <Input id="age" type="number" placeholder="14" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="sport">Spor Branşı</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Branş seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sports.map(sport => (
-                            <SelectItem key={sport} value={sport}>{sport}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="parentName">Veli Adı Soyadı</Label>
-                      <Input id="parentName" placeholder="Mehmet Yılmaz" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="parentPhone">Veli Telefon</Label>
-                      <Input id="parentPhone" placeholder="0532 123 4567" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="parentEmail">Veli E-posta</Label>
-                      <Input id="parentEmail" type="email" placeholder="mehmet@email.com" />
-                    </div>
-                    
-                    <div className="col-span-2 space-y-2">
-                      <Label htmlFor="address">Adres</Label>
-                      <Textarea id="address" placeholder="Tam adres bilgisi" />
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                      İptal
-                    </Button>
-                    <Button onClick={() => setIsAddDialogOpen(false)}>
-                      Kaydet
-                    </Button>
-                  </div>
+                  <NewAthleteForm onClose={() => setIsAddDialogOpen(false)} />
                 </DialogContent>
               </Dialog>
             )}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -11,28 +11,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import { 
   CreditCard, 
   Plus,
   Search,
-  Filter,
   Download,
   Edit,
   Trash2,
-  Phone,
-  Mail,
-  Calendar,
-  Trophy,
-  Home,
-  Users,
-  FileText,
-  MessageCircle,
-  Camera,
-  UserCheck,
-  BarChart3,
-  Settings,
-  LogOut,
-  Bell,
   Eye,
   DollarSign,
   Clock,
@@ -40,8 +27,21 @@ import {
   AlertCircle,
   TrendingUp,
   Receipt,
-  Send
+  Send,
+  Upload,
+  FileSpreadsheet,
+  ArrowLeft,
+  Users,
+  FileText,
+  BarChart3,
+  X,
+  Check,
+  AlertTriangle
 } from "lucide-react";
+import { useRouter } from "next/router";
+import Link from "next/link";
+import Header from "@/components/Header";
+import { toast } from "sonner";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -49,94 +49,116 @@ const fadeInUp = {
   transition: { duration: 0.4 }
 };
 
-// Mock data
-const payments = [
-  {
-    id: 1,
-    athleteName: "Ahmet Yılmaz",
-    parentName: "Mehmet Yılmaz",
-    amount: 350,
-    dueDate: "2024-06-15",
-    paymentDate: "2024-06-10",
-    status: "Ödendi",
-    method: "Kredi Kartı",
-    sport: "Basketbol",
-    invoiceNumber: "INV-2024-001",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face"
-  },
-  {
-    id: 2,
-    athleteName: "Elif Demir",
-    parentName: "Ayşe Demir",
-    amount: 300,
-    dueDate: "2024-06-15",
-    paymentDate: null,
-    status: "Gecikmiş",
-    method: null,
-    sport: "Yüzme",
-    invoiceNumber: "INV-2024-002",
-    avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face"
-  },
-  {
-    id: 3,
-    athleteName: "Can Özkan",
-    parentName: "Ali Özkan",
-    amount: 400,
-    dueDate: "2024-06-20",
-    paymentDate: null,
-    status: "Bekliyor",
-    method: null,
-    sport: "Futbol",
-    invoiceNumber: "INV-2024-003",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face"
-  },
-  {
-    id: 4,
-    athleteName: "Zeynep Kaya",
-    parentName: "Fatma Kaya",
-    amount: 320,
-    dueDate: "2024-06-18",
-    paymentDate: "2024-06-16",
-    status: "Ödendi",
-    method: "Nakit",
-    sport: "Hentbol",
-    invoiceNumber: "INV-2024-004",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face"
-  },
-  {
-    id: 5,
-    athleteName: "Emre Şahin",
-    parentName: "Hasan Şahin",
-    amount: 380,
-    dueDate: "2024-06-25",
-    paymentDate: null,
-    status: "Bekliyor",
-    method: null,
-    sport: "Voleybol",
-    invoiceNumber: "INV-2024-005",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face"
-  }
-];
-
-const sidebarItems = [
-  { icon: Home, label: "Dashboard", href: "/dashboard" },
-  { icon: Users, label: "Sporcular", href: "/athletes" },
-  { icon: CreditCard, label: "Ödemeler", href: "/payments", active: true },
-  { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
-  { icon: UserCheck, label: "Yoklama", href: "/attendance" },
-  { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
-  { icon: Camera, label: "Medya", href: "/media" },
-  { icon: FileText, label: "Raporlar", href: "/reports" },
-  { icon: Settings, label: "Ayarlar", href: "/settings" }
-];
-
 const paymentMethods = ["Kredi Kartı", "Nakit", "Havale/EFT", "Çek"];
 
 export default function Payments() {
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [matchedPayments, setMatchedPayments] = useState<any[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    const user = localStorage.getItem("currentUser");
+    
+    if (!role || role !== "admin") {
+      router.push("/login");
+      return;
+    }
+
+    setUserRole(role);
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    }
+
+    loadPayments();
+  }, [router]);
+
+  const loadPayments = () => {
+    // Mock data - gerçek uygulamada API'den gelecek
+    const mockPayments = [
+      {
+        id: 1,
+        athleteName: "Ahmet Yılmaz",
+        parentName: "Mehmet Yılmaz",
+        amount: 350,
+        dueDate: "2024-06-15",
+        paymentDate: "2024-06-10",
+        status: "Ödendi",
+        method: "Kredi Kartı",
+        sport: "Basketbol",
+        invoiceNumber: "INV-2024-001",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face"
+      },
+      {
+        id: 2,
+        athleteName: "Elif Demir",
+        parentName: "Ayşe Demir",
+        amount: 300,
+        dueDate: "2024-06-15",
+        paymentDate: null,
+        status: "Gecikmiş",
+        method: null,
+        sport: "Yüzme",
+        invoiceNumber: "INV-2024-002",
+        avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face"
+      },
+      {
+        id: 3,
+        athleteName: "Can Özkan",
+        parentName: "Ali Özkan",
+        amount: 400,
+        dueDate: "2024-06-20",
+        paymentDate: null,
+        status: "Bekliyor",
+        method: null,
+        sport: "Futbol",
+        invoiceNumber: "INV-2024-003",
+        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face"
+      },
+      {
+        id: 4,
+        athleteName: "Zeynep Kaya",
+        parentName: "Fatma Kaya",
+        amount: 320,
+        dueDate: "2024-06-18",
+        paymentDate: "2024-06-16",
+        status: "Ödendi",
+        method: "Nakit",
+        sport: "Hentbol",
+        invoiceNumber: "INV-2024-004",
+        avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face"
+      },
+      {
+        id: 5,
+        athleteName: "Emre Şahin",
+        parentName: "Hasan Şahin",
+        amount: 380,
+        dueDate: "2024-06-25",
+        paymentDate: null,
+        status: "Bekliyor",
+        method: null,
+        sport: "Voleybol",
+        invoiceNumber: "INV-2024-005",
+        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face"
+      }
+    ];
+
+    // localStorage'dan mevcut ödemeleri yükle
+    const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+    const allPayments = existingPayments.length > 0 ? existingPayments : mockPayments;
+    
+    setPayments(allPayments);
+  };
 
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = payment.athleteName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,284 +187,397 @@ export default function Payments() {
     }
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && 
+          file.type !== 'application/vnd.ms-excel') {
+        toast.error("Lütfen Excel dosyası (.xlsx veya .xls) seçin");
+        return;
+      }
+      setUploadedFile(file);
+    }
+  };
+
+  const processExcelFile = async () => {
+    if (!uploadedFile) return;
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+
+    try {
+      // Simüle edilmiş Excel işleme
+      const interval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      // 2 saniye bekle (gerçek Excel işleme simülasyonu)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Mock Excel verisi - gerçek uygulamada Excel dosyası parse edilecek
+      const mockExcelData = [
+        {
+          date: "2024-06-10",
+          amount: 350,
+          description: "MEHMET YILMAZ BASKETBOL AIDATI",
+          reference: "TRF123456789"
+        },
+        {
+          date: "2024-06-16", 
+          amount: 320,
+          description: "FATMA KAYA HENTBOL AIDATI",
+          reference: "TRF987654321"
+        },
+        {
+          date: "2024-06-12",
+          amount: 280,
+          description: "ALI OZKAN FUTBOL AIDATI", 
+          reference: "TRF456789123"
+        }
+      ];
+
+      // Ödeme eşleştirme algoritması
+      const matches = [];
+      for (const excelRow of mockExcelData) {
+        const matchedPayment = payments.find(payment => {
+          // İsim eşleştirmesi (açıklamada veli adı geçiyor mu?)
+          const parentNameMatch = excelRow.description.toLowerCase().includes(
+            payment.parentName.toLowerCase().replace(' ', '')
+          );
+          
+          // Tutar eşleştirmesi (±10 TL tolerans)
+          const amountMatch = Math.abs(excelRow.amount - payment.amount) <= 10;
+          
+          // Ödenmemiş olması gerekiyor
+          const unpaidMatch = payment.status !== "Ödendi";
+          
+          return parentNameMatch && amountMatch && unpaidMatch;
+        });
+
+        if (matchedPayment) {
+          matches.push({
+            excelData: excelRow,
+            payment: matchedPayment,
+            confidence: 95, // Eşleşme güven skoru
+            status: 'matched'
+          });
+        } else {
+          matches.push({
+            excelData: excelRow,
+            payment: null,
+            confidence: 0,
+            status: 'unmatched'
+          });
+        }
+      }
+
+      setMatchedPayments(matches);
+      toast.success(`Excel dosyası işlendi! ${matches.filter(m => m.status === 'matched').length} ödeme eşleştirildi.`);
+      
+    } catch (error) {
+      toast.error("Excel dosyası işlenirken hata oluştu");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const confirmMatches = () => {
+    const confirmedMatches = matchedPayments.filter(match => match.status === 'matched');
+    
+    // Ödemeleri güncelle
+    const updatedPayments = payments.map(payment => {
+      const match = confirmedMatches.find(m => m.payment?.id === payment.id);
+      if (match) {
+        return {
+          ...payment,
+          status: "Ödendi",
+          paymentDate: match.excelData.date,
+          method: "Havale/EFT",
+          reference: match.excelData.reference
+        };
+      }
+      return payment;
+    });
+
+    setPayments(updatedPayments);
+    localStorage.setItem('payments', JSON.stringify(updatedPayments));
+    
+    toast.success(`${confirmedMatches.length} ödeme başarıyla güncellendi!`);
+    setIsUploadDialogOpen(false);
+    setMatchedPayments([]);
+    setUploadedFile(null);
+    setUploadProgress(0);
+  };
+
+  const generateInvoices = () => {
+    // Aktif tüm sporcular için fatura oluştur
+    const students = JSON.parse(localStorage.getItem('students') || '[]');
+    const activeStudents = students.filter((student: any) => student.status === 'Aktif');
+    
+    const invoiceData = activeStudents.map((student: any, index: number) => ({
+      'Fatura No': `INV-${new Date().getFullYear()}-${String(index + 1).padStart(3, '0')}`,
+      'Sporcu Adı': `${student.studentName} ${student.studentSurname}`,
+      'Veli Adı': `${student.parentName} ${student.parentSurname}`,
+      'Spor Branşı': student.sportsBranches?.join(', ') || '',
+      'Tutar': 350, // Sabit tutar - gerçek uygulamada branşa göre değişebilir
+      'Vade Tarihi': new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
+      'Oluşturma Tarihi': new Date().toLocaleDateString('tr-TR'),
+      'Durum': 'Bekliyor'
+    }));
+
+    // CSV formatında indir (Excel benzeri)
+    const csvContent = [
+      Object.keys(invoiceData[0]).join(','),
+      ...invoiceData.map(row => Object.values(row).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `faturalar_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success(`${invoiceData.length} fatura Excel formatında indirildi!`);
+    setIsInvoiceDialogOpen(false);
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
   return (
     <>
       <Head>
         <title>Ödemeler - SportsCRM</title>
         <meta name="description" content="Ödeme yönetimi" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-background flex">
-        {/* Sidebar */}
-        <motion.aside 
-          className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-card border-r border-border transition-all duration-300 flex flex-col`}
-          initial={{ x: -100 }}
-          animate={{ x: 0 }}
-        >
-          {/* Logo */}
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center space-x-2">
-              <Trophy className="h-8 w-8 text-primary" />
-              {sidebarOpen && (
-                <span className="text-xl font-bold text-primary">SportsCRM</span>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <motion.li 
-                  key={item.label}
-                  variants={fadeInUp}
-                  initial="initial"
-                  animate="animate"
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <a
-                    href={item.href}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                      item.active 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {sidebarOpen && <span>{item.label}</span>}
-                  </a>
-                </motion.li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* User Profile */}
-          <div className="p-4 border-t border-border">
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face" />
-                <AvatarFallback>AY</AvatarFallback>
-              </Avatar>
-              {sidebarOpen && (
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Ahmet Yönetici</p>
-                  <p className="text-xs text-muted-foreground">Yönetici</p>
-                </div>
-              )}
-              <Button variant="ghost" size="sm">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </motion.aside>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        <Header />
+        
+        <div className="container mx-auto px-4 py-8">
           {/* Header */}
-          <header className="bg-card border-b border-border p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Ödemeler</h1>
-                <p className="text-muted-foreground">Aidat ve ödeme takibi</p>
+          <motion.div 
+            className="flex items-center justify-between mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div>
+              <div className="flex items-center space-x-2 mb-2">
+                <Link href="/dashboard" className="text-muted-foreground hover:text-primary">
+                  <ArrowLeft className="w-4 h-4" />
+                </Link>
+                <CreditCard className="w-6 h-6 text-primary" />
+                <h1 className="text-3xl font-bold">Ödemeler</h1>
               </div>
-              
-              <div className="flex items-center space-x-4">
-                <Button variant="outline" size="sm">
-                  <Bell className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
+              <p className="text-muted-foreground">Aidat ve ödeme takibi</p>
             </div>
-          </header>
+          </motion.div>
 
-          {/* Main Content */}
-          <main className="flex-1 p-6">
-            <motion.div 
-              className="space-y-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Toplam Tutar</p>
-                        <p className="text-2xl font-bold">₺{totalAmount.toLocaleString()}</p>
-                      </div>
-                      <DollarSign className="h-8 w-8 text-blue-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Tahsil Edilen</p>
-                        <p className="text-2xl font-bold text-green-600">₺{paidAmount.toLocaleString()}</p>
-                      </div>
-                      <CheckCircle className="h-8 w-8 text-green-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Bekleyen</p>
-                        <p className="text-2xl font-bold text-orange-600">₺{pendingAmount.toLocaleString()}</p>
-                      </div>
-                      <Clock className="h-8 w-8 text-orange-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Gecikmiş</p>
-                        <p className="text-2xl font-bold text-red-600">₺{overdueAmount.toLocaleString()}</p>
-                      </div>
-                      <AlertCircle className="h-8 w-8 text-red-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+          {/* Stats Cards */}
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+          >
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Toplam Tutar</p>
+                    <p className="text-2xl font-bold">₺{totalAmount.toLocaleString()}</p>
+                  </div>
+                  <DollarSign className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Tahsil Edilen</p>
+                    <p className="text-2xl font-bold text-green-600">₺{paidAmount.toLocaleString()}</p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Bekleyen</p>
+                    <p className="text-2xl font-bold text-orange-600">₺{pendingAmount.toLocaleString()}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-orange-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Gecikmiş</p>
+                    <p className="text-2xl font-bold text-red-600">₺{overdueAmount.toLocaleString()}</p>
+                  </div>
+                  <AlertCircle className="h-8 w-8 text-red-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-              {/* Tabs */}
-              <Tabs defaultValue="payments" className="space-y-6">
-                <TabsList>
-                  <TabsTrigger value="payments">Ödemeler</TabsTrigger>
-                  <TabsTrigger value="invoices">Faturalar</TabsTrigger>
-                  <TabsTrigger value="reports">Raporlar</TabsTrigger>
-                </TabsList>
+          {/* Tabs */}
+          <motion.div variants={fadeInUp} initial="initial" animate="animate">
+            <Tabs defaultValue="payments" className="space-y-6">
+              <TabsList>
+                <TabsTrigger value="payments">Ödemeler</TabsTrigger>
+                <TabsTrigger value="invoices">Faturalar</TabsTrigger>
+                <TabsTrigger value="reports">Raporlar</TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="payments" className="space-y-6">
-                  {/* Filters and Actions */}
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                        <div className="flex flex-col md:flex-row gap-4 flex-1">
-                          <div className="relative flex-1 max-w-sm">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                            <Input 
-                              placeholder="Sporcu, veli veya fatura ara..." 
-                              className="pl-10"
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                          </div>
-                          
-                          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                            <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Ödeme Durumu" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Tüm Durumlar</SelectItem>
-                              <SelectItem value="Ödendi">Ödendi</SelectItem>
-                              <SelectItem value="Bekliyor">Bekliyor</SelectItem>
-                              <SelectItem value="Gecikmiş">Gecikmiş</SelectItem>
-                            </SelectContent>
-                          </Select>
+              <TabsContent value="payments" className="space-y-6">
+                {/* Filters and Actions */}
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                      <div className="flex flex-col md:flex-row gap-4 flex-1">
+                        <div className="relative flex-1 max-w-sm">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                          <Input 
+                            placeholder="Sporcu, veli veya fatura ara..." 
+                            className="pl-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
                         </div>
                         
-                        <div className="flex gap-2">
-                          <Button variant="outline">
-                            <Download className="h-4 w-4 mr-2" />
-                            Excel Dışa Aktar
-                          </Button>
-                          
-                          <Button variant="outline">
-                            <Send className="h-4 w-4 mr-2" />
-                            Toplu Hatırlatma
-                          </Button>
-                          
-                          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                            <DialogTrigger asChild>
-                              <Button>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Ödeme Kaydet
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-md">
-                              <DialogHeader>
-                                <DialogTitle>Yeni Ödeme Kaydı</DialogTitle>
-                                <DialogDescription>
-                                  Ödeme bilgilerini girin
-                                </DialogDescription>
-                              </DialogHeader>
-                              
-                              <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor="athlete">Sporcu</Label>
-                                  <Select>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Sporcu seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {payments.map(payment => (
-                                        <SelectItem key={payment.id} value={payment.id.toString()}>
-                                          {payment.athleteName}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="amount">Tutar (₺)</Label>
-                                  <Input id="amount" type="number" placeholder="350" />
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="method">Ödeme Yöntemi</Label>
-                                  <Select>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Yöntem seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {paymentMethods.map(method => (
-                                        <SelectItem key={method} value={method}>{method}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="paymentDate">Ödeme Tarihi</Label>
-                                  <Input id="paymentDate" type="date" />
-                                </div>
-                              </div>
-                              
-                              <div className="flex justify-end space-x-2">
-                                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                                  İptal
-                                </Button>
-                                <Button onClick={() => setIsAddDialogOpen(false)}>
-                                  Kaydet
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
+                        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Ödeme Durumu" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tüm Durumlar</SelectItem>
+                            <SelectItem value="Ödendi">Ödendi</SelectItem>
+                            <SelectItem value="Bekliyor">Bekliyor</SelectItem>
+                            <SelectItem value="Gecikmiş">Gecikmiş</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </CardContent>
-                  </Card>
+                      
+                      <div className="flex gap-2">
+                        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline">
+                              <Upload className="h-4 w-4 mr-2" />
+                              Excel Extre Yükle
+                            </Button>
+                          </DialogTrigger>
+                        </Dialog>
 
-                  {/* Payments Table */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Ödeme Listesi ({filteredPayments.length})</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                        <Button variant="outline">
+                          <Download className="h-4 w-4 mr-2" />
+                          Excel Dışa Aktar
+                        </Button>
+                        
+                        <Button variant="outline">
+                          <Send className="h-4 w-4 mr-2" />
+                          Toplu Hatırlatma
+                        </Button>
+                        
+                        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Ödeme Kaydet
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Yeni Ödeme Kaydı</DialogTitle>
+                              <DialogDescription>
+                                Ödeme bilgilerini girin
+                              </DialogDescription>
+                            </DialogHeader>
+                            
+                            <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="athlete">Sporcu</Label>
+                                <Select>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Sporcu seçin" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {payments.map(payment => (
+                                      <SelectItem key={payment.id} value={payment.id.toString()}>
+                                        {payment.athleteName}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor="amount">Tutar (₺)</Label>
+                                <Input id="amount" type="number" placeholder="350" />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor="method">Ödeme Yöntemi</Label>
+                                <Select>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Yöntem seçin" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {paymentMethods.map(method => (
+                                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor="paymentDate">Ödeme Tarihi</Label>
+                                <Input id="paymentDate" type="date" />
+                              </div>
+                            </div>
+                            
+                            <div className="flex justify-end space-x-2">
+                              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                                İptal
+                              </Button>
+                              <Button onClick={() => setIsAddDialogOpen(false)}>
+                                Kaydet
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payments Table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Ödeme Listesi ({filteredPayments.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {filteredPayments.length > 0 ? (
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -464,7 +599,7 @@ export default function Payments() {
                                 <div className="flex items-center space-x-3">
                                   <Avatar>
                                     <AvatarImage src={payment.avatar} />
-                                    <AvatarFallback>{payment.athleteName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                    <AvatarFallback>{getInitials(payment.athleteName)}</AvatarFallback>
                                   </Avatar>
                                   <div>
                                     <p className="font-medium">{payment.athleteName}</p>
@@ -505,132 +640,317 @@ export default function Payments() {
                           ))}
                         </TableBody>
                       </Table>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="invoices" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>E-Fatura Yönetimi</CardTitle>
-                      <CardDescription>
-                        Aylık faturaları oluşturun ve Excel formatında dışa aktarın
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex gap-4">
-                          <Button>
-                            <FileText className="h-4 w-4 mr-2" />
-                            Aylık Fatura Oluştur
-                          </Button>
-                          <Button variant="outline">
-                            <Download className="h-4 w-4 mr-2" />
-                            Excel Şablonu İndir
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="text-center">
-                                <FileText className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                                <h3 className="font-medium">Haziran 2024</h3>
-                                <p className="text-sm text-muted-foreground">124 fatura</p>
-                                <Button size="sm" className="mt-2">İndir</Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                          
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="text-center">
-                                <FileText className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                                <h3 className="font-medium">Mayıs 2024</h3>
-                                <p className="text-sm text-muted-foreground">118 fatura</p>
-                                <Button size="sm" className="mt-2">İndir</Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                          
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="text-center">
-                                <FileText className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                                <h3 className="font-medium">Nisan 2024</h3>
-                                <p className="text-sm text-muted-foreground">115 fatura</p>
-                                <Button size="sm" className="mt-2">İndir</Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Henüz ödeme kaydı bulunmuyor</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <TabsContent value="reports" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Ödeme Raporları</CardTitle>
-                      <CardDescription>
-                        Detaylı ödeme analizleri ve raporlar
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="font-medium">Aylık Gelir Trendi</h3>
-                              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TabsContent value="invoices" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>E-Fatura Yönetimi</CardTitle>
+                    <CardDescription>
+                      Aylık faturaları oluşturun ve Excel formatında dışa aktarın
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex gap-4">
+                        <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Aylık Fatura Oluştur
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Fatura Oluşturma</DialogTitle>
+                              <DialogDescription>
+                                Aktif tüm sporcular için fatura oluşturulacak
+                              </DialogDescription>
+                            </DialogHeader>
+                            
+                            <div className="space-y-4 py-4">
+                              <Alert>
+                                <FileSpreadsheet className="h-4 w-4" />
+                                <AlertDescription>
+                                  Faturalar Excel formatında "Fatura_Excel_Formatı.xlsx" şablonuna uygun olarak oluşturulacaktır.
+                                </AlertDescription>
+                              </Alert>
+                              
+                              <div className="space-y-2">
+                                <Label>Fatura Dönemi</Label>
+                                <Input type="month" defaultValue={new Date().toISOString().slice(0, 7)} />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>Varsayılan Tutar (₺)</Label>
+                                <Input type="number" defaultValue="350" />
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-sm">Haziran</span>
-                                <span className="font-medium">₺45,280</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm">Mayıs</span>
-                                <span className="font-medium">₺42,150</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm">Nisan</span>
-                                <span className="font-medium">₺38,900</span>
-                              </div>
+                            
+                            <div className="flex justify-end space-x-2">
+                              <Button variant="outline" onClick={() => setIsInvoiceDialogOpen(false)}>
+                                İptal
+                              </Button>
+                              <Button onClick={generateInvoices}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Faturaları Oluştur
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        
+                        <Button variant="outline">
+                          <Download className="h-4 w-4 mr-2" />
+                          Excel Şablonu İndir
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="text-center">
+                              <FileText className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                              <h3 className="font-medium">Haziran 2024</h3>
+                              <p className="text-sm text-muted-foreground">124 fatura</p>
+                              <Button size="sm" className="mt-2">İndir</Button>
                             </div>
                           </CardContent>
                         </Card>
                         
                         <Card>
-                          <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="font-medium">Branş Bazında Gelir</h3>
-                              <BarChart3 className="h-5 w-5 text-blue-600" />
+                          <CardContent className="p-4">
+                            <div className="text-center">
+                              <FileText className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                              <h3 className="font-medium">Mayıs 2024</h3>
+                              <p className="text-sm text-muted-foreground">118 fatura</p>
+                              <Button size="sm" className="mt-2">İndir</Button>
                             </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-sm">Futbol</span>
-                                <span className="font-medium">₺18,500</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm">Basketbol</span>
-                                <span className="font-medium">₺12,300</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm">Yüzme</span>
-                                <span className="font-medium">₺8,900</span>
-                              </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="text-center">
+                              <FileText className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                              <h3 className="font-medium">Nisan 2024</h3>
+                              <p className="text-sm text-muted-foreground">115 fatura</p>
+                              <Button size="sm" className="mt-2">İndir</Button>
                             </div>
                           </CardContent>
                         </Card>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="reports" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Ödeme Raporları</CardTitle>
+                    <CardDescription>
+                      Detaylı ödeme analizleri ve raporlar
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Card>
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-medium">Aylık Gelir Trendi</h3>
+                            <TrendingUp className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm">Haziran</span>
+                              <span className="font-medium">₺45,280</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm">Mayıs</span>
+                              <span className="font-medium">₺42,150</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm">Nisan</span>
+                              <span className="font-medium">₺38,900</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-medium">Branş Bazında Gelir</h3>
+                            <BarChart3 className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm">Futbol</span>
+                              <span className="font-medium">₺18,500</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm">Basketbol</span>
+                              <span className="font-medium">₺12,300</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm">Yüzme</span>
+                              <span className="font-medium">₺8,900</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </motion.div>
+
+          {/* Excel Upload Dialog */}
+          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Banka Extre Dosyası Yükle</DialogTitle>
+                <DialogDescription>
+                  Bankadan aldığınız Excel extre dosyasını yükleyerek ödemeleri otomatik olarak eşleştirin
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                {/* File Upload */}
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                        <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Excel dosyasını seçin</p>
+                          <p className="text-xs text-muted-foreground">
+                            Desteklenen formatlar: .xlsx, .xls
+                          </p>
+                        </div>
+                        <Input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handleFileUpload}
+                          className="mt-4"
+                        />
+                      </div>
+                      
+                      {uploadedFile && (
+                        <Alert>
+                          <FileSpreadsheet className="h-4 w-4" />
+                          <AlertDescription>
+                            Seçilen dosya: {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {uploadedFile && !isProcessing && matchedPayments.length === 0 && (
+                        <Button onClick={processExcelFile} className="w-full">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Dosyayı İşle ve Eşleştir
+                        </Button>
+                      )}
+                      
+                      {isProcessing && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span>Dosya işleniyor...</span>
+                            <span>{uploadProgress}%</span>
+                          </div>
+                          <Progress value={uploadProgress} className="w-full" />
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Matched Payments */}
+                {matchedPayments.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Eşleştirme Sonuçları</CardTitle>
+                      <CardDescription>
+                        {matchedPayments.filter(m => m.status === 'matched').length} ödeme eşleştirildi, 
+                        {matchedPayments.filter(m => m.status === 'unmatched').length} eşleştirilemedi
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {matchedPayments.map((match, index) => (
+                          <Card key={index} className={`border ${match.status === 'matched' ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50'}`}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                    <div>
+                                      <span className="text-muted-foreground">Excel Verisi:</span>
+                                      <p className="font-medium">{match.excelData.description}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {match.excelData.date} - ₺{match.excelData.amount}
+                                      </p>
+                                    </div>
+                                    
+                                    {match.payment && (
+                                      <div>
+                                        <span className="text-muted-foreground">Eşleşen Ödeme:</span>
+                                        <p className="font-medium">{match.payment.athleteName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {match.payment.parentName} - ₺{match.payment.amount}
+                                        </p>
+                                      </div>
+                                    )}
+                                    
+                                    <div>
+                                      <span className="text-muted-foreground">Durum:</span>
+                                      <div className="flex items-center space-x-2 mt-1">
+                                        {match.status === 'matched' ? (
+                                          <>
+                                            <Check className="h-4 w-4 text-green-600" />
+                                            <span className="text-sm text-green-600">Eşleştirildi (%{match.confidence})</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <X className="h-4 w-4 text-orange-600" />
+                                            <span className="text-sm text-orange-600">Eşleştirilemedi</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                      
+                      {matchedPayments.filter(m => m.status === 'matched').length > 0 && (
+                        <div className="flex justify-end space-x-2 mt-6">
+                          <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
+                            İptal
+                          </Button>
+                          <Button onClick={confirmMatches}>
+                            <Check className="h-4 w-4 mr-2" />
+                            Eşleştirmeleri Onayla
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-                </TabsContent>
-              </Tabs>
-            </motion.div>
-          </main>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>
