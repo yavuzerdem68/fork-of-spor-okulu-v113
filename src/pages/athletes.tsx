@@ -510,7 +510,6 @@ export default function Athletes() {
     // Show success message (you can implement a toast notification here)
     alert(`${uploadResults.length} sporcu başarıyla eklendi!`);
   };
-=======
 
   return (
     <>
