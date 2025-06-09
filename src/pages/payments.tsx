@@ -475,14 +475,25 @@ export default function Payments() {
         return;
       }
 
-      // CSV formatında indir (Excel benzeri) with proper Turkish character support
+      // CSV formatını doğru şekilde oluştur - her başlık ayrı sütünda olacak
       const headers = Object.keys(invoiceData[0]);
-      const csvContent = [
-        headers.map(header => `"${header}"`).join(','),
-        ...invoiceData.map(row => 
-          headers.map(header => `"${row[header as keyof typeof row]}"`).join(',')
-        )
-      ].join('\n');
+      
+      // Header satırını oluştur (tırnak işareti olmadan)
+      const headerRow = headers.join(',');
+      
+      // Data satırlarını oluştur (her değeri tırnak içinde)
+      const dataRows = invoiceData.map(row => 
+        headers.map(header => {
+          const value = row[header as keyof typeof row];
+          // Değer içinde virgül varsa tırnak içine al, yoksa olduğu gibi bırak
+          return typeof value === 'string' && value.includes(',') 
+            ? `"${value}"` 
+            : value;
+        }).join(',')
+      );
+      
+      // Tüm CSV içeriğini birleştir
+      const csvContent = [headerRow, ...dataRows].join('\n');
 
       // Add UTF-8 BOM for proper Turkish character display in Excel
       const BOM = '\uFEFF';
