@@ -478,22 +478,24 @@ export default function Payments() {
       // CSV formatını doğru şekilde oluştur - her başlık ayrı sütünda olacak
       const headers = Object.keys(invoiceData[0]);
       
-      // Header satırını oluştur (tırnak işareti olmadan)
-      const headerRow = headers.join(',');
+      // Tüm değerleri tırnak içine alarak CSV formatını oluştur
+      const csvRows = [];
+      
+      // Header satırını oluştur (her başlığı tırnak içinde)
+      csvRows.push(headers.map(header => `"${header}"`).join(','));
       
       // Data satırlarını oluştur (her değeri tırnak içinde)
-      const dataRows = invoiceData.map(row => 
-        headers.map(header => {
+      invoiceData.forEach(row => {
+        const rowValues = headers.map(header => {
           const value = row[header as keyof typeof row];
-          // Değer içinde virgül varsa tırnak içine al, yoksa olduğu gibi bırak
-          return typeof value === 'string' && value.includes(',') 
-            ? `"${value}"` 
-            : value;
-        }).join(',')
-      );
+          // Tüm değerleri string'e çevir ve tırnak içine al
+          return `"${String(value || '')}"`;
+        });
+        csvRows.push(rowValues.join(','));
+      });
       
       // Tüm CSV içeriğini birleştir
-      const csvContent = [headerRow, ...dataRows].join('\n');
+      const csvContent = csvRows.join('\n');
 
       // Add UTF-8 BOM for proper Turkish character display in Excel
       const BOM = '\uFEFF';
