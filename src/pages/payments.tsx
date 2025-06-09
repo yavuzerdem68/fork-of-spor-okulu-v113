@@ -68,7 +68,6 @@ export default function Payments() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-=======
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -1101,6 +1100,165 @@ export default function Payments() {
                               Toplu Aidat İçe Aktar
                             </Button>
                           </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Toplu Aidat İçe Aktarma</DialogTitle>
+                              <DialogDescription>
+                                Excel dosyası ile tüm sporcular için aylık aidat, forma, çanta vb. ücretleri toplu olarak ekleyin
+                              </DialogDescription>
+                            </DialogHeader>
+                            
+                            <div className="space-y-6">
+                              <Alert>
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                  Bu işlem tüm aktif sporcuların cari hesaplarına kayıt ekleyecektir. İşlem geri alınamaz!
+                                </AlertDescription>
+                              </Alert>
+
+                              {/* Instructions */}
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-lg">Nasıl Kullanılır?</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="space-y-3 text-sm">
+                                    <div className="flex items-start space-x-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">1</span>
+                                      <p>"Toplu İçe Aktarma Şablonu" butonuna tıklayarak örnek Excel dosyasını indirin</p>
+                                    </div>
+                                    <div className="flex items-start space-x-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">2</span>
+                                      <p>İndirilen dosyayı açın ve kendi verilerinizle doldurun</p>
+                                    </div>
+                                    <div className="flex items-start space-x-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">3</span>
+                                      <p>Sporcu ID: "all" yazarsanız tüm sporcular için geçerli olur, belirli bir sporcu için ID numarasını yazın</p>
+                                    </div>
+                                    <div className="flex items-start space-x-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">4</span>
+                                      <p>Birim Kod: "Ay" (aylık aidat için) veya "Adet" (forma, çanta vb. için)</p>
+                                    </div>
+                                    <div className="flex items-start space-x-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">5</span>
+                                      <p>Tür: "debit" (borç/ücret) veya "credit" (alacak/ödeme)</p>
+                                    </div>
+                                    <div className="flex items-start space-x-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">6</span>
+                                      <p>Dosyayı kaydedin ve aşağıdan yükleyin</p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              {/* File Upload */}
+                              <Card>
+                                <CardContent className="p-6">
+                                  <div className="space-y-4">
+                                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                                      <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                                      <div className="space-y-2">
+                                        <p className="text-sm font-medium">Toplu aidat Excel dosyasını seçin</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Desteklenen formatlar: .xlsx, .xls
+                                        </p>
+                                      </div>
+                                      <Input
+                                        type="file"
+                                        accept=".xlsx,.xls"
+                                        onChange={handleBulkImportFileUpload}
+                                        className="mt-4"
+                                        ref={fileInputRef}
+                                      />
+                                    </div>
+                                    
+                                    {bulkImportFile && (
+                                      <Alert>
+                                        <FileSpreadsheet className="h-4 w-4" />
+                                        <AlertDescription>
+                                          Seçilen dosya: {bulkImportFile.name} ({(bulkImportFile.size / 1024).toFixed(1)} KB)
+                                        </AlertDescription>
+                                      </Alert>
+                                    )}
+                                    
+                                    {bulkImportFile && !isProcessing && (
+                                      <Button onClick={processBulkImport} className="w-full">
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Toplu İçe Aktarmayı Başlat
+                                      </Button>
+                                    )}
+                                    
+                                    {isProcessing && (
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-sm">
+                                          <span>Dosya işleniyor ve kayıtlar ekleniyor...</span>
+                                          <span>{uploadProgress}%</span>
+                                        </div>
+                                        <Progress value={uploadProgress} className="w-full" />
+                                      </div>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              {/* Sample Data Preview */}
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-lg">Örnek Veri Formatı</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Sporcu ID</TableHead>
+                                        <TableHead>Ay/Yıl</TableHead>
+                                        <TableHead>Açıklama</TableHead>
+                                        <TableHead>Tutar (KDV Hariç)</TableHead>
+                                        <TableHead>KDV Oranı (%)</TableHead>
+                                        <TableHead>Birim Kod</TableHead>
+                                        <TableHead>Tür</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      <TableRow>
+                                        <TableCell>all</TableCell>
+                                        <TableCell>2024-06</TableCell>
+                                        <TableCell>Haziran 2024 Aylık Aidat</TableCell>
+                                        <TableCell>350</TableCell>
+                                        <TableCell>20</TableCell>
+                                        <TableCell>Ay</TableCell>
+                                        <TableCell>debit</TableCell>
+                                      </TableRow>
+                                      <TableRow>
+                                        <TableCell>all</TableCell>
+                                        <TableCell>2024-06</TableCell>
+                                        <TableCell>Forma Ücreti</TableCell>
+                                        <TableCell>150</TableCell>
+                                        <TableCell>20</TableCell>
+                                        <TableCell>Adet</TableCell>
+                                        <TableCell>debit</TableCell>
+                                      </TableRow>
+                                      <TableRow>
+                                        <TableCell>all</TableCell>
+                                        <TableCell>2024-06</TableCell>
+                                        <TableCell>Spor Çantası</TableCell>
+                                        <TableCell>200</TableCell>
+                                        <TableCell>20</TableCell>
+                                        <TableCell>Adet</TableCell>
+                                        <TableCell>debit</TableCell>
+                                      </TableRow>
+                                    </TableBody>
+                                  </Table>
+                                </CardContent>
+                              </Card>
+                            </div>
+
+                            <div className="flex justify-end space-x-2 mt-6">
+                              <Button variant="outline" onClick={() => setIsBulkImportDialogOpen(false)}>
+                                Kapat
+                              </Button>
+                            </div>
+                          </DialogContent>
                         </Dialog>
                         
                         <Button variant="outline" onClick={downloadBulkImportTemplate}>
@@ -1344,169 +1502,6 @@ export default function Payments() {
                     </CardContent>
                   </Card>
                 )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Bulk Import Dialog */}
-          <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Toplu Aidat İçe Aktarma</DialogTitle>
-                <DialogDescription>
-                  Excel dosyası ile tüm sporcular için aylık aidat, forma, çanta vb. ücretleri toplu olarak ekleyin
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-6">
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Bu işlem tüm aktif sporcuların cari hesaplarına kayıt ekleyecektir. İşlem geri alınamaz!
-                  </AlertDescription>
-                </Alert>
-
-                {/* Instructions */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Nasıl Kullanılır?</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-start space-x-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">1</span>
-                        <p>"Toplu İçe Aktarma Şablonu" butonuna tıklayarak örnek Excel dosyasını indirin</p>
-                      </div>
-                      <div className="flex items-start space-x-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">2</span>
-                        <p>İndirilen dosyayı açın ve kendi verilerinizle doldurun</p>
-                      </div>
-                      <div className="flex items-start space-x-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">3</span>
-                        <p>Sporcu ID: "all" yazarsanız tüm sporcular için geçerli olur, belirli bir sporcu için ID numarasını yazın</p>
-                      </div>
-                      <div className="flex items-start space-x-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">4</span>
-                        <p>Birim Kod: "Ay" (aylık aidat için) veya "Adet" (forma, çanta vb. için)</p>
-                      </div>
-                      <div className="flex items-start space-x-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">5</span>
-                        <p>Tür: "debit" (borç/ücret) veya "credit" (alacak/ödeme)</p>
-                      </div>
-                      <div className="flex items-start space-x-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">6</span>
-                        <p>Dosyayı kaydedin ve aşağıdan yükleyin</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* File Upload */}
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                        <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Toplu aidat Excel dosyasını seçin</p>
-                          <p className="text-xs text-muted-foreground">
-                            Desteklenen formatlar: .xlsx, .xls
-                          </p>
-                        </div>
-                        <Input
-                          type="file"
-                          accept=".xlsx,.xls"
-                          onChange={handleBulkImportFileUpload}
-                          className="mt-4"
-                          ref={fileInputRef}
-                        />
-                      </div>
-                      
-                      {bulkImportFile && (
-                        <Alert>
-                          <FileSpreadsheet className="h-4 w-4" />
-                          <AlertDescription>
-                            Seçilen dosya: {bulkImportFile.name} ({(bulkImportFile.size / 1024).toFixed(1)} KB)
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      {bulkImportFile && !isProcessing && (
-                        <Button onClick={processBulkImport} className="w-full">
-                          <Upload className="h-4 w-4 mr-2" />
-                          Toplu İçe Aktarmayı Başlat
-                        </Button>
-                      )}
-                      
-                      {isProcessing && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span>Dosya işleniyor ve kayıtlar ekleniyor...</span>
-                            <span>{uploadProgress}%</span>
-                          </div>
-                          <Progress value={uploadProgress} className="w-full" />
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Sample Data Preview */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Örnek Veri Formatı</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Sporcu ID</TableHead>
-                          <TableHead>Ay/Yıl</TableHead>
-                          <TableHead>Açıklama</TableHead>
-                          <TableHead>Tutar (KDV Hariç)</TableHead>
-                          <TableHead>KDV Oranı (%)</TableHead>
-                          <TableHead>Birim Kod</TableHead>
-                          <TableHead>Tür</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell>all</TableCell>
-                          <TableCell>2024-06</TableCell>
-                          <TableCell>Haziran 2024 Aylık Aidat</TableCell>
-                          <TableCell>350</TableCell>
-                          <TableCell>20</TableCell>
-                          <TableCell>Ay</TableCell>
-                          <TableCell>debit</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>all</TableCell>
-                          <TableCell>2024-06</TableCell>
-                          <TableCell>Forma Ücreti</TableCell>
-                          <TableCell>150</TableCell>
-                          <TableCell>20</TableCell>
-                          <TableCell>Adet</TableCell>
-                          <TableCell>debit</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>all</TableCell>
-                          <TableCell>2024-06</TableCell>
-                          <TableCell>Spor Çantası</TableCell>
-                          <TableCell>200</TableCell>
-                          <TableCell>20</TableCell>
-                          <TableCell>Adet</TableCell>
-                          <TableCell>debit</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="flex justify-end space-x-2 mt-6">
-                <Button variant="outline" onClick={() => setIsBulkImportDialogOpen(false)}>
-                  Kapat
-                </Button>
               </div>
             </DialogContent>
           </Dialog>
