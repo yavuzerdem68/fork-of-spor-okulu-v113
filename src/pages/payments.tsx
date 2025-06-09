@@ -326,71 +326,147 @@ export default function Payments() {
         activeStudents = allAthletes.filter((student: any) => student.status === 'active' || !student.status);
       }
       
-      // If no stored athletes, use mock data
+      // If no stored athletes, use comprehensive mock data with all required fields for e-invoice
       if (activeStudents.length === 0) {
         activeStudents = [
           { 
             id: 1, 
             studentName: 'Ahmet', 
-            studentSurname: 'Yılmaz', 
+            studentSurname: 'Yılmaz',
+            studentTcNo: '12345678901',
             parentName: 'Mehmet', 
             parentSurname: 'Yılmaz',
-            selectedSports: ['Basketbol'], 
-            phone: '05551234567' 
+            parentTcNo: '98765432109',
+            parentPhone: '05551234567',
+            parentEmail: 'mehmet.yilmaz@email.com',
+            address: 'Atatürk Mahallesi, Cumhuriyet Caddesi No:15/3',
+            city: 'İstanbul',
+            district: 'Kadıköy',
+            postalCode: '34710',
+            selectedSports: ['Basketbol'],
+            studentBirthDate: '2010-05-15',
+            parentRelation: 'baba'
           },
           { 
             id: 2, 
             studentName: 'Ayşe', 
-            studentSurname: 'Demir', 
+            studentSurname: 'Demir',
+            studentTcNo: '23456789012',
             parentName: 'Fatma', 
             parentSurname: 'Demir',
-            selectedSports: ['Yüzme'], 
-            phone: '05559876543' 
+            parentTcNo: '87654321098',
+            parentPhone: '05559876543',
+            parentEmail: 'fatma.demir@email.com',
+            address: 'Yenişehir Mahallesi, Barış Sokak No:8/2',
+            city: 'Ankara',
+            district: 'Çankaya',
+            postalCode: '06420',
+            selectedSports: ['Yüzme'],
+            studentBirthDate: '2011-08-22',
+            parentRelation: 'anne'
           },
           { 
             id: 3, 
             studentName: 'Can', 
-            studentSurname: 'Öztürk', 
+            studentSurname: 'Öztürk',
+            studentTcNo: '34567890123',
             parentName: 'Ali', 
             parentSurname: 'Öztürk',
-            selectedSports: ['Futbol'], 
-            phone: '05555555555' 
+            parentTcNo: '76543210987',
+            parentPhone: '05555555555',
+            parentEmail: 'ali.ozturk@email.com',
+            address: 'Merkez Mahallesi, Spor Caddesi No:25/1',
+            city: 'İzmir',
+            district: 'Konak',
+            postalCode: '35220',
+            selectedSports: ['Futbol'],
+            studentBirthDate: '2009-12-10',
+            parentRelation: 'baba'
           },
           { 
             id: 4, 
             studentName: 'Elif', 
-            studentSurname: 'Kaya', 
+            studentSurname: 'Kaya',
+            studentTcNo: '45678901234',
             parentName: 'Zeynep', 
             parentSurname: 'Kaya',
-            selectedSports: ['Voleybol'], 
-            phone: '05554444444' 
+            parentTcNo: '65432109876',
+            parentPhone: '05554444444',
+            parentEmail: 'zeynep.kaya@email.com',
+            address: 'Güneş Mahallesi, Çiçek Sokak No:12/4',
+            city: 'Antalya',
+            district: 'Muratpaşa',
+            postalCode: '07100',
+            selectedSports: ['Voleybol'],
+            studentBirthDate: '2012-03-18',
+            parentRelation: 'anne'
           },
           { 
             id: 5, 
             studentName: 'Murat', 
-            studentSurname: 'Şen', 
+            studentSurname: 'Şen',
+            studentTcNo: '56789012345',
             parentName: 'Hasan', 
             parentSurname: 'Şen',
-            selectedSports: ['Hentbol'], 
-            phone: '05553333333' 
+            parentTcNo: '54321098765',
+            parentPhone: '05553333333',
+            parentEmail: 'hasan.sen@email.com',
+            address: 'Kültür Mahallesi, Eğitim Caddesi No:30/6',
+            city: 'Bursa',
+            district: 'Nilüfer',
+            postalCode: '16110',
+            selectedSports: ['Hentbol'],
+            studentBirthDate: '2010-11-05',
+            parentRelation: 'baba'
           }
         ];
       }
       
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentYear = currentDate.getFullYear();
+      
       const invoiceData = activeStudents.map((student: any, index: number) => {
         const sports = student.selectedSports || student.sportsBranches || ['Genel'];
         const amount = sports.length * 350; // 350 TL per sport
+        const invoiceNumber = `${currentYear}${String(currentMonth).padStart(2, '0')}${String(index + 1).padStart(4, '0')}`;
+        const dueDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
         
         return {
-          'Fatura No': `INV-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(index + 1).padStart(3, '0')}`,
-          'Sporcu Adı': `${student.studentName || 'Bilinmiyor'} ${student.studentSurname || ''}`.trim(),
-          'Veli Adı': `${student.parentName || 'Bilinmiyor'} ${student.parentSurname || ''}`.trim(),
-          'Spor Branşı': sports.join(', '),
-          'Tutar': `${amount} TL`,
-          'Vade Tarihi': new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
-          'Oluşturma Tarihi': new Date().toLocaleDateString('tr-TR'),
-          'Telefon': student.phone || student.parentPhone || 'Bilinmiyor',
-          'Durum': 'Bekliyor'
+          'BELGE_TUR': 'FATURA',
+          'BELGE_NO': invoiceNumber,
+          'BELGE_TARIH': currentDate.toLocaleDateString('tr-TR'),
+          'VADE_TARIH': dueDate.toLocaleDateString('tr-TR'),
+          'ALICI_VKN_TCKN': student.parentTcNo || '11111111111',
+          'ALICI_UNVAN': `${student.parentName || ''} ${student.parentSurname || ''}`.trim(),
+          'ALICI_ADRES': student.address || 'Adres bilgisi eksik',
+          'ALICI_SEHIR': student.city || 'İstanbul',
+          'ALICI_ILCE': student.district || 'Merkez',
+          'ALICI_POSTA_KODU': student.postalCode || '34000',
+          'ALICI_ULKE': 'TÜRKİYE',
+          'ALICI_TEL': student.parentPhone || student.phone || '',
+          'ALICI_EMAIL': student.parentEmail || '',
+          'KALEM_HIZMET_ADI': `${sports.join(', ')} Spor Eğitimi Aidatı`,
+          'KALEM_MIKTAR': '1',
+          'KALEM_BIRIM': 'ADET',
+          'KALEM_BIRIM_FIYAT': amount.toString(),
+          'KALEM_KDV_ORAN': '18',
+          'KALEM_KDV_TUTAR': (amount * 0.18).toFixed(2),
+          'KALEM_TOPLAM': (amount * 1.18).toFixed(2),
+          'TOPLAM_TUTAR': amount.toString(),
+          'TOPLAM_KDV': (amount * 0.18).toFixed(2),
+          'GENEL_TOPLAM': (amount * 1.18).toFixed(2),
+          'PARA_BIRIMI': 'TRY',
+          'SPORCU_ADI': `${student.studentName || ''} ${student.studentSurname || ''}`.trim(),
+          'SPORCU_TC': student.studentTcNo || '',
+          'SPORCU_DOGUM_TARIH': student.studentBirthDate || '',
+          'SPOR_DALI': sports.join(', '),
+          'AIDAT_DONEMI': `${currentYear}-${String(currentMonth).padStart(2, '0')}`,
+          'ODEME_DURUMU': 'BEKLIYOR',
+          'ACIKLAMA': `${currentYear} yılı ${String(currentMonth).padStart(2, '0')} ayı spor eğitimi aidatı`,
+          'VELI_YAKINLIK': student.parentRelation || 'veli',
+          'KAYIT_TARIH': currentDate.toLocaleDateString('tr-TR'),
+          'DURUM': 'AKTİF'
         };
       });
 
@@ -415,7 +491,7 @@ export default function Payments() {
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
       
-      const fileName = `Aylik_Faturalar_${new Date().getFullYear()}_${String(new Date().getMonth() + 1).padStart(2, '0')}.csv`;
+      const fileName = `E_Fatura_${currentYear}_${String(currentMonth).padStart(2, '0')}.csv`;
       link.setAttribute('download', fileName);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
@@ -425,7 +501,7 @@ export default function Payments() {
       // Clean up the URL object
       URL.revokeObjectURL(url);
 
-      toast.success(`${invoiceData.length} fatura Excel formatında indirildi! (${fileName})`);
+      toast.success(`${invoiceData.length} e-fatura Excel formatında indirildi! (${fileName})`);
       setIsInvoiceDialogOpen(false);
       
     } catch (error) {
