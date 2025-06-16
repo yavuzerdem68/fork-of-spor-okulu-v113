@@ -35,7 +35,11 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   CheckCircle,
-  X
+  X,
+  UserX,
+  Key,
+  ToggleLeft,
+  ToggleRight
 } from "lucide-react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -74,6 +78,20 @@ export default function Athletes() {
   const [uploadResults, setUploadResults] = useState<any[]>([]);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [newEntry, setNewEntry] = useState({
+    month: new Date().toISOString().slice(0, 7),
+    description: '',
+    amountExcludingVat: '',
+    vatRate: '20',
+    amountIncludingVat: '',
+    unitCode: 'Ay',
+    type: 'debit' // debit (borç) or credit (alacak)
+  });
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [selectedAthleteForStatus, setSelectedAthleteForStatus] = useState<any>(null);
+  const [isParentAccountDialogOpen, setIsParentAccountDialogOpen] = useState(false);
+  const [parentAccountsToCreate, setParentAccountsToCreate] = useState<any[]>([]);
+=======
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
@@ -497,6 +515,37 @@ export default function Athletes() {
     const updatedStudents = [...existingStudents, ...uploadResults];
     localStorage.setItem('students', JSON.stringify(updatedStudents));
     
+    // Check for parent accounts that need to be created
+    const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+    const accountsToCreate: any[] = [];
+    
+    uploadResults.forEach(athlete => {
+      // Check if parent account already exists
+      const existingParent = parentUsers.find((parent: any) => 
+        parent.email === athlete.parentEmail || 
+        (parent.phone && parent.phone === athlete.parentPhone)
+      );
+      
+      if (!existingParent) {
+        accountsToCreate.push({
+          athleteId: athlete.id,
+          athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
+          parentName: athlete.parentName,
+          parentSurname: athlete.parentSurname,
+          parentEmail: athlete.parentEmail,
+          parentPhone: athlete.parentPhone,
+          parentTcNo: athlete.parentTcNo || '',
+          parentRelation: athlete.parentRelation || ''
+        });
+      }
+    });
+    
+    // If there are parent accounts to create, show the dialog
+    if (accountsToCreate.length > 0) {
+      setParentAccountsToCreate(accountsToCreate);
+      setIsParentAccountDialogOpen(true);
+    }
+    
     // Reload athletes
     loadAthletes(userRole!, currentUser);
     
@@ -507,8 +556,92 @@ export default function Athletes() {
     setUploadProgress(0);
     setIsBulkUploadDialogOpen(false);
     
-    // Show success message (you can implement a toast notification here)
-    alert(`${uploadResults.length} sporcu başarıyla eklendi!`);
+    // Show success message
+    alert(`${uploadResults.length} sporcu başarıyla eklendi!${accountsToCreate.length > 0 ? ` ${accountsToCreate.length} veli için hesap oluşturma gerekiyor.` : ''}`);
+  };
+
+  // Status change functions
+  const openStatusDialog = (athlete: any) => {
+    setSelectedAthleteForStatus(athlete);
+    setIsStatusDialogOpen(true);
+  };
+
+  const changeAthleteStatus = (newStatus: string) => {
+    if (!selectedAthleteForStatus) return;
+
+    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    const updatedStudents = allStudents.map((student: any) => 
+      student.id === selectedAthleteForStatus.id 
+        ? { ...student, status: newStatus, statusChangedAt: new Date().toISOString() }
+        : student
+    );
+    
+    localStorage.setItem('students', JSON.stringify(updatedStudents));
+    loadAthletes(userRole!, currentUser);
+    setIsStatusDialogOpen(false);
+    setSelectedAthleteForStatus(null);
+  };
+
+  // Parent account creation functions
+  const generateParentCredentials = (parentName: string, parentSurname: string, parentEmail: string) => {
+    // Generate username from name and surname
+    const baseUsername = `${parentName.toLowerCase()}${parentSurname.toLowerCase()}`.replace(/[^a-z]/g, '');
+    
+    // Generate a simple password (in real app, this should be more secure)
+    const password = `${baseUsername}123`;
+    
+    return {
+      username: baseUsername,
+      password: password
+    };
+  };
+
+  const createParentAccounts = () => {
+    const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+    const newParentAccounts: any[] = [];
+    
+    parentAccountsToCreate.forEach(accountData => {
+      const credentials = generateParentCredentials(
+        accountData.parentName, 
+        accountData.parentSurname, 
+        accountData.parentEmail
+      );
+      
+      const newParentUser = {
+        id: Date.now() + Math.random(),
+        firstName: accountData.parentName,
+        lastName: accountData.parentSurname,
+        email: accountData.parentEmail,
+        phone: accountData.parentPhone,
+        tcNo: accountData.parentTcNo,
+        relation: accountData.parentRelation,
+        username: credentials.username,
+        password: credentials.password,
+        role: 'parent',
+        createdAt: new Date().toISOString(),
+        isActive: true,
+        createdBy: 'bulk_upload',
+        linkedAthletes: [accountData.athleteId]
+      };
+      
+      parentUsers.push(newParentUser);
+      newParentAccounts.push({
+        ...newParentUser,
+        athleteName: accountData.athleteName
+      });
+    });
+    
+    localStorage.setItem('parentUsers', JSON.stringify(parentUsers));
+    
+    // Show success message with credentials
+    const credentialsText = newParentAccounts.map(account => 
+      `${account.firstName} ${account.lastName} (${account.athleteName}): Kullanıcı Adı: ${account.username}, Şifre: ${account.password}`
+    ).join('\n');
+    
+    alert(`${newParentAccounts.length} veli hesabı oluşturuldu!\n\nGiriş Bilgileri:\n${credentialsText}\n\nBu bilgileri velilere iletin.`);
+    
+    setIsParentAccountDialogOpen(false);
+    setParentAccountsToCreate([]);
   };
 
   return (
@@ -1000,6 +1133,17 @@ export default function Athletes() {
                                   >
                                     <Calculator className="h-4 w-4" />
                                   </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => openStatusDialog(athlete)}
+                                    title="Durum Değiştir"
+                                  >
+                                    {athlete.status === 'Aktif' ? 
+                                      <ToggleRight className="h-4 w-4 text-green-600" /> : 
+                                      <ToggleLeft className="h-4 w-4 text-gray-400" />
+                                    }
+                                  </Button>
                                   <Button variant="ghost" size="sm">
                                     <Edit className="h-4 w-4" />
                                   </Button>
@@ -1241,6 +1385,182 @@ export default function Athletes() {
                 <Button variant="outline" onClick={() => setIsAccountDialogOpen(false)}>
                   Kapat
                 </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Status Change Dialog */}
+          <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  {selectedAthleteForStatus?.status === 'Aktif' ? 
+                    <UserX className="h-5 w-5 text-orange-600" /> : 
+                    <UserCheck className="h-5 w-5 text-green-600" />
+                  }
+                  <span>Sporcu Durumu Değiştir</span>
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedAthleteForStatus?.studentName} {selectedAthleteForStatus?.studentSurname} adlı sporcunun durumunu değiştirin
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Mevcut Durum:</span>
+                    <Badge variant={selectedAthleteForStatus?.status === 'Aktif' ? 'default' : 'secondary'}>
+                      {selectedAthleteForStatus?.status || 'Aktif'}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Sporcu durumunu değiştirmek istediğinizden emin misiniz?
+                  </p>
+                  
+                  {selectedAthleteForStatus?.status === 'Aktif' ? (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        Sporcu pasif duruma geçirilecek. Bu durumda sporcu antrenman listelerinde görünmeyecek ve yeni ödemeler alınamayacaktır.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert>
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Sporcu aktif duruma geçirilecek. Bu durumda sporcu tüm antrenman ve ödeme işlemlerine dahil olacaktır.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsStatusDialogOpen(false)}
+                  >
+                    İptal
+                  </Button>
+                  <Button 
+                    onClick={() => changeAthleteStatus(selectedAthleteForStatus?.status === 'Aktif' ? 'Pasif' : 'Aktif')}
+                    variant={selectedAthleteForStatus?.status === 'Aktif' ? 'destructive' : 'default'}
+                  >
+                    {selectedAthleteForStatus?.status === 'Aktif' ? 
+                      <>
+                        <UserX className="h-4 w-4 mr-2" />
+                        Pasif Yap
+                      </> : 
+                      <>
+                        <UserCheck className="h-4 w-4 mr-2" />
+                        Aktif Yap
+                      </>
+                    }
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Parent Account Creation Dialog */}
+          <Dialog open={isParentAccountDialogOpen} onOpenChange={setIsParentAccountDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Key className="h-5 w-5" />
+                  <span>Veli Hesapları Oluştur</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Toplu yüklenen sporcuların velileri için sistem hesapları oluşturun
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    {parentAccountsToCreate.length} veli için sistem hesabı oluşturulacak. Bu veliler sisteme giriş yaparak çocuklarının bilgilerini görüntüleyebilecekler.
+                  </AlertDescription>
+                </Alert>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Oluşturulacak Hesaplar</CardTitle>
+                    <CardDescription>
+                      Aşağıdaki veliler için otomatik kullanıcı adı ve şifre oluşturulacak
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Veli Adı</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Telefon</TableHead>
+                            <TableHead>Sporcu</TableHead>
+                            <TableHead>Oluşturulacak Kullanıcı Adı</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {parentAccountsToCreate.map((account, index) => {
+                            const credentials = generateParentCredentials(account.parentName, account.parentSurname, account.parentEmail);
+                            return (
+                              <TableRow key={index}>
+                                <TableCell>{account.parentName} {account.parentSurname}</TableCell>
+                                <TableCell>{account.parentEmail}</TableCell>
+                                <TableCell>{account.parentPhone}</TableCell>
+                                <TableCell>{account.athleteName}</TableCell>
+                                <TableCell className="font-mono text-sm">{credentials.username}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Önemli Bilgiler</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-start space-x-2">
+                        <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                        <span>Kullanıcı adları veli adı ve soyadından otomatik oluşturulacak</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                        <span>Şifreler basit ve güvenli olacak (kullanıcıadı + 123)</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                        <span>Veliler sisteme giriş yaparak çocuklarının bilgilerini görüntüleyebilecek</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" />
+                        <span>Giriş bilgilerini velilere WhatsApp veya email ile iletmeyi unutmayın</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsParentAccountDialogOpen(false)}
+                  >
+                    İptal
+                  </Button>
+                  <Button onClick={createParentAccounts}>
+                    <Key className="h-4 w-4 mr-2" />
+                    {parentAccountsToCreate.length} Hesap Oluştur
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
