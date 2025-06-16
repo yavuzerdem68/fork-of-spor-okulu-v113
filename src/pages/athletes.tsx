@@ -78,20 +78,10 @@ export default function Athletes() {
   const [uploadResults, setUploadResults] = useState<any[]>([]);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [newEntry, setNewEntry] = useState({
-    month: new Date().toISOString().slice(0, 7),
-    description: '',
-    amountExcludingVat: '',
-    vatRate: '20',
-    amountIncludingVat: '',
-    unitCode: 'Ay',
-    type: 'debit' // debit (borç) or credit (alacak)
-  });
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [selectedAthleteForStatus, setSelectedAthleteForStatus] = useState<any>(null);
   const [isParentAccountDialogOpen, setIsParentAccountDialogOpen] = useState(false);
   const [parentAccountsToCreate, setParentAccountsToCreate] = useState<any[]>([]);
-=======
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
