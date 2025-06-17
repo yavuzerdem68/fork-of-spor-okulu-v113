@@ -39,14 +39,6 @@ const sportsBranches = [
   "Tenis", "Jimnastik", "Atletizm", "Satranç", "Zihin Oyunları"
 ];
 
-const trainingGroups = [
-  "U8 Basketbol", "U10 Basketbol", "U12 Basketbol", "U14 Basketbol", "U16 Basketbol",
-  "U8 Futbol", "U10 Futbol", "U12 Futbol", "U14 Futbol", "U16 Futbol",
-  "U8 Voleybol", "U10 Voleybol", "U12 Voleybol", "U14 Voleybol", "U16 Voleybol",
-  "Yetişkin Basketbol", "Yetişkin Futbol", "Yetişkin Voleybol",
-  "Başlangıç Yüzme", "İleri Yüzme", "Yarışma Yüzme"
-];
-
 export default function Coaches() {
   const router = useRouter();
   const [coaches, setCoaches] = useState<any[]>([]);
@@ -60,8 +52,7 @@ export default function Coaches() {
     phone: "",
     specialization: "",
     experience: "",
-    sportsBranches: [] as string[],
-    trainingGroups: [] as string[]
+    sportsBranches: [] as string[]
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -101,14 +92,11 @@ export default function Coaches() {
       return;
     }
 
-    if (formData.trainingGroups.length === 0) {
-      setError("En az bir antrenman grubu seçin");
-      return;
-    }
-
     const newCoach = {
       id: editingCoach ? editingCoach.id : Date.now().toString(),
       ...formData,
+      trainingCount: editingCoach ? editingCoach.trainingCount || 0 : 0, // Başlangıçta sıfır antrenman
+      athleteCount: editingCoach ? editingCoach.athleteCount || 0 : 0,  // Başlangıçta sıfır sporcu
       createdAt: editingCoach ? editingCoach.createdAt : new Date().toISOString()
     };
 
@@ -145,8 +133,7 @@ export default function Coaches() {
       phone: coach.phone,
       specialization: coach.specialization,
       experience: coach.experience,
-      sportsBranches: coach.sportsBranches || [],
-      trainingGroups: coach.trainingGroups || []
+      sportsBranches: coach.sportsBranches || []
     });
     setIsDialogOpen(true);
   };
@@ -169,8 +156,7 @@ export default function Coaches() {
       phone: "",
       specialization: "",
       experience: "",
-      sportsBranches: [],
-      trainingGroups: []
+      sportsBranches: []
     });
     setEditingCoach(null);
     setError("");
@@ -186,20 +172,6 @@ export default function Coaches() {
       setFormData(prev => ({
         ...prev,
         sportsBranches: prev.sportsBranches.filter(b => b !== branch)
-      }));
-    }
-  };
-
-  const handleTrainingGroupChange = (group: string, checked: boolean) => {
-    if (checked) {
-      setFormData(prev => ({
-        ...prev,
-        trainingGroups: [...prev.trainingGroups, group]
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        trainingGroups: prev.trainingGroups.filter(g => g !== group)
       }));
     }
   };
@@ -235,7 +207,7 @@ export default function Coaches() {
                 <h1 className="text-3xl font-bold">Antrenör Yönetimi</h1>
               </div>
               <p className="text-muted-foreground">
-                Antrenörleri ekleyin, düzenleyin ve yönetin
+                Antrenörleri ekleyin, düzenleyin ve yönetin. Antrenman grupları antrenman sayfasından manuel olarak atanacaktır.
               </p>
             </div>
             
@@ -252,7 +224,7 @@ export default function Coaches() {
                     {editingCoach ? "Antrenör Düzenle" : "Yeni Antrenör Ekle"}
                   </DialogTitle>
                   <DialogDescription>
-                    Antrenör bilgilerini girin ve antrenman gruplarını atayın
+                    Antrenör bilgilerini girin. Antrenman grupları daha sonra antrenman sayfasından atanacaktır.
                   </DialogDescription>
                 </DialogHeader>
                 
@@ -360,26 +332,6 @@ export default function Coaches() {
                     </div>
                   </div>
 
-                  <div>
-                    <Label>Antrenman Grupları *</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-2 max-h-32 overflow-y-auto border rounded p-2">
-                      {trainingGroups.map((group) => (
-                        <div key={group} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`group-${group}`}
-                            checked={formData.trainingGroups.includes(group)}
-                            onCheckedChange={(checked) => 
-                              handleTrainingGroupChange(group, checked as boolean)
-                            }
-                          />
-                          <Label htmlFor={`group-${group}`} className="text-sm">
-                            {group}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       İptal
@@ -443,9 +395,9 @@ export default function Coaches() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Antrenman Grupları</p>
+                    <p className="text-sm font-medium text-muted-foreground">Toplam Antrenman</p>
                     <p className="text-2xl font-bold">
-                      {Array.from(new Set(coaches.flatMap(c => c.trainingGroups || []))).length}
+                      {coaches.reduce((total, coach) => total + (coach.trainingCount || 0), 0)}
                     </p>
                   </div>
                   <Target className="h-8 w-8 text-primary" />
@@ -463,7 +415,7 @@ export default function Coaches() {
                   <span>Antrenörler</span>
                 </CardTitle>
                 <CardDescription>
-                  Tüm antrenörleri görüntüleyin ve yönetin
+                  Tüm antrenörleri görüntüleyin ve yönetin. Antrenman grupları antrenman sayfasından atanacaktır.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -474,7 +426,7 @@ export default function Coaches() {
                         <TableHead>Antrenör</TableHead>
                         <TableHead>İletişim</TableHead>
                         <TableHead>Spor Branşları</TableHead>
-                        <TableHead>Antrenman Grupları</TableHead>
+                        <TableHead>Antrenman/Sporcu</TableHead>
                         <TableHead>İşlemler</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -523,17 +475,13 @@ export default function Coaches() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {coach.trainingGroups?.slice(0, 3).map((group: string, index: number) => (
-                                <Badge key={index} variant="secondary" className="text-xs">
-                                  {group}
-                                </Badge>
-                              ))}
-                              {coach.trainingGroups?.length > 3 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  +{coach.trainingGroups.length - 3} daha
-                                </Badge>
-                              )}
+                            <div className="space-y-1">
+                              <div className="text-sm">
+                                <span className="font-medium">{coach.trainingCount || 0}</span> antrenman
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                <span className="font-medium">{coach.athleteCount || 0}</span> sporcu
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell>

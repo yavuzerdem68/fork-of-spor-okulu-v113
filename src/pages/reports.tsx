@@ -34,14 +34,51 @@ const fadeInUp = {
   transition: { duration: 0.4 }
 };
 
-// Load data from localStorage
+// Load data from localStorage and synchronize with account entries
 const loadReportData = () => {
   const athletes = JSON.parse(localStorage.getItem('athletes') || localStorage.getItem('students') || '[]');
-  const payments = JSON.parse(localStorage.getItem('payments') || '[]');
   const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
   const trainings = JSON.parse(localStorage.getItem('trainings') || '[]');
   
-  return { athletes, payments, coaches, trainings };
+  // Generate payments from athlete account entries for accurate reporting
+  const payments: any[] = [];
+  const activeAthletes = athletes.filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status);
+  
+  activeAthletes.forEach((athlete: any) => {
+    const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+    
+    // Create payment records from account entries
+    accountEntries.forEach((entry: any) => {
+      if (entry.type === 'debit') {
+        // Check if this debit has been paid
+        const creditEntries = accountEntries.filter((e: any) => 
+          e.type === 'credit' && 
+          new Date(e.date) >= new Date(entry.date) &&
+          e.amountIncludingVat >= entry.amountIncludingVat
+        );
+        
+        const isPaid = creditEntries.length > 0;
+        const dueDate = new Date(entry.date);
+        dueDate.setMonth(dueDate.getMonth() + 1);
+        const isOverdue = new Date() > dueDate && !isPaid;
+        
+        payments.push({
+          id: `report_${athlete.id}_${entry.id}`,
+          athleteId: athlete.id,
+          athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
+          parentName: `${athlete.parentName} ${athlete.parentSurname}`,
+          amount: entry.amountIncludingVat,
+          status: isPaid ? "Ödendi" : (isOverdue ? "Gecikmiş" : "Bekliyor"),
+          sport: athlete.sportsBranches?.[0] || athlete.selectedSports?.[0] || 'Genel',
+          date: entry.date,
+          month: entry.month,
+          description: entry.description
+        });
+      }
+    });
+  });
+  
+  return { athletes: activeAthletes, payments, coaches, trainings };
 };
 
 const generateMonthlyStats = (athletes: any[], payments: any[]) => {

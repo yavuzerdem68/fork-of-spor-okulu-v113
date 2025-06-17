@@ -262,13 +262,68 @@ export default function Payments() {
   }, [router]);
 
   const loadPayments = () => {
-    // localStorage'dan mevcut ödemeleri yükle
-    const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
-    setPayments(existingPayments);
-    
-    // Load athletes for payment selection
+    // Load athletes first
     const storedAthletes = JSON.parse(localStorage.getItem('students') || '[]');
-    setAthletes(storedAthletes.filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status));
+    const activeAthletes = storedAthletes.filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status);
+    setAthletes(activeAthletes);
+    
+    // Load existing payments
+    const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+    
+    // Generate payments from athlete account entries (debit entries that haven't been paid)
+    const generatedPayments: any[] = [];
+    
+    activeAthletes.forEach((athlete: any) => {
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      
+      // Find debit entries (charges) that don't have corresponding credit entries (payments)
+      const debitEntries = accountEntries.filter((entry: any) => entry.type === 'debit');
+      const creditEntries = accountEntries.filter((entry: any) => entry.type === 'credit');
+      
+      debitEntries.forEach((debitEntry: any) => {
+        // Check if this debit has been paid (has corresponding credit)
+        const isPaid = creditEntries.some((creditEntry: any) => 
+          creditEntry.amountIncludingVat >= debitEntry.amountIncludingVat &&
+          new Date(creditEntry.date) >= new Date(debitEntry.date)
+        );
+        
+        // Check if payment already exists in existing payments
+        const paymentExists = existingPayments.some((payment: any) => 
+          payment.athleteId === athlete.id && 
+          payment.description === debitEntry.description &&
+          Math.abs(payment.amount - debitEntry.amountIncludingVat) < 0.01
+        );
+        
+        if (!isPaid && !paymentExists) {
+          // Create payment entry from debit
+          const dueDate = new Date(debitEntry.date);
+          dueDate.setMonth(dueDate.getMonth() + 1); // Due date is 1 month after charge date
+          
+          const isOverdue = new Date() > dueDate;
+          
+          generatedPayments.push({
+            id: `generated_${athlete.id}_${debitEntry.id}`,
+            athleteId: athlete.id,
+            athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
+            parentName: `${athlete.parentName} ${athlete.parentSurname}`,
+            amount: debitEntry.amountIncludingVat,
+            method: '',
+            paymentDate: null,
+            status: isOverdue ? "Gecikmiş" : "Bekliyor",
+            sport: athlete.sportsBranches?.[0] || athlete.selectedSports?.[0] || 'Genel',
+            invoiceNumber: `INV-${debitEntry.id}`,
+            dueDate: dueDate.toISOString().split('T')[0],
+            description: debitEntry.description,
+            accountEntryId: debitEntry.id,
+            isGenerated: true
+          });
+        }
+      });
+    });
+    
+    // Combine existing payments with generated payments
+    const allPayments = [...existingPayments, ...generatedPayments];
+    setPayments(allPayments);
   };
 
   const filteredPayments = payments.filter(payment => {

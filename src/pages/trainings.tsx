@@ -405,9 +405,15 @@ export default function Trainings() {
                                           const coachName = typeof coach === 'string' 
                                             ? coach 
                                             : `${coach.name || ''} ${coach.surname || ''}`.trim();
+                                          const coachSports = coach.sportsBranches || [];
                                           return (
                                             <SelectItem key={coach.id || index} value={coachName}>
-                                              {coachName}
+                                              <div className="flex flex-col">
+                                                <span className="font-medium">{coachName}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                  {coachSports.join(', ') || 'Genel'}
+                                                </span>
+                                              </div>
                                             </SelectItem>
                                           );
                                         })}
