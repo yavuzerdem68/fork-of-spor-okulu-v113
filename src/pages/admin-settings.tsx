@@ -161,7 +161,7 @@ export default function AdminSettings() {
   useEffect(() => {
     // Check if user is logged in and has admin role
     const role = localStorage.getItem("userRole");
-    if (role !== "admin") {
+    if (!role || (role !== "admin" && role !== "super_admin")) {
       router.push("/login");
       return;
     }

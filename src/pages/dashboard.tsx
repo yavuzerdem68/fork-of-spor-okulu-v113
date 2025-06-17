@@ -454,19 +454,35 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Button variant="outline" className="h-20 flex flex-col space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col space-y-2"
+                      onClick={() => router.push('/athletes')}
+                    >
                       <Users className="h-6 w-6" />
                       <span className="text-sm">Yeni Sporcu</span>
                     </Button>
-                    <Button variant="outline" className="h-20 flex flex-col space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col space-y-2"
+                      onClick={() => router.push('/payments')}
+                    >
                       <CreditCard className="h-6 w-6" />
                       <span className="text-sm">Ödeme Kaydet</span>
                     </Button>
-                    <Button variant="outline" className="h-20 flex flex-col space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col space-y-2"
+                      onClick={() => router.push('/trainings')}
+                    >
                       <Calendar className="h-6 w-6" />
                       <span className="text-sm">Antrenman Planla</span>
                     </Button>
-                    <Button variant="outline" className="h-20 flex flex-col space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col space-y-2"
+                      onClick={() => router.push('/messages')}
+                    >
                       <MessageCircle className="h-6 w-6" />
                       <span className="text-sm">Mesaj Gönder</span>
                     </Button>

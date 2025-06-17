@@ -453,23 +453,23 @@ export default function Payments() {
             if (/^\d+[.,]?\d*$/.test(cleanAmount) || /^\d{1,3}(\.\d{3})*,\d{2}$/.test(cleanAmount)) {
               let parsedAmount = 0;
               
-              // Handle Turkish format: 1.234,56
+              // Handle Turkish format: 2.100,00 (thousands separator with decimal)
               if (cleanAmount.includes('.') && cleanAmount.includes(',')) {
+                // This is Turkish format: 2.100,00 = 2100.00
                 parsedAmount = parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.'));
               }
               // Handle format with comma as decimal: 1234,56
               else if (cleanAmount.includes(',') && !cleanAmount.includes('.')) {
                 parsedAmount = parseFloat(cleanAmount.replace(',', '.'));
               }
-              // Handle format with dot as decimal: 1234.56
+              // Handle format with dot as thousands separator: 2.100
               else if (cleanAmount.includes('.') && !cleanAmount.includes(',')) {
-                // Check if it's thousands separator or decimal
                 const parts = cleanAmount.split('.');
                 if (parts.length === 2 && parts[1].length <= 2) {
                   // Likely decimal: 1234.56
                   parsedAmount = parseFloat(cleanAmount);
                 } else {
-                  // Likely thousands separator: 1.234
+                  // Likely thousands separator: 2.100 = 2100
                   parsedAmount = parseFloat(cleanAmount.replace(/\./g, ''));
                 }
               }
@@ -1335,7 +1335,7 @@ export default function Payments() {
                     <p className="text-sm font-medium text-muted-foreground">Toplam Tutar</p>
                     <p className="text-2xl font-bold">₺{totalAmount.toLocaleString()}</p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-blue-600" />
+                  <CreditCard className="h-8 w-8 text-blue-600" />
                 </div>
               </CardContent>
             </Card>
@@ -1596,13 +1596,52 @@ export default function Payments() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex space-x-2">
-                                  <Button variant="ghost" size="sm">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      // View payment details
+                                      alert(`Ödeme Detayları:\n\nSporcu: ${payment.athleteName}\nVeli: ${payment.parentName}\nTutar: ₺${payment.amount}\nDurum: ${payment.status}\nVade: ${new Date(payment.dueDate).toLocaleDateString('tr-TR')}\nAçıklama: ${payment.description || 'Yok'}`);
+                                    }}
+                                  >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="sm">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      // Generate receipt
+                                      const receiptData = `ÖDEME MAKBUZu\n\nSporcu: ${payment.athleteName}\nVeli: ${payment.parentName}\nTutar: ₺${payment.amount}\nTarih: ${payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('tr-TR') : 'Ödenmedi'}\nYöntem: ${payment.method || 'Belirtilmemiş'}\nFatura No: ${payment.invoiceNumber}`;
+                                      
+                                      const blob = new Blob([receiptData], { type: 'text/plain;charset=utf-8' });
+                                      const url = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.download = `Makbuz_${payment.invoiceNumber}.txt`;
+                                      link.click();
+                                      URL.revokeObjectURL(url);
+                                    }}
+                                  >
                                     <Receipt className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="sm">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      // Edit payment
+                                      const newAmount = prompt(`${payment.athleteName} için yeni tutar girin:`, payment.amount.toString());
+                                      if (newAmount && !isNaN(parseFloat(newAmount))) {
+                                        const updatedPayments = payments.map(p => 
+                                          p.id === payment.id 
+                                            ? { ...p, amount: parseFloat(newAmount) }
+                                            : p
+                                        );
+                                        setPayments(updatedPayments);
+                                        localStorage.setItem('payments', JSON.stringify(updatedPayments));
+                                        toast.success('Ödeme tutarı güncellendi');
+                                      }
+                                    }}
+                                  >
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                 </div>
