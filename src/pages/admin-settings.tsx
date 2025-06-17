@@ -35,8 +35,8 @@ const fadeInUp = {
   transition: { duration: 0.6 }
 };
 
-// Mock admin users data
-const mockAdminUsers = [
+// Default admin users data (only used for initial setup)
+const defaultAdminUsers = [
   {
     id: 1,
     name: "Ahmet Yönetici",
@@ -113,7 +113,7 @@ const roleOptions = [
 
 export default function AdminSettings() {
   const router = useRouter();
-  const [adminUsers, setAdminUsers] = useState(mockAdminUsers);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -129,6 +129,35 @@ export default function AdminSettings() {
     permissions: {} as any
   });
 
+  // Load admin users from localStorage
+  const loadAdminUsers = () => {
+    try {
+      const stored = localStorage.getItem("adminUsers");
+      if (stored) {
+        const parsedUsers = JSON.parse(stored);
+        setAdminUsers(parsedUsers);
+      } else {
+        // First time setup - use default users
+        setAdminUsers(defaultAdminUsers);
+        localStorage.setItem("adminUsers", JSON.stringify(defaultAdminUsers));
+      }
+    } catch (error) {
+      console.error("Error loading admin users:", error);
+      setAdminUsers(defaultAdminUsers);
+    }
+  };
+
+  // Save admin users to localStorage
+  const saveAdminUsers = (users: any[]) => {
+    try {
+      localStorage.setItem("adminUsers", JSON.stringify(users));
+      setAdminUsers(users);
+    } catch (error) {
+      console.error("Error saving admin users:", error);
+      setError("Kullanıcı bilgileri kaydedilirken hata oluştu");
+    }
+  };
+
   useEffect(() => {
     // Check if user is logged in and has admin role
     const role = localStorage.getItem("userRole");
@@ -136,6 +165,9 @@ export default function AdminSettings() {
       router.push("/login");
       return;
     }
+
+    // Load admin users
+    loadAdminUsers();
   }, [router]);
 
   const getDefaultPermissions = (role: string) => {
@@ -216,9 +248,10 @@ export default function AdminSettings() {
 
   const handleSaveUser = () => {
     if (selectedUser) {
-      setAdminUsers(prev => prev.map(user => 
+      const updatedUsers = adminUsers.map(user => 
         user.id === selectedUser.id ? selectedUser : user
-      ));
+      );
+      saveAdminUsers(updatedUsers);
       setSuccess("Kullanıcı başarıyla güncellendi");
       setIsEditDialogOpen(false);
       setTimeout(() => setSuccess(""), 3000);
@@ -228,10 +261,18 @@ export default function AdminSettings() {
   const handleAddUser = () => {
     if (!newUser.name || !newUser.email || !newUser.password) {
       setError("Lütfen tüm alanları doldurun");
+      setTimeout(() => setError(""), 3000);
       return;
     }
 
-    const newId = Math.max(...adminUsers.map(u => u.id)) + 1;
+    // Check if email already exists
+    if (adminUsers.some(user => user.email === newUser.email)) {
+      setError("Bu email adresi zaten kullanılıyor");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    const newId = adminUsers.length > 0 ? Math.max(...adminUsers.map(u => u.id)) + 1 : 1;
     const userToAdd = {
       ...newUser,
       id: newId,
@@ -240,7 +281,8 @@ export default function AdminSettings() {
       permissions: newUser.permissions || getDefaultPermissions(newUser.role)
     };
 
-    setAdminUsers(prev => [...prev, userToAdd]);
+    const updatedUsers = [...adminUsers, userToAdd];
+    saveAdminUsers(updatedUsers);
     setSuccess("Yeni kullanıcı başarıyla eklendi");
     setIsAddDialogOpen(false);
     setNewUser({ name: "", email: "", password: "", role: "staff", permissions: {} });
@@ -248,16 +290,19 @@ export default function AdminSettings() {
   };
 
   const handleDeleteUser = (userId: number) => {
-    setAdminUsers(prev => prev.filter(user => user.id !== userId));
+    const updatedUsers = adminUsers.filter(user => user.id !== userId);
+    saveAdminUsers(updatedUsers);
     setSuccess("Kullanıcı başarıyla silindi");
     setTimeout(() => setSuccess(""), 3000);
   };
 
   const toggleUserStatus = (userId: number) => {
-    setAdminUsers(prev => prev.map(user => 
+    const updatedUsers = adminUsers.map(user => 
       user.id === userId ? { ...user, isActive: !user.isActive } : user
-    ));
+    );
+    saveAdminUsers(updatedUsers);
   };
+=======
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
