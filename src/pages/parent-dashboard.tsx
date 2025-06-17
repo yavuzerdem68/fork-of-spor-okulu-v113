@@ -39,8 +39,6 @@ const staggerContainer = {
   }
 };
 
-=======
-
 export default function ParentDashboard() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState("");
