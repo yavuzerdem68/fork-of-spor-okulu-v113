@@ -82,6 +82,12 @@ export default function Athletes() {
   const [selectedAthleteForStatus, setSelectedAthleteForStatus] = useState<any>(null);
   const [isParentAccountDialogOpen, setIsParentAccountDialogOpen] = useState(false);
   const [parentAccountsToCreate, setParentAccountsToCreate] = useState<any[]>([]);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedAthleteForView, setSelectedAthleteForView] = useState<any>(null);
+  const [selectedAthleteForEdit, setSelectedAthleteForEdit] = useState<any>(null);
+  const [selectedAthleteForDelete, setSelectedAthleteForDelete] = useState<any>(null);
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
@@ -562,6 +568,42 @@ export default function Athletes() {
     setParentAccountsToCreate([]);
   };
 
+  // Action button functions
+  const openViewDialog = (athlete: any) => {
+    setSelectedAthleteForView(athlete);
+    setIsViewDialogOpen(true);
+  };
+
+  const openEditDialog = (athlete: any) => {
+    setSelectedAthleteForEdit(athlete);
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (athlete: any) => {
+    setSelectedAthleteForDelete(athlete);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const deleteAthlete = () => {
+    if (!selectedAthleteForDelete) return;
+
+    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    const updatedStudents = allStudents.filter((student: any) => 
+      student.id !== selectedAthleteForDelete.id
+    );
+    
+    localStorage.setItem('students', JSON.stringify(updatedStudents));
+    
+    // Also remove account entries
+    localStorage.removeItem(`account_${selectedAthleteForDelete.id}`);
+    
+    loadAthletes(userRole!, currentUser);
+    setIsDeleteDialogOpen(false);
+    setSelectedAthleteForDelete(null);
+    
+    alert(`${selectedAthleteForDelete.studentName} ${selectedAthleteForDelete.studentSurname} adlı sporcu başarıyla silindi.`);
+  };
+
   return (
     <>
       <Head>
@@ -1011,7 +1053,12 @@ export default function Athletes() {
                               ))}
                             </div>
                           </TableCell>
-                          <TableCell>{athlete.parentName} {athlete.parentSurname}</TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{athlete.parentName} {athlete.parentSurname}</p>
+                              <p className="text-sm text-muted-foreground">{athlete.parentRelation || 'Veli'}</p>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="space-y-1">
                               <div className="flex items-center space-x-1 text-sm">
@@ -1038,7 +1085,12 @@ export default function Athletes() {
                           )}
                           <TableCell>
                             <div className="flex space-x-2">
-                              <Button variant="ghost" size="sm">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => openViewDialog(athlete)}
+                                title="Görüntüle"
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
                               {userRole === 'admin' && (
@@ -1062,10 +1114,20 @@ export default function Athletes() {
                                       <ToggleLeft className="h-4 w-4 text-gray-400" />
                                     }
                                   </Button>
-                                  <Button variant="ghost" size="sm">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => openEditDialog(athlete)}
+                                    title="Düzenle"
+                                  >
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="sm">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => openDeleteDialog(athlete)}
+                                    title="Sil"
+                                  >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </>
@@ -1477,6 +1539,250 @@ export default function Athletes() {
                   <Button onClick={createParentAccounts}>
                     <Key className="h-4 w-4 mr-2" />
                     {parentAccountsToCreate.length} Hesap Oluştur
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* View Athlete Dialog */}
+          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Eye className="h-5 w-5" />
+                  <span>Sporcu Detayları - {selectedAthleteForView?.studentName} {selectedAthleteForView?.studentSurname}</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Sporcu bilgilerini görüntüleyin
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedAthleteForView && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Sporcu Bilgileri */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Sporcu Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Ad Soyad:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentName} {selectedAthleteForView.studentSurname}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">TC Kimlik No:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentTcNo}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Doğum Tarihi:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentBirthDate}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Yaş:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentAge}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Cinsiyet:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentGender || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Okul:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentSchool || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Sınıf:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentClass || '-'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Veli Bilgileri */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Veli Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Ad Soyad:</span>
+                          <span className="font-medium">{selectedAthleteForView.parentName} {selectedAthleteForView.parentSurname}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">TC Kimlik No:</span>
+                          <span className="font-medium">{selectedAthleteForView.parentTcNo || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Telefon:</span>
+                          <span className="font-medium">{selectedAthleteForView.parentPhone}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Email:</span>
+                          <span className="font-medium">{selectedAthleteForView.parentEmail}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Yakınlık:</span>
+                          <span className="font-medium">{selectedAthleteForView.parentRelation || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Meslek:</span>
+                          <span className="font-medium">{selectedAthleteForView.parentOccupation || '-'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Spor Bilgileri */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Spor Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <span className="text-muted-foreground">Spor Branşları:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {selectedAthleteForView.sportsBranches?.map((branch: string, idx: number) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {branch}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Boy:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentHeight || '-'} cm</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Kilo:</span>
+                          <span className="font-medium">{selectedAthleteForView.studentWeight || '-'} kg</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Kan Grubu:</span>
+                          <span className="font-medium">{selectedAthleteForView.bloodType || '-'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Sistem Bilgileri */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Sistem Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Durum:</span>
+                          <Badge variant={selectedAthleteForView.status === 'Aktif' ? 'default' : 'secondary'}>
+                            {selectedAthleteForView.status || 'Aktif'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Ödeme Durumu:</span>
+                          <Badge variant={selectedAthleteForView.paymentStatus === 'Güncel' ? 'default' : 'destructive'}>
+                            {selectedAthleteForView.paymentStatus || 'Güncel'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Kayıt Tarihi:</span>
+                          <span className="font-medium">
+                            {new Date(selectedAthleteForView.registrationDate || selectedAthleteForView.createdAt).toLocaleDateString('tr-TR')}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Athlete Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Edit className="h-5 w-5" />
+                  <span>Sporcu Düzenle - {selectedAthleteForEdit?.studentName} {selectedAthleteForEdit?.studentSurname}</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Sporcu bilgilerini düzenleyin
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Sporcu düzenleme özelliği yakında eklenecektir. Şu anda sadece görüntüleme modu aktiftir.
+                  </AlertDescription>
+                </Alert>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Athlete Dialog */}
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                  <span>Sporcu Sil</span>
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedAthleteForDelete?.studentName} {selectedAthleteForDelete?.studentSurname} adlı sporcuyu silmek istediğinizden emin misiniz?
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Bu işlem geri alınamaz! Sporcu kaydı ve tüm ilişkili veriler (cari hesap, ödemeler vb.) silinecektir.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Sporcu:</span>
+                      <span className="font-medium">{selectedAthleteForDelete?.studentName} {selectedAthleteForDelete?.studentSurname}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Veli:</span>
+                      <span className="font-medium">{selectedAthleteForDelete?.parentName} {selectedAthleteForDelete?.parentSurname}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Kayıt Tarihi:</span>
+                      <span className="font-medium">
+                        {selectedAthleteForDelete && new Date(selectedAthleteForDelete.registrationDate || selectedAthleteForDelete.createdAt).toLocaleDateString('tr-TR')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsDeleteDialogOpen(false)}
+                  >
+                    İptal
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={deleteAthlete}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Sporcuyu Sil
                   </Button>
                 </div>
               </div>

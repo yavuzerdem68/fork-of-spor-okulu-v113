@@ -228,6 +228,7 @@ export default function Payments() {
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
   const [payments, setPayments] = useState<any[]>([]);
+  const [athletes, setAthletes] = useState<any[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [matchedPayments, setMatchedPayments] = useState<any[]>([]);
@@ -235,6 +236,13 @@ export default function Payments() {
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
   const [manualMatches, setManualMatches] = useState<{[key: number]: string}>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [newPayment, setNewPayment] = useState({
+    athleteId: '',
+    amount: '',
+    method: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    description: ''
+  });
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -257,6 +265,10 @@ export default function Payments() {
     // localStorage'dan mevcut ödemeleri yükle
     const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
     setPayments(existingPayments);
+    
+    // Load athletes for payment selection
+    const storedAthletes = JSON.parse(localStorage.getItem('students') || '[]');
+    setAthletes(storedAthletes.filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status));
   };
 
   const filteredPayments = payments.filter(payment => {
@@ -1162,6 +1174,68 @@ export default function Payments() {
     toast.success(`Şablon dosyası indirildi! (${activeAthletes.length || 5} sporcu için) - KDV oranı için 10 veya 20 yazın, toplam otomatik hesaplanacak.`);
   };
 
+  // Save new payment function
+  const saveNewPayment = () => {
+    if (!newPayment.athleteId || !newPayment.amount || !newPayment.method) {
+      toast.error("Lütfen tüm zorunlu alanları doldurun");
+      return;
+    }
+
+    const selectedAthlete = athletes.find(a => a.id.toString() === newPayment.athleteId);
+    if (!selectedAthlete) {
+      toast.error("Seçilen sporcu bulunamadı");
+      return;
+    }
+
+    const payment = {
+      id: Date.now(),
+      athleteName: `${selectedAthlete.studentName} ${selectedAthlete.studentSurname}`,
+      parentName: `${selectedAthlete.parentName} ${selectedAthlete.parentSurname}`,
+      amount: parseFloat(newPayment.amount),
+      method: newPayment.method,
+      paymentDate: newPayment.paymentDate,
+      status: "Ödendi",
+      sport: selectedAthlete.sportsBranches?.[0] || 'Genel',
+      invoiceNumber: `INV-${Date.now()}`,
+      dueDate: newPayment.paymentDate,
+      description: newPayment.description || `${newPayment.method} ile ödeme`
+    };
+
+    const updatedPayments = [...payments, payment];
+    setPayments(updatedPayments);
+    localStorage.setItem('payments', JSON.stringify(updatedPayments));
+
+    // Add to athlete's account as credit (payment received)
+    const existingEntries = JSON.parse(localStorage.getItem(`account_${selectedAthlete.id}`) || '[]');
+    const paymentEntry = {
+      id: Date.now() + Math.random(),
+      date: new Date(newPayment.paymentDate).toISOString(),
+      month: newPayment.paymentDate.slice(0, 7),
+      description: `${newPayment.method} ile ödeme - ${newPayment.description || 'Manuel ödeme kaydı'}`,
+      amountExcludingVat: parseFloat(newPayment.amount),
+      vatRate: 0,
+      vatAmount: 0,
+      amountIncludingVat: parseFloat(newPayment.amount),
+      unitCode: 'Adet',
+      type: 'credit'
+    };
+    
+    existingEntries.push(paymentEntry);
+    localStorage.setItem(`account_${selectedAthlete.id}`, JSON.stringify(existingEntries));
+
+    // Reset form
+    setNewPayment({
+      athleteId: '',
+      amount: '',
+      method: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      description: ''
+    });
+
+    setIsAddDialogOpen(false);
+    toast.success(`${selectedAthlete.studentName} ${selectedAthlete.studentSurname} için ödeme kaydı oluşturuldu`);
+  };
+
   return (
     <>
       <Head>
@@ -1333,14 +1407,19 @@ export default function Payments() {
                             <div className="space-y-4 py-4">
                               <div className="space-y-2">
                                 <Label htmlFor="athlete">Sporcu</Label>
-                                <Select>
+                                <Select value={newPayment.athleteId} onValueChange={(value) => setNewPayment(prev => ({ ...prev, athleteId: value }))}>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Sporcu seçin" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {payments.map(payment => (
-                                      <SelectItem key={payment.id} value={payment.id.toString()}>
-                                        {payment.athleteName}
+                                    {athletes.map(athlete => (
+                                      <SelectItem key={athlete.id} value={athlete.id.toString()}>
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{athlete.studentName} {athlete.studentSurname}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {athlete.parentName} {athlete.parentSurname} - {athlete.sportsBranches?.[0] || 'Genel'}
+                                          </span>
+                                        </div>
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -1349,12 +1428,18 @@ export default function Payments() {
                               
                               <div className="space-y-2">
                                 <Label htmlFor="amount">Tutar (₺)</Label>
-                                <Input id="amount" type="number" placeholder="350" />
+                                <Input 
+                                  id="amount" 
+                                  type="number" 
+                                  placeholder="350" 
+                                  value={newPayment.amount}
+                                  onChange={(e) => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                                />
                               </div>
                               
                               <div className="space-y-2">
                                 <Label htmlFor="method">Ödeme Yöntemi</Label>
-                                <Select>
+                                <Select value={newPayment.method} onValueChange={(value) => setNewPayment(prev => ({ ...prev, method: value }))}>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Yöntem seçin" />
                                   </SelectTrigger>
@@ -1368,7 +1453,22 @@ export default function Payments() {
                               
                               <div className="space-y-2">
                                 <Label htmlFor="paymentDate">Ödeme Tarihi</Label>
-                                <Input id="paymentDate" type="date" />
+                                <Input 
+                                  id="paymentDate" 
+                                  type="date" 
+                                  value={newPayment.paymentDate}
+                                  onChange={(e) => setNewPayment(prev => ({ ...prev, paymentDate: e.target.value }))}
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor="description">Açıklama (Opsiyonel)</Label>
+                                <Input 
+                                  id="description" 
+                                  placeholder="Ödeme açıklaması" 
+                                  value={newPayment.description}
+                                  onChange={(e) => setNewPayment(prev => ({ ...prev, description: e.target.value }))}
+                                />
                               </div>
                             </div>
                             
@@ -1376,7 +1476,7 @@ export default function Payments() {
                               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                                 İptal
                               </Button>
-                              <Button onClick={() => setIsAddDialogOpen(false)}>
+                              <Button onClick={saveNewPayment}>
                                 Kaydet
                               </Button>
                             </div>
