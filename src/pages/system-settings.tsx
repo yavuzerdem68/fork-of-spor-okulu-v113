@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,9 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  UserCheck
+  UserCheck,
+  ArrowLeft,
+  Home
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -222,21 +225,39 @@ const SystemSettings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Settings className="h-8 w-8" />
-            Sistem Ayarları
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Spor okulu bilgilerini ve sistem ayarlarını yönetin
-          </p>
-        </motion.div>
+    <>
+      <Head>
+        <title>Sistem Ayarları - SportsCRM</title>
+        <meta name="description" content="Spor okulu sistem ayarları ve yapılandırma" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Dashboard'a Dön
+              </Button>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <Settings className="h-8 w-8" />
+              Sistem Ayarları
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Spor okulu bilgilerini ve sistem ayarlarını yönetin
+            </p>
+          </motion.div>
 
         {message && (
           <motion.div

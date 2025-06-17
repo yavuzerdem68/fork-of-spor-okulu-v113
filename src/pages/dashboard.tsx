@@ -313,7 +313,7 @@ export default function Dashboard() {
                 <Button variant="outline" size="sm">
                   <Bell className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => router.push('/system-settings')}>
                   <Settings className="h-4 w-4" />
                 </Button>
               </div>

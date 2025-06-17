@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -54,115 +54,70 @@ const fadeInUp = {
   transition: { duration: 0.4 }
 };
 
-// Mock data
-const whatsappGroups = [
-  {
-    id: 1,
-    name: "U14 Basketbol Takımı",
-    sport: "Basketbol",
-    memberCount: 25,
-    parentCount: 20,
-    coachCount: 2,
-    lastMessage: "Yarınki antrenman 16:00'da başlayacak",
-    lastMessageTime: "2024-06-07 14:30",
-    status: "Aktif",
-    groupLink: "https://chat.whatsapp.com/xyz123",
-    createdDate: "2024-01-15"
-  },
-  {
-    id: 2,
-    name: "Yüzme Kursu Velileri",
-    sport: "Yüzme",
-    memberCount: 18,
-    parentCount: 15,
-    coachCount: 1,
-    lastMessage: "Bu hafta havuz bakımda olacak",
-    lastMessageTime: "2024-06-06 19:45",
-    status: "Aktif",
-    groupLink: "https://chat.whatsapp.com/abc456",
-    createdDate: "2024-02-20"
-  },
-  {
-    id: 3,
-    name: "Futbol U16 Ailesi",
-    sport: "Futbol",
-    memberCount: 30,
-    parentCount: 25,
-    coachCount: 3,
-    lastMessage: "Maç sonuçları paylaşıldı",
-    lastMessageTime: "2024-06-05 20:15",
-    status: "Aktif",
-    groupLink: "https://chat.whatsapp.com/def789",
-    createdDate: "2024-01-10"
-  }
-];
+// Data loading functions
+const loadWhatsAppGroups = () => {
+  const saved = localStorage.getItem('whatsappGroups');
+  return saved ? JSON.parse(saved) : [];
+};
 
-const messageTemplates = [
-  {
-    id: 1,
-    title: "Antrenman Hatırlatması",
-    content: "Merhaba {veli_adi}, {sporcu_adi}'nın yarınki {spor} antrenmanı {saat}'te {lokasyon}'da olacaktır. Lütfen zamanında gelmesini sağlayın.",
-    category: "Antrenman",
-    usageCount: 45
-  },
-  {
-    id: 2,
-    title: "Devamsızlık Bildirimi",
-    content: "Sayın {veli_adi}, {sporcu_adi} bugünkü {spor} antrenmanına katılmamıştır. Herhangi bir sorun varsa lütfen bizimle iletişime geçin.",
-    category: "Devamsızlık",
-    usageCount: 23
-  },
-  {
-    id: 3,
-    title: "Ödeme Hatırlatması",
-    content: "Merhaba {veli_adi}, {sporcu_adi}'nın {ay} ayı aidat ödemesi {tutar} TL'dir. Son ödeme tarihi {tarih}'tir.",
-    category: "Ödeme",
-    usageCount: 67
-  },
-  {
-    id: 4,
-    title: "Maç/Müsabaka Duyurusu",
-    content: "Sevgili veliler, {sporcu_adi}'nın {tarih} tarihinde {saat}'te {lokasyon}'da maçı bulunmaktadır. Desteklerinizi bekliyoruz!",
-    category: "Etkinlik",
-    usageCount: 12
-  }
-];
+const saveWhatsAppGroups = (groups: any[]) => {
+  localStorage.setItem('whatsappGroups', JSON.stringify(groups));
+};
 
-const sentMessages = [
-  {
-    id: 1,
-    recipient: "Ahmet Yılmaz (Veli)",
-    athleteName: "Can Yılmaz",
-    sport: "Basketbol",
-    message: "Yarınki antrenman 16:00'da başlayacak",
-    sentTime: "2024-06-07 14:30",
-    status: "Gönderildi",
-    type: "Bireysel",
-    template: "Antrenman Hatırlatması"
-  },
-  {
-    id: 2,
-    recipient: "U14 Basketbol Grubu",
-    athleteName: "-",
-    sport: "Basketbol",
-    message: "Bu hafta antrenman programında değişiklik var",
-    sentTime: "2024-06-07 10:15",
-    status: "Gönderildi",
-    type: "Grup",
-    template: "Özel Mesaj"
-  },
-  {
-    id: 3,
-    recipient: "Elif Demir (Veli)",
-    athleteName: "Zeynep Demir",
-    sport: "Yüzme",
-    message: "Zeynep bugünkü antrenmana katılmadı",
-    sentTime: "2024-06-06 18:45",
-    status: "Okundu",
-    type: "Bireysel",
-    template: "Devamsızlık Bildirimi"
+const loadMessageTemplates = () => {
+  const saved = localStorage.getItem('messageTemplates');
+  if (saved) {
+    return JSON.parse(saved);
   }
-];
+  
+  // Default templates for first time use
+  const defaultTemplates = [
+    {
+      id: 1,
+      title: "Antrenman Hatırlatması",
+      content: "Merhaba {veli_adi}, {sporcu_adi}'nın yarınki {spor} antrenmanı {saat}'te {lokasyon}'da olacaktır. Lütfen zamanında gelmesini sağlayın.",
+      category: "Antrenman",
+      usageCount: 0
+    },
+    {
+      id: 2,
+      title: "Devamsızlık Bildirimi",
+      content: "Sayın {veli_adi}, {sporcu_adi} bugünkü {spor} antrenmanına katılmamıştır. Herhangi bir sorun varsa lütfen bizimle iletişime geçin.",
+      category: "Devamsızlık",
+      usageCount: 0
+    },
+    {
+      id: 3,
+      title: "Ödeme Hatırlatması",
+      content: "Merhaba {veli_adi}, {sporcu_adi}'nın {ay} ayı aidat ödemesi {tutar} TL'dir. Son ödeme tarihi {tarih}'tir.",
+      category: "Ödeme",
+      usageCount: 0
+    },
+    {
+      id: 4,
+      title: "Maç/Müsabaka Duyurusu",
+      content: "Sevgili veliler, {sporcu_adi}'nın {tarih} tarihinde {saat}'te {lokasyon}'da maçı bulunmaktadır. Desteklerinizi bekliyoruz!",
+      category: "Etkinlik",
+      usageCount: 0
+    }
+  ];
+  
+  localStorage.setItem('messageTemplates', JSON.stringify(defaultTemplates));
+  return defaultTemplates;
+};
+
+const saveMessageTemplates = (templates: any[]) => {
+  localStorage.setItem('messageTemplates', JSON.stringify(templates));
+};
+
+const loadSentMessages = () => {
+  const saved = localStorage.getItem('sentMessages');
+  return saved ? JSON.parse(saved) : [];
+};
+
+const saveSentMessages = (messages: any[]) => {
+  localStorage.setItem('sentMessages', JSON.stringify(messages));
+};
 
 const sidebarItems = [
   { icon: Home, label: "Dashboard", href: "/dashboard" },
@@ -186,6 +141,18 @@ export default function Messages() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [messageContent, setMessageContent] = useState("");
+  
+  // Data state
+  const [whatsappGroups, setWhatsappGroups] = useState<any[]>([]);
+  const [messageTemplates, setMessageTemplates] = useState<any[]>([]);
+  const [sentMessages, setSentMessages] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Load data from localStorage on component mount
+    setWhatsappGroups(loadWhatsAppGroups());
+    setMessageTemplates(loadMessageTemplates());
+    setSentMessages(loadSentMessages());
+  }, []);
 
   const filteredGroups = whatsappGroups.filter(group => {
     const matchesSearch = group.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -486,54 +453,70 @@ export default function Messages() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredGroups.map((group) => (
-                            <TableRow key={group.id}>
-                              <TableCell>
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                    <MessageCircle className="h-5 w-5 text-green-600" />
+                          {filteredGroups.length > 0 ? (
+                            filteredGroups.map((group) => (
+                              <TableRow key={group.id}>
+                                <TableCell>
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                      <MessageCircle className="h-5 w-5 text-green-600" />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium">{group.name}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {group.parentCount} veli, {group.coachCount} antrenör
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="font-medium">{group.name}</p>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{group.sport}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="font-medium">{group.memberCount}</span>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="max-w-xs">
+                                    <p className="text-sm truncate">{group.lastMessage}</p>
                                     <p className="text-xs text-muted-foreground">
-                                      {group.parentCount} veli, {group.coachCount} antrenör
+                                      {new Date(group.lastMessageTime).toLocaleString('tr-TR')}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(group.createdDate).toLocaleDateString('tr-TR')}
+                                </TableCell>
+                                <TableCell>{getStatusBadge(group.status)}</TableCell>
+                                <TableCell>
+                                  <div className="flex space-x-2">
+                                    <Button variant="ghost" size="sm">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm">
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm">
+                                      <ExternalLink className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-8">
+                                <div className="flex flex-col items-center space-y-3">
+                                  <Group className="w-12 h-12 text-muted-foreground" />
+                                  <div>
+                                    <p className="text-muted-foreground font-medium">Henüz WhatsApp grubu bulunmuyor</p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                      WhatsApp entegrasyonu kurulduktan sonra gruplar burada görünecek
                                     </p>
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{group.sport}</Badge>
-                              </TableCell>
-                              <TableCell>
-                                <span className="font-medium">{group.memberCount}</span>
-                              </TableCell>
-                              <TableCell>
-                                <div className="max-w-xs">
-                                  <p className="text-sm truncate">{group.lastMessage}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {new Date(group.lastMessageTime).toLocaleString('tr-TR')}
-                                  </p>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {new Date(group.createdDate).toLocaleDateString('tr-TR')}
-                              </TableCell>
-                              <TableCell>{getStatusBadge(group.status)}</TableCell>
-                              <TableCell>
-                                <div className="flex space-x-2">
-                                  <Button variant="ghost" size="sm">
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm">
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm">
-                                    <ExternalLink className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
                             </TableRow>
-                          ))}
+                          )}
                         </TableBody>
                       </Table>
                     </CardContent>
@@ -715,32 +698,48 @@ export default function Messages() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {sentMessages.map((message) => (
-                            <TableRow key={message.id}>
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium">{message.recipient}</p>
-                                  <Badge variant="outline" className="text-xs">{message.sport}</Badge>
+                          {sentMessages.length > 0 ? (
+                            sentMessages.map((message) => (
+                              <TableRow key={message.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{message.recipient}</p>
+                                    <Badge variant="outline" className="text-xs">{message.sport}</Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{message.athleteName}</TableCell>
+                                <TableCell>
+                                  <div className="max-w-xs">
+                                    <p className="text-sm truncate">{message.message}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(message.sentTime).toLocaleString('tr-TR')}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={message.type === "Grup" ? "default" : "secondary"}>
+                                    {message.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{message.template}</TableCell>
+                                <TableCell>{getStatusBadge(message.status)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-8">
+                                <div className="flex flex-col items-center space-y-3">
+                                  <MessageSquare className="w-12 h-12 text-muted-foreground" />
+                                  <div>
+                                    <p className="text-muted-foreground font-medium">Henüz mesaj gönderilmemiş</p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                      Gönderilen mesajlar burada görünecek
+                                    </p>
+                                  </div>
                                 </div>
                               </TableCell>
-                              <TableCell>{message.athleteName}</TableCell>
-                              <TableCell>
-                                <div className="max-w-xs">
-                                  <p className="text-sm truncate">{message.message}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {new Date(message.sentTime).toLocaleString('tr-TR')}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={message.type === "Grup" ? "default" : "secondary"}>
-                                  {message.type}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{message.template}</TableCell>
-                              <TableCell>{getStatusBadge(message.status)}</TableCell>
                             </TableRow>
-                          ))}
+                          )}
                         </TableBody>
                       </Table>
                     </CardContent>
