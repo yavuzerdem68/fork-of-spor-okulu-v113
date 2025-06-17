@@ -259,21 +259,21 @@ const SystemSettings = () => {
             </p>
           </motion.div>
 
-        {message && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
-          >
-            <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
-              <AlertDescription className={message.type === 'success' ? 'text-green-700' : 'text-red-700'}>
-                {message.text}
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
+          {message && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6"
+            >
+              <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+                <AlertDescription className={message.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                  {message.text}
+                </AlertDescription>
+              </Alert>
+            </motion.div>
+          )}
 
-        <Tabs defaultValue="general" className="space-y-6">
+          <Tabs defaultValue="general" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="general">Genel Bilgiler</TabsTrigger>
             <TabsTrigger value="branding">Marka & Logo</TabsTrigger>
@@ -782,9 +782,10 @@ const SystemSettings = () => {
             <Save className="h-4 w-4" />
             {isLoading ? 'Kaydediliyor...' : 'Ayarları Kaydet'}
           </Button>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
