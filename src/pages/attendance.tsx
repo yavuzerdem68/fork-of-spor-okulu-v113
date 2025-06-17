@@ -68,89 +68,29 @@ export default function Attendance() {
   }, [router, selectedDate]);
 
   const loadTodayTrainings = (date: string, role: string, user: any) => {
-    // Mock data - gerçek uygulamada API'den gelecek
-    const allTrainings = [
-      {
-        id: 1,
-        title: "U14 Basketbol Antrenmanı",
-        sport: "Basketbol",
-        coach: "Mehmet Özkan",
-        coachId: "coach1",
-        startTime: "09:00",
-        endTime: "10:30",
-        location: "Spor Salonu A",
-        date: date,
-        trainingGroup: "U14 Basketbol",
-        students: [
-          { id: 1, name: "Ahmet Yılmaz", surname: "Yılmaz", parentPhone: "0532 123 4567", present: null },
-          { id: 2, name: "Elif Demir", surname: "Demir", parentPhone: "0532 234 5678", present: null },
-          { id: 3, name: "Can Özkan", surname: "Özkan", parentPhone: "0532 345 6789", present: null },
-          { id: 4, name: "Zeynep Kaya", surname: "Kaya", parentPhone: "0532 456 7890", present: null },
-          { id: 5, name: "Emre Şahin", surname: "Şahin", parentPhone: "0532 567 8901", present: null }
-        ]
-      },
-      {
-        id: 2,
-        title: "Yetişkin Yüzme Kursu",
-        sport: "Yüzme",
-        coach: "Ayşe Kaya",
-        coachId: "coach2",
-        startTime: "14:00",
-        endTime: "15:00",
-        location: "Yüzme Havuzu",
-        date: date,
-        trainingGroup: "Yetişkin Yüzme",
-        students: [
-          { id: 6, name: "Fatma Arslan", surname: "Arslan", parentPhone: "0532 678 9012", present: null },
-          { id: 7, name: "Mustafa Çelik", surname: "Çelik", parentPhone: "0532 789 0123", present: null },
-          { id: 8, name: "Selin Yıldız", surname: "Yıldız", parentPhone: "0532 890 1234", present: null }
-        ]
-      },
-      {
-        id: 3,
-        title: "U16 Futbol Takım Antrenmanı",
-        sport: "Futbol",
-        coach: "Ali Demir",
-        coachId: "coach3",
-        startTime: "16:00",
-        endTime: "17:30",
-        location: "Futbol Sahası",
-        date: date,
-        trainingGroup: "U16 Futbol",
-        students: [
-          { id: 9, name: "Burak Kılıç", surname: "Kılıç", parentPhone: "0532 901 2345", present: null },
-          { id: 10, name: "Deniz Acar", surname: "Acar", parentPhone: "0532 012 3456", present: null },
-          { id: 11, name: "Ege Polat", surname: "Polat", parentPhone: "0532 123 4567", present: null },
-          { id: 12, name: "Furkan Güneş", surname: "Güneş", parentPhone: "0532 234 5678", present: null }
-        ]
-      },
-      {
-        id: 4,
-        title: "Hentbol Temel Eğitimi",
-        sport: "Hentbol",
-        coach: "Mehmet Özkan",
-        coachId: "coach1",
-        startTime: "18:00",
-        endTime: "19:00",
-        location: "Spor Salonu B",
-        date: date,
-        trainingGroup: "Hentbol Başlangıç",
-        students: [
-          { id: 13, name: "Gizem Öztürk", surname: "Öztürk", parentPhone: "0532 345 6789", present: null },
-          { id: 14, name: "Hakan Yavuz", surname: "Yavuz", parentPhone: "0532 456 7890", present: null }
-        ]
-      }
-    ];
+    // Load trainings from localStorage
+    const storedTrainings = localStorage.getItem('trainings');
+    let allTrainings = storedTrainings ? JSON.parse(storedTrainings) : [];
+    
+    // Filter trainings for the selected date
+    allTrainings = allTrainings.filter((training: any) => training.date === date);
+    
+    // Add students array if not present (for attendance tracking)
+    allTrainings = allTrainings.map((training: any) => ({
+      ...training,
+      students: training.students || []
+    }));
 
     let trainingsToShow = allTrainings;
 
     // Eğer kullanıcı antrenör ise, sadece kendi antrenmanlarını göster
     if (role === 'coach' && user) {
-      trainingsToShow = allTrainings.filter(training => training.coachId === user.id);
+      const coachName = `${user.name || ''} ${user.surname || ''}`.trim();
+      trainingsToShow = allTrainings.filter((training: any) => training.coach === coachName);
     }
 
     // Saate göre sırala
-    trainingsToShow.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    trainingsToShow.sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''));
 
     setTodayTrainings(trainingsToShow);
   };

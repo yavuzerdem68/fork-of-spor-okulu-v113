@@ -254,80 +254,9 @@ export default function Payments() {
   }, [router]);
 
   const loadPayments = () => {
-    // Mock data - gerçek uygulamada API'den gelecek
-    const mockPayments = [
-      {
-        id: 1,
-        athleteName: "Ahmet Yılmaz",
-        parentName: "Mehmet Yılmaz",
-        amount: 350,
-        dueDate: "2024-06-15",
-        paymentDate: "2024-06-10",
-        status: "Ödendi",
-        method: "Kredi Kartı",
-        sport: "Basketbol",
-        invoiceNumber: "INV-2024-001",
-        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face"
-      },
-      {
-        id: 2,
-        athleteName: "Elif Demir",
-        parentName: "Ayşe Demir",
-        amount: 300,
-        dueDate: "2024-06-15",
-        paymentDate: null,
-        status: "Gecikmiş",
-        method: null,
-        sport: "Yüzme",
-        invoiceNumber: "INV-2024-002",
-        avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face"
-      },
-      {
-        id: 3,
-        athleteName: "Can Özkan",
-        parentName: "Ali Özkan",
-        amount: 400,
-        dueDate: "2024-06-20",
-        paymentDate: null,
-        status: "Bekliyor",
-        method: null,
-        sport: "Futbol",
-        invoiceNumber: "INV-2024-003",
-        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face"
-      },
-      {
-        id: 4,
-        athleteName: "Zeynep Kaya",
-        parentName: "Fatma Kaya",
-        amount: 320,
-        dueDate: "2024-06-18",
-        paymentDate: "2024-06-16",
-        status: "Ödendi",
-        method: "Nakit",
-        sport: "Hentbol",
-        invoiceNumber: "INV-2024-004",
-        avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face"
-      },
-      {
-        id: 5,
-        athleteName: "Emre Şahin",
-        parentName: "Hasan Şahin",
-        amount: 380,
-        dueDate: "2024-06-25",
-        paymentDate: null,
-        status: "Bekliyor",
-        method: null,
-        sport: "Voleybol",
-        invoiceNumber: "INV-2024-005",
-        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face"
-      }
-    ];
-
     // localStorage'dan mevcut ödemeleri yükle
     const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
-    const allPayments = existingPayments.length > 0 ? existingPayments : mockPayments;
-    
-    setPayments(allPayments);
+    setPayments(existingPayments);
   };
 
   const filteredPayments = payments.filter(payment => {

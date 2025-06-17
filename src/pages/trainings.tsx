@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -16,34 +16,21 @@ import {
   Calendar, 
   Plus,
   Search,
-  Filter,
-  Download,
   Edit,
-  Trash2,
-  Clock,
-  Users,
-  Trophy,
-  Home,
-  CreditCard,
-  FileText,
-  MessageCircle,
-  Camera,
-  UserCheck,
-  BarChart3,
-  Settings,
-  LogOut,
-  Bell,
   Eye,
   MapPin,
   Share,
   Copy,
   Send,
   CalendarDays,
-  Timer,
   Target,
   Activity,
-  Zap
+  ArrowLeft,
+  Users
 } from "lucide-react";
+import { useRouter } from "next/router";
+import Link from "next/link";
+import Header from "@/components/Header";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -51,120 +38,51 @@ const fadeInUp = {
   transition: { duration: 0.4 }
 };
 
-// Mock data
-const trainings = [
-  {
-    id: 1,
-    sport: "Basketbol",
-    title: "U14 Basketbol Antrenmanı",
-    coach: "Mehmet Özkan",
-    date: "2024-06-07",
-    startTime: "16:00",
-    endTime: "17:30",
-    location: "Spor Salonu A",
-    participants: 15,
-    maxParticipants: 20,
-    status: "Aktif",
-    description: "Temel basketbol becerileri ve takım oyunu",
-    ageGroup: "U14",
-    level: "Başlangıç"
-  },
-  {
-    id: 2,
-    sport: "Yüzme",
-    title: "Yetişkin Yüzme Kursu",
-    coach: "Ayşe Kaya",
-    date: "2024-06-07",
-    startTime: "18:00",
-    endTime: "19:00",
-    location: "Yüzme Havuzu",
-    participants: 12,
-    maxParticipants: 15,
-    status: "Aktif",
-    description: "Serbest stil ve kurbağalama teknikleri",
-    ageGroup: "Yetişkin",
-    level: "Orta"
-  },
-  {
-    id: 3,
-    sport: "Futbol",
-    title: "U16 Futbol Takım Antrenmanı",
-    coach: "Ali Demir",
-    date: "2024-06-08",
-    startTime: "09:00",
-    endTime: "10:30",
-    location: "Futbol Sahası",
-    participants: 22,
-    maxParticipants: 25,
-    status: "Aktif",
-    description: "Taktik çalışması ve kondisyon",
-    ageGroup: "U16",
-    level: "İleri"
-  },
-  {
-    id: 4,
-    sport: "Hentbol",
-    title: "Kadın Hentbol Antrenmanı",
-    coach: "Fatma Şen",
-    date: "2024-06-08",
-    startTime: "19:00",
-    endTime: "20:30",
-    location: "Spor Salonu B",
-    participants: 18,
-    maxParticipants: 20,
-    status: "Aktif",
-    description: "Hücum stratejileri ve savunma",
-    ageGroup: "Yetişkin",
-    level: "İleri"
-  },
-  {
-    id: 5,
-    sport: "Voleybol",
-    title: "U12 Voleybol Temel Eğitimi",
-    coach: "Hasan Yıldız",
-    date: "2024-06-09",
-    startTime: "14:00",
-    endTime: "15:00",
-    location: "Spor Salonu A",
-    participants: 10,
-    maxParticipants: 16,
-    status: "Planlandı",
-    description: "Voleybol temel becerileri",
-    ageGroup: "U12",
-    level: "Başlangıç"
-  }
-];
-
-const sidebarItems = [
-  { icon: Home, label: "Dashboard", href: "/dashboard" },
-  { icon: Users, label: "Sporcular", href: "/athletes" },
-  { icon: Zap, label: "Antrenörler", href: "/coaches" },
-  { icon: Calendar, label: "Antrenmanlar", href: "/trainings", active: true },
-  { icon: UserCheck, label: "Yoklama", href: "/attendance" },
-  { icon: CreditCard, label: "Ödemeler", href: "/payments" },
-  { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
-  { icon: Camera, label: "Medya", href: "/media" },
-  { icon: FileText, label: "Raporlar", href: "/reports" },
-  { icon: Settings, label: "Ayarlar", href: "/settings" }
-];
+// Load trainings from localStorage
+const loadTrainings = () => {
+  const storedTrainings = localStorage.getItem('trainings');
+  return storedTrainings ? JSON.parse(storedTrainings) : [];
+};
 
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
   "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
   "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim"
 ];
-const coaches = ["Mehmet Özkan", "Ayşe Kaya", "Ali Demir", "Fatma Şen", "Hasan Yıldız"];
+
+// Load coaches from localStorage
+const loadCoaches = () => {
+  const storedCoaches = localStorage.getItem('coaches');
+  return storedCoaches ? JSON.parse(storedCoaches) : [];
+};
+
 const locations = ["Spor Salonu A", "Spor Salonu B", "Futbol Sahası", "Yüzme Havuzu", "Satranç Odası"];
 const ageGroups = ["U8", "U10", "U12", "U14", "U16", "U18", "Yetişkin"];
 const levels = ["Başlangıç", "Orta", "İleri"];
 
 export default function Trainings() {
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [trainings, setTrainings] = useState<any[]>([]);
+  const [coaches, setCoaches] = useState<any[]>([]);
+
+  useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    
+    if (!role || (role !== "admin" && role !== "coach")) {
+      router.push("/login");
+      return;
+    }
+
+    setUserRole(role);
+    setTrainings(loadTrainings());
+    setCoaches(loadCoaches());
+  }, [router]);
 
   const filteredTrainings = trainings.filter(training => {
     const matchesSearch = training.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -217,98 +135,34 @@ export default function Trainings() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-background flex">
-        {/* Sidebar */}
-        <motion.aside 
-          className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-card border-r border-border transition-all duration-300 flex flex-col`}
-          initial={{ x: -100 }}
-          animate={{ x: 0 }}
-        >
-          {/* Logo */}
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center space-x-2">
-              <Trophy className="h-8 w-8 text-primary" />
-              {sidebarOpen && (
-                <span className="text-xl font-bold text-primary">SportsCRM</span>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <motion.li 
-                  key={item.label}
-                  variants={fadeInUp}
-                  initial="initial"
-                  animate="animate"
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <a
-                    href={item.href}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                      item.active 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {sidebarOpen && <span>{item.label}</span>}
-                  </a>
-                </motion.li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* User Profile */}
-          <div className="p-4 border-t border-border">
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face" />
-                <AvatarFallback>AY</AvatarFallback>
-              </Avatar>
-              {sidebarOpen && (
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Ahmet Yönetici</p>
-                  <p className="text-xs text-muted-foreground">Yönetici</p>
-                </div>
-              )}
-              <Button variant="ghost" size="sm">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </motion.aside>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        <Header />
+        
+        <div className="container mx-auto px-4 py-8">
           {/* Header */}
-          <header className="bg-card border-b border-border p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Antrenmanlar</h1>
-                <p className="text-muted-foreground">Antrenman programları ve takvim yönetimi</p>
+          <motion.div 
+            className="flex items-center justify-between mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div>
+              <div className="flex items-center space-x-2 mb-2">
+                <Link href="/dashboard" className="text-muted-foreground hover:text-primary">
+                  <ArrowLeft className="w-4 h-4" />
+                </Link>
+                <Calendar className="w-6 h-6 text-primary" />
+                <h1 className="text-3xl font-bold">Antrenmanlar</h1>
               </div>
-              
-              <div className="flex items-center space-x-4">
-                <Button variant="outline" size="sm">
-                  <Bell className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
+              <p className="text-muted-foreground">Antrenman programları ve takvim yönetimi</p>
             </div>
-          </header>
+          </motion.div>
 
-          {/* Main Content */}
-          <main className="flex-1 p-6">
-            <motion.div 
-              className="space-y-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+          <motion.div 
+            className="space-y-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card>
@@ -553,89 +407,96 @@ export default function Trainings() {
                       <CardTitle>Antrenman Listesi ({filteredTrainings.length})</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Antrenman</TableHead>
-                            <TableHead>Antrenör</TableHead>
-                            <TableHead>Tarih & Saat</TableHead>
-                            <TableHead>Lokasyon</TableHead>
-                            <TableHead>Katılımcı</TableHead>
-                            <TableHead>Seviye</TableHead>
-                            <TableHead>Durum</TableHead>
-                            <TableHead>İşlemler</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredTrainings.map((training) => (
-                            <TableRow key={training.id}>
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium">{training.title}</p>
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    <Badge variant="outline">{training.sport}</Badge>
-                                    <Badge variant="secondary" className="text-xs">{training.ageGroup}</Badge>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center space-x-2">
-                                  <Avatar className="h-8 w-8">
-                                    <AvatarFallback className="text-xs">
-                                      {training.coach.split(' ').map(n => n[0]).join('')}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">{training.coach}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    {new Date(training.date).toLocaleDateString('tr-TR')}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {training.startTime} - {training.endTime}
-                                  </p>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center space-x-1">
-                                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-sm">{training.location}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-center">
-                                  <p className="text-sm font-medium">
-                                    {training.participants}/{training.maxParticipants}
-                                  </p>
-                                  <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                                    <div 
-                                      className="bg-primary h-1.5 rounded-full" 
-                                      style={{ width: `${(training.participants / training.maxParticipants) * 100}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>{getLevelBadge(training.level)}</TableCell>
-                              <TableCell>{getStatusBadge(training.status)}</TableCell>
-                              <TableCell>
-                                <div className="flex space-x-2">
-                                  <Button variant="ghost" size="sm">
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm">
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm">
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
+                      {filteredTrainings.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Antrenman</TableHead>
+                              <TableHead>Antrenör</TableHead>
+                              <TableHead>Tarih & Saat</TableHead>
+                              <TableHead>Lokasyon</TableHead>
+                              <TableHead>Katılımcı</TableHead>
+                              <TableHead>Seviye</TableHead>
+                              <TableHead>Durum</TableHead>
+                              <TableHead>İşlemler</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredTrainings.map((training) => (
+                              <TableRow key={training.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{training.title}</p>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <Badge variant="outline">{training.sport}</Badge>
+                                      <Badge variant="secondary" className="text-xs">{training.ageGroup}</Badge>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center space-x-2">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarFallback className="text-xs">
+                                        {training.coach.split(' ').map(n => n[0]).join('')}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm">{training.coach}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {new Date(training.date).toLocaleDateString('tr-TR')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {training.startTime} - {training.endTime}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center space-x-1">
+                                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-sm">{training.location}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-center">
+                                    <p className="text-sm font-medium">
+                                      {training.participants}/{training.maxParticipants}
+                                    </p>
+                                    <div className="w-full bg-muted rounded-full h-1.5 mt-1">
+                                      <div 
+                                        className="bg-primary h-1.5 rounded-full" 
+                                        style={{ width: `${(training.participants / training.maxParticipants) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{getLevelBadge(training.level)}</TableCell>
+                                <TableCell>{getStatusBadge(training.status)}</TableCell>
+                                <TableCell>
+                                  <div className="flex space-x-2">
+                                    <Button variant="ghost" size="sm">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm">
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">Henüz antrenman programı bulunmuyor</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -695,49 +556,76 @@ export default function Trainings() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {coaches.map((coach, index) => (
-                          <Card key={coach}>
-                            <CardContent className="p-6">
-                              <div className="flex items-center space-x-4 mb-4">
-                                <Avatar>
-                                  <AvatarFallback>{coach.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <h3 className="font-medium">{coach}</h3>
-                                  <p className="text-sm text-muted-foreground">Antrenör</p>
+                      {coaches.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {coaches.map((coach, index) => (
+                            <Card key={coach.id || index}>
+                              <CardContent className="p-6">
+                                <div className="flex items-center space-x-4 mb-4">
+                                  <Avatar>
+                                    <AvatarFallback>
+                                      {typeof coach === 'string' 
+                                        ? coach.split(' ').map(n => n[0]).join('') 
+                                        : `${coach.name || ''} ${coach.surname || ''}`.split(' ').map(n => n[0]).join('')
+                                      }
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <h3 className="font-medium">
+                                      {typeof coach === 'string' 
+                                        ? coach 
+                                        : `${coach.name || ''} ${coach.surname || ''}`.trim()
+                                      }
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">Antrenör</p>
+                                  </div>
                                 </div>
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                  <span>Aktif Antrenmanlar:</span>
-                                  <span className="font-medium">
-                                    {trainings.filter(t => t.coach === coach && t.status === "Aktif").length}
-                                  </span>
+                                
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span>Aktif Antrenmanlar:</span>
+                                    <span className="font-medium">
+                                      {trainings.filter(t => {
+                                        const coachName = typeof coach === 'string' 
+                                          ? coach 
+                                          : `${coach.name || ''} ${coach.surname || ''}`.trim();
+                                        return t.coach === coachName && t.status === "Aktif";
+                                      }).length}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-sm">
+                                    <span>Toplam Sporcu:</span>
+                                    <span className="font-medium">
+                                      {trainings.filter(t => {
+                                        const coachName = typeof coach === 'string' 
+                                          ? coach 
+                                          : `${coach.name || ''} ${coach.surname || ''}`.trim();
+                                        return t.coach === coachName;
+                                      }).reduce((sum, t) => sum + (t.participants || 0), 0)}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                  <span>Toplam Sporcu:</span>
-                                  <span className="font-medium">
-                                    {trainings.filter(t => t.coach === coach).reduce((sum, t) => sum + t.participants, 0)}
-                                  </span>
+                                
+                                <div className="flex gap-2 mt-4">
+                                  <Button size="sm" variant="outline" className="flex-1">
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Detay
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="flex-1">
+                                    <Send className="h-3 w-3 mr-1" />
+                                    Mesaj
+                                  </Button>
                                 </div>
-                              </div>
-                              
-                              <div className="flex gap-2 mt-4">
-                                <Button size="sm" variant="outline" className="flex-1">
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  Detay
-                                </Button>
-                                <Button size="sm" variant="outline" className="flex-1">
-                                  <Send className="h-3 w-3 mr-1" />
-                                  Mesaj
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">Henüz antrenör kaydı bulunmuyor</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
