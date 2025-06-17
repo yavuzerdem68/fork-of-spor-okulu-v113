@@ -371,11 +371,9 @@ export default function CoachDashboard() {
                   <CardContent>
                     <div className="text-center py-8">
                       <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground mb-4">
-                        Mesajlaşma özelliği yakında aktif olacak
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Şimdilik telefon ile iletişim kurabilirsiniz
+                      <p className="text-muted-foreground">Henüz mesaj bulunmuyor</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Sporcularınızın velileri ile mesajlaşma burada görünecektir
                       </p>
                     </div>
                   </CardContent>

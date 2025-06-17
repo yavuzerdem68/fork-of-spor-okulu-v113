@@ -39,57 +39,17 @@ const staggerContainer = {
   }
 };
 
-// Mock data for parent's children
-const mockChildren = [
-  {
-    id: 1,
-    name: "Ahmet Yılmaz",
-    age: 12,
-    sports: ["Basketbol", "Yüzme"],
-    class: "7. Sınıf",
-    photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
-  },
-  {
-    id: 2,
-    name: "Zeynep Yılmaz",
-    age: 9,
-    sports: ["Voleybol"],
-    class: "4. Sınıf",
-    photo: "https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
-  }
-];
-
-const mockPayments = [
-  { id: 1, childName: "Ahmet Yılmaz", month: "Aralık 2024", amount: 500, status: "paid", dueDate: "2024-12-01" },
-  { id: 2, childName: "Zeynep Yılmaz", month: "Aralık 2024", amount: 300, status: "paid", dueDate: "2024-12-01" },
-  { id: 3, childName: "Ahmet Yılmaz", month: "Ocak 2025", amount: 500, status: "pending", dueDate: "2025-01-01" },
-  { id: 4, childName: "Zeynep Yılmaz", month: "Ocak 2025", amount: 300, status: "pending", dueDate: "2025-01-01" }
-];
-
-const mockAttendance = [
-  { id: 1, childName: "Ahmet Yılmaz", sport: "Basketbol", date: "2024-12-20", status: "present" },
-  { id: 2, childName: "Ahmet Yılmaz", sport: "Yüzme", date: "2024-12-19", status: "present" },
-  { id: 3, childName: "Zeynep Yılmaz", sport: "Voleybol", date: "2024-12-20", status: "absent" },
-  { id: 4, childName: "Ahmet Yılmaz", sport: "Basketbol", date: "2024-12-18", status: "present" },
-  { id: 5, childName: "Zeynep Yılmaz", sport: "Voleybol", date: "2024-12-17", status: "present" }
-];
-
-const mockSchedule = [
-  { id: 1, childName: "Ahmet Yılmaz", sport: "Basketbol", day: "Pazartesi", time: "16:00-17:30", coach: "Mehmet Hoca" },
-  { id: 2, childName: "Ahmet Yılmaz", sport: "Yüzme", day: "Çarşamba", time: "17:00-18:00", coach: "Ayşe Hoca" },
-  { id: 3, childName: "Zeynep Yılmaz", sport: "Voleybol", day: "Salı", time: "15:30-16:30", coach: "Fatma Hoca" },
-  { id: 4, childName: "Zeynep Yılmaz", sport: "Voleybol", day: "Cuma", time: "15:30-16:30", coach: "Fatma Hoca" }
-];
-
-const mockMedia = [
-  { id: 1, title: "Basketbol Antrenmanı", date: "2024-12-20", type: "photo", childName: "Ahmet Yılmaz" },
-  { id: 2, title: "Yüzme Yarışması", date: "2024-12-18", type: "video", childName: "Ahmet Yılmaz" },
-  { id: 3, title: "Voleybol Maçı", date: "2024-12-15", type: "photo", childName: "Zeynep Yılmaz" }
-];
+=======
 
 export default function ParentDashboard() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [children, setChildren] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [schedule, setSchedule] = useState<any[]>([]);
+  const [media, setMedia] = useState<any[]>([]);
 
   useEffect(() => {
     // Check if user is logged in and has parent role
@@ -102,22 +62,124 @@ export default function ParentDashboard() {
     }
     
     setUserEmail(email || "");
+    
+    // Load parent user data
+    const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+    const currentParent = parentUsers.find((parent: any) => parent.email === email);
+    
+    if (currentParent) {
+      setCurrentUser(currentParent);
+      loadChildrenData(currentParent);
+    }
   }, [router]);
+
+  const loadChildrenData = (parent: any) => {
+    // Load all students and filter by parent's linked athletes
+    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    const parentChildren = allStudents.filter((student: any) => 
+      parent.linkedAthletes?.includes(student.id) ||
+      student.parentEmail === parent.email ||
+      student.parentPhone === parent.phone
+    );
+    
+    setChildren(parentChildren);
+    
+    // Load related data for these children
+    loadPaymentsData(parentChildren);
+    loadAttendanceData(parentChildren);
+    loadScheduleData(parentChildren);
+    loadMediaData(parentChildren);
+  };
+
+  const loadPaymentsData = (children: any[]) => {
+    const allPayments: any[] = [];
+    children.forEach(child => {
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${child.id}`) || '[]');
+      accountEntries.forEach((entry: any) => {
+        allPayments.push({
+          id: entry.id,
+          childName: `${child.studentName} ${child.studentSurname}`,
+          month: entry.month,
+          amount: entry.amountIncludingVat,
+          status: entry.type === 'credit' ? 'paid' : 'pending',
+          dueDate: entry.date,
+          description: entry.description
+        });
+      });
+    });
+    setPayments(allPayments);
+  };
+
+  const loadAttendanceData = (children: any[]) => {
+    const allAttendance = JSON.parse(localStorage.getItem('attendance') || '[]');
+    const childrenAttendance = allAttendance.filter((record: any) => 
+      children.some(child => 
+        record.studentName === `${child.studentName} ${child.studentSurname}` ||
+        record.studentId === child.id
+      )
+    );
+    setAttendance(childrenAttendance);
+  };
+
+  const loadScheduleData = (children: any[]) => {
+    const allTrainings = JSON.parse(localStorage.getItem('trainings') || '[]');
+    const childrenSchedule: any[] = [];
+    
+    children.forEach(child => {
+      child.sportsBranches?.forEach((sport: string) => {
+        const relatedTrainings = allTrainings.filter((training: any) => 
+          training.sport === sport || training.sportsBranches?.includes(sport)
+        );
+        
+        relatedTrainings.forEach((training: any) => {
+          childrenSchedule.push({
+            id: `${child.id}_${training.id}`,
+            childName: `${child.studentName} ${child.studentSurname}`,
+            sport: sport,
+            day: training.day || 'Belirtilmemiş',
+            time: training.time || 'Belirtilmemiş',
+            coach: training.coach || 'Belirtilmemiş'
+          });
+        });
+      });
+    });
+    
+    setSchedule(childrenSchedule);
+  };
+
+  const loadMediaData = (children: any[]) => {
+    const allMedia = JSON.parse(localStorage.getItem('media') || '[]');
+    const childrenMedia = allMedia.filter((mediaItem: any) => 
+      children.some(child => 
+        mediaItem.studentName === `${child.studentName} ${child.studentSurname}` ||
+        mediaItem.studentId === child.id
+      )
+    );
+    setMedia(childrenMedia);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("currentUser");
     router.push("/");
   };
 
   const getAttendanceRate = (childName: string) => {
-    const childAttendance = mockAttendance.filter(a => a.childName === childName);
+    const childAttendance = attendance.filter(a => 
+      a.studentName === childName || 
+      a.childName === childName
+    );
     const presentCount = childAttendance.filter(a => a.status === "present").length;
     return childAttendance.length > 0 ? Math.round((presentCount / childAttendance.length) * 100) : 0;
   };
 
   const getPendingPayments = () => {
-    return mockPayments.filter(p => p.status === "pending");
+    return payments.filter(p => p.status === "pending");
+  };
+
+  const getInitials = (name: string, surname: string) => {
+    return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
   };
 
   return (
@@ -165,21 +227,21 @@ export default function ParentDashboard() {
             initial="initial"
             animate="animate"
           >
-            {mockChildren.map((child) => (
+            {children.length > 0 ? children.map((child) => (
               <motion.div key={child.id} variants={fadeInUp}>
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-4">
-                      <img 
-                        src={child.photo} 
-                        alt={child.name}
-                        className="w-16 h-16 rounded-full object-cover"
-                      />
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-lg font-bold text-primary">
+                          {getInitials(child.studentName, child.studentSurname)}
+                        </span>
+                      </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold">{child.name}</h3>
-                        <p className="text-sm text-muted-foreground">{child.class} • {child.age} yaş</p>
+                        <h3 className="text-lg font-semibold">{child.studentName} {child.studentSurname}</h3>
+                        <p className="text-sm text-muted-foreground">{child.studentClass} • {child.studentAge} yaş</p>
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {child.sports.map((sport) => (
+                          {child.sportsBranches?.map((sport: string) => (
                             <Badge key={sport} variant="outline" className="text-xs">
                               {sport}
                             </Badge>
@@ -187,14 +249,25 @@ export default function ParentDashboard() {
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-primary">{getAttendanceRate(child.name)}%</div>
+                        <div className="text-2xl font-bold text-primary">
+                          {getAttendanceRate(`${child.studentName} ${child.studentSurname}`)}%
+                        </div>
                         <div className="text-xs text-muted-foreground">Devam Oranı</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
-            ))}
+            )) : (
+              <motion.div variants={fadeInUp} className="col-span-2">
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Henüz kayıtlı çocuk bulunmuyor</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </motion.div>
 
           {/* Quick Stats */}
@@ -224,7 +297,7 @@ export default function ParentDashboard() {
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-8 h-8 text-green-500" />
                     <div>
-                      <div className="text-2xl font-bold">{mockSchedule.length}</div>
+                      <div className="text-2xl font-bold">{schedule.length}</div>
                       <div className="text-xs text-muted-foreground">Haftalık Antrenman</div>
                     </div>
                   </div>
@@ -239,7 +312,7 @@ export default function ParentDashboard() {
                     <UserCheck className="w-8 h-8 text-orange-500" />
                     <div>
                       <div className="text-2xl font-bold">
-                        {Math.round(mockAttendance.filter(a => a.status === "present").length / mockAttendance.length * 100)}%
+                        {attendance.length > 0 ? Math.round(attendance.filter(a => a.status === "present").length / attendance.length * 100) : 0}%
                       </div>
                       <div className="text-xs text-muted-foreground">Genel Devam</div>
                     </div>
@@ -254,7 +327,7 @@ export default function ParentDashboard() {
                   <div className="flex items-center space-x-2">
                     <Camera className="w-8 h-8 text-purple-500" />
                     <div>
-                      <div className="text-2xl font-bold">{mockMedia.length}</div>
+                      <div className="text-2xl font-bold">{media.length}</div>
                       <div className="text-xs text-muted-foreground">Yeni Medya</div>
                     </div>
                   </div>
@@ -313,11 +386,11 @@ export default function ParentDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {mockPayments.map((payment) => (
+                        {payments.length > 0 ? payments.map((payment) => (
                           <TableRow key={payment.id}>
                             <TableCell className="font-medium">{payment.childName}</TableCell>
                             <TableCell>{payment.month}</TableCell>
-                            <TableCell>₺{payment.amount}</TableCell>
+                            <TableCell>₺{payment.amount?.toFixed(2)}</TableCell>
                             <TableCell>{new Date(payment.dueDate).toLocaleDateString('tr-TR')}</TableCell>
                             <TableCell>
                               <Badge variant={payment.status === "paid" ? "default" : "destructive"}>
@@ -331,7 +404,14 @@ export default function ParentDashboard() {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8">
+                              <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                              <p className="text-muted-foreground">Henüz ödeme kaydı bulunmuyor</p>
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
                     </Table>
                   </CardContent>
@@ -357,17 +437,24 @@ export default function ParentDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {mockSchedule.map((schedule) => (
-                          <TableRow key={schedule.id}>
-                            <TableCell className="font-medium">{schedule.childName}</TableCell>
+                        {schedule.length > 0 ? schedule.map((scheduleItem) => (
+                          <TableRow key={scheduleItem.id}>
+                            <TableCell className="font-medium">{scheduleItem.childName}</TableCell>
                             <TableCell>
-                              <Badge variant="outline">{schedule.sport}</Badge>
+                              <Badge variant="outline">{scheduleItem.sport}</Badge>
                             </TableCell>
-                            <TableCell>{schedule.day}</TableCell>
-                            <TableCell>{schedule.time}</TableCell>
-                            <TableCell>{schedule.coach}</TableCell>
+                            <TableCell>{scheduleItem.day}</TableCell>
+                            <TableCell>{scheduleItem.time}</TableCell>
+                            <TableCell>{scheduleItem.coach}</TableCell>
                           </TableRow>
-                        ))}
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8">
+                              <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                              <p className="text-muted-foreground">Henüz antrenman programı bulunmuyor</p>
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
                     </Table>
                   </CardContent>
@@ -382,55 +469,71 @@ export default function ParentDashboard() {
                     <CardDescription>Çocuklarınızın antrenman devam durumu</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-6">
-                      {mockChildren.map((child) => (
-                        <div key={child.id} className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-semibold">{child.name}</h4>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-muted-foreground">Devam Oranı:</span>
-                              <Badge variant="outline">{getAttendanceRate(child.name)}%</Badge>
-                            </div>
-                          </div>
-                          <Progress value={getAttendanceRate(child.name)} className="h-2" />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-8">
-                      <h4 className="font-semibold mb-4">Son Devam Kayıtları</h4>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Öğrenci</TableHead>
-                            <TableHead>Spor</TableHead>
-                            <TableHead>Tarih</TableHead>
-                            <TableHead>Durum</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {mockAttendance.slice(0, 10).map((attendance) => (
-                            <TableRow key={attendance.id}>
-                              <TableCell className="font-medium">{attendance.childName}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{attendance.sport}</Badge>
-                              </TableCell>
-                              <TableCell>{new Date(attendance.date).toLocaleDateString('tr-TR')}</TableCell>
-                              <TableCell>
+                    {children.length > 0 ? (
+                      <>
+                        <div className="space-y-6">
+                          {children.map((child) => (
+                            <div key={child.id} className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-semibold">{child.studentName} {child.studentSurname}</h4>
                                 <div className="flex items-center space-x-2">
-                                  {attendance.status === "present" ? (
-                                    <CheckCircle className="w-4 h-4 text-green-500" />
-                                  ) : (
-                                    <XCircle className="w-4 h-4 text-red-500" />
-                                  )}
-                                  <span>{attendance.status === "present" ? "Katıldı" : "Katılmadı"}</span>
+                                  <span className="text-sm text-muted-foreground">Devam Oranı:</span>
+                                  <Badge variant="outline">{getAttendanceRate(`${child.studentName} ${child.studentSurname}`)}%</Badge>
                                 </div>
-                              </TableCell>
-                            </TableRow>
+                              </div>
+                              <Progress value={getAttendanceRate(`${child.studentName} ${child.studentSurname}`)} className="h-2" />
+                            </div>
                           ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                        </div>
+
+                        <div className="mt-8">
+                          <h4 className="font-semibold mb-4">Son Devam Kayıtları</h4>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Öğrenci</TableHead>
+                                <TableHead>Spor</TableHead>
+                                <TableHead>Tarih</TableHead>
+                                <TableHead>Durum</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {attendance.length > 0 ? attendance.slice(0, 10).map((attendanceRecord) => (
+                                <TableRow key={attendanceRecord.id}>
+                                  <TableCell className="font-medium">{attendanceRecord.studentName}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline">{attendanceRecord.sport || attendanceRecord.trainingGroup}</Badge>
+                                  </TableCell>
+                                  <TableCell>{new Date(attendanceRecord.date).toLocaleDateString('tr-TR')}</TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center space-x-2">
+                                      {attendanceRecord.status === "present" ? (
+                                        <CheckCircle className="w-4 h-4 text-green-500" />
+                                      ) : (
+                                        <XCircle className="w-4 h-4 text-red-500" />
+                                      )}
+                                      <span>{attendanceRecord.status === "present" ? "Katıldı" : "Katılmadı"}</span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )) : (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="text-center py-8">
+                                    <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                    <p className="text-muted-foreground">Henüz devam kaydı bulunmuyor</p>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Henüz kayıtlı çocuk bulunmuyor</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -443,28 +546,35 @@ export default function ParentDashboard() {
                     <CardDescription>Çocuklarınızın antrenman fotoğraf ve videoları</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid md:grid-cols-3 gap-4">
-                      {mockMedia.map((media) => (
-                        <Card key={media.id}>
-                          <CardContent className="p-4">
-                            <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
-                              <Camera className="w-8 h-8 text-muted-foreground" />
-                            </div>
-                            <h4 className="font-medium mb-1">{media.title}</h4>
-                            <p className="text-sm text-muted-foreground mb-2">{media.childName}</p>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(media.date).toLocaleDateString('tr-TR')}
-                              </span>
-                              <Button variant="outline" size="sm">
-                                <Eye className="w-4 h-4 mr-2" />
-                                Görüntüle
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                    {media.length > 0 ? (
+                      <div className="grid md:grid-cols-3 gap-4">
+                        {media.map((mediaItem) => (
+                          <Card key={mediaItem.id}>
+                            <CardContent className="p-4">
+                              <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
+                                <Camera className="w-8 h-8 text-muted-foreground" />
+                              </div>
+                              <h4 className="font-medium mb-1">{mediaItem.title}</h4>
+                              <p className="text-sm text-muted-foreground mb-2">{mediaItem.studentName}</p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(mediaItem.date || mediaItem.createdAt).toLocaleDateString('tr-TR')}
+                                </span>
+                                <Button variant="outline" size="sm">
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Görüntüle
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Camera className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Henüz medya içeriği bulunmuyor</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -477,45 +587,12 @@ export default function ParentDashboard() {
                     <CardDescription>Spor okulundan gelen mesajlar ve duyurular</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-start space-x-3">
-                          <Bell className="w-5 h-5 text-blue-500 mt-1" />
-                          <div className="flex-1">
-                            <h4 className="font-medium">Basketbol Turnuvası Duyurusu</h4>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Ahmet'in katıldığı basketbol grubunda turnuva düzenlenecektir. Detaylar için...
-                            </p>
-                            <span className="text-xs text-muted-foreground">2 gün önce</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-start space-x-3">
-                          <Bell className="w-5 h-5 text-orange-500 mt-1" />
-                          <div className="flex-1">
-                            <h4 className="font-medium">Ödeme Hatırlatması</h4>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Ocak ayı ödemelerinizin son tarihi yaklaşmaktadır.
-                            </p>
-                            <span className="text-xs text-muted-foreground">1 hafta önce</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-start space-x-3">
-                          <Bell className="w-5 h-5 text-green-500 mt-1" />
-                          <div className="flex-1">
-                            <h4 className="font-medium">Yeni Fotoğraflar Eklendi</h4>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Zeynep'in voleybol antrenmanından yeni fotoğraflar galeriye eklendi.
-                            </p>
-                            <span className="text-xs text-muted-foreground">3 gün önce</span>
-                          </div>
-                        </div>
-                      </div>
+                    <div className="text-center py-8">
+                      <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">Henüz mesaj bulunmuyor</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Spor okulundan gelen duyurular ve mesajlar burada görünecektir
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

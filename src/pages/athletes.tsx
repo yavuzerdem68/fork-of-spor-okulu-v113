@@ -235,71 +235,15 @@ export default function Athletes() {
   const generateBulkUploadTemplate = () => {
     const templateData = [
       {
-        // Öğrenci Bilgileri
         'Öğrenci Adı': '',
         'Öğrenci Soyadı': '',
         'TC Kimlik No': '',
         'Doğum Tarihi (DD/MM/YYYY)': '',
-        'Cinsiyet (Erkek/Kız)': '',
-        'Okul': '',
-        'Sınıf': '',
-        'Spor Branşları (virgülle ayırın)': '',
-        
-        // Fiziksel Bilgiler
-        'Boy (cm)': '',
-        'Kilo (kg)': '',
-        'Kan Grubu': '',
-        'Dominant El (Sağ/Sol/Her İkisi)': '',
-        'Dominant Ayak (Sağ/Sol/Her İkisi)': '',
-        'Tercih Edilen Pozisyon': '',
-        
-        // Veli Bilgileri
         'Veli Adı': '',
         'Veli Soyadı': '',
         'Veli TC Kimlik No': '',
         'Veli Telefon': '',
-        'Veli Email': '',
-        'Yakınlık Derecesi': '',
-        'Veli Meslek': '',
-        
-        // İkinci Veli Bilgileri
-        'İkinci Veli Adı': '',
-        'İkinci Veli Soyadı': '',
-        'İkinci Veli Telefon': '',
-        'İkinci Veli Email': '',
-        'İkinci Veli Yakınlık': '',
-        
-        // İletişim Bilgileri
-        'Adres': '',
-        'İl': '',
-        'İlçe': '',
-        'Posta Kodu': '',
-        
-        // Sağlık Bilgileri
-        'Sağlık Sorunu (Evet/Hayır)': '',
-        'Sağlık Sorunu Detayı': '',
-        'Kullandığı İlaçlar': '',
-        'Alerjiler': '',
-        'Acil Durum Kişisi': '',
-        'Acil Durum Telefonu': '',
-        'Acil Durum Yakınlık': '',
-        'Özel Diyet': '',
-        
-        // Sporcu Geçmişi
-        'Önceki Kulüpler': '',
-        'Başarılar': '',
-        'Spor Hedefleri': '',
-        'Motivasyon': '',
-        
-        // Diğer Bilgiler
-        'Bizi Nasıl Duydunuz': '',
-        'Önceki Spor Deneyimi': '',
-        'Beklentiler': '',
-        
-        // Sistem Bilgileri
-        'Durum (Aktif/Pasif)': 'Aktif',
-        'Ödeme Durumu (Güncel/Gecikmiş)': 'Güncel',
-        'Kayıt Tarihi (DD/MM/YYYY)': new Date().toLocaleDateString('tr-TR')
+        'Veli Email': ''
       }
     ];
 
@@ -367,12 +311,6 @@ export default function Athletes() {
             continue;
           }
 
-          // Parse sports branches
-          const sportsBranches = row['Spor Branşları (virgülle ayırın)']
-            ?.split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0) || [];
-
           // Parse birth date
           let birthDate = '';
           if (row['Doğum Tarihi (DD/MM/YYYY)']) {
@@ -380,16 +318,6 @@ export default function Athletes() {
             const dateParts = dateStr.split('/');
             if (dateParts.length === 3) {
               birthDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
-            }
-          }
-
-          // Parse registration date
-          let registrationDate = new Date().toISOString();
-          if (row['Kayıt Tarihi (DD/MM/YYYY)']) {
-            const dateStr = row['Kayıt Tarihi (DD/MM/YYYY)'].toString();
-            const dateParts = dateStr.split('/');
-            if (dateParts.length === 3) {
-              registrationDate = new Date(`${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`).toISOString();
             }
           }
 
@@ -409,19 +337,19 @@ export default function Athletes() {
             studentTcNo: studentTc,
             studentBirthDate: birthDate,
             studentAge: age,
-            studentGender: row['Cinsiyet (Erkek/Kız)'] || '',
-            studentSchool: row['Okul'] || '',
-            studentClass: row['Sınıf'] || '',
-            sportsBranches: sportsBranches,
-            selectedSports: sportsBranches,
+            studentGender: '',
+            studentSchool: '',
+            studentClass: '',
+            sportsBranches: [],
+            selectedSports: [],
             
             // Fiziksel Bilgiler
-            studentHeight: row['Boy (cm)'] || '',
-            studentWeight: row['Kilo (kg)'] || '',
-            bloodType: row['Kan Grubu'] || '',
-            dominantHand: row['Dominant El (Sağ/Sol/Her İkisi)'] || '',
-            dominantFoot: row['Dominant Ayak (Sağ/Sol/Her İkisi)'] || '',
-            sportsPosition: row['Tercih Edilen Pozisyon'] || '',
+            studentHeight: '',
+            studentWeight: '',
+            bloodType: '',
+            dominantHand: '',
+            dominantFoot: '',
+            sportsPosition: '',
             
             // Veli Bilgileri
             parentName: row['Veli Adı'],
@@ -429,48 +357,48 @@ export default function Athletes() {
             parentTcNo: parentTc || '',
             parentPhone: row['Veli Telefon'],
             parentEmail: row['Veli Email'],
-            parentRelation: row['Yakınlık Derecesi'] || '',
-            parentOccupation: row['Veli Meslek'] || '',
+            parentRelation: '',
+            parentOccupation: '',
             
             // İkinci Veli Bilgileri
-            secondParentName: row['İkinci Veli Adı'] || '',
-            secondParentSurname: row['İkinci Veli Soyadı'] || '',
-            secondParentPhone: row['İkinci Veli Telefon'] || '',
-            secondParentEmail: row['İkinci Veli Email'] || '',
-            secondParentRelation: row['İkinci Veli Yakınlık'] || '',
+            secondParentName: '',
+            secondParentSurname: '',
+            secondParentPhone: '',
+            secondParentEmail: '',
+            secondParentRelation: '',
             
             // İletişim Bilgileri
-            address: row['Adres'] || '',
-            city: row['İl'] || '',
-            district: row['İlçe'] || '',
-            postalCode: row['Posta Kodu'] || '',
+            address: '',
+            city: '',
+            district: '',
+            postalCode: '',
             
             // Sağlık Bilgileri
-            hasHealthIssues: row['Sağlık Sorunu (Evet/Hayır)'] || 'Hayır',
-            healthIssuesDetail: row['Sağlık Sorunu Detayı'] || '',
-            medications: row['Kullandığı İlaçlar'] || '',
-            allergies: row['Alerjiler'] || '',
-            emergencyContactName: row['Acil Durum Kişisi'] || '',
-            emergencyContactPhone: row['Acil Durum Telefonu'] || '',
-            emergencyContactRelation: row['Acil Durum Yakınlık'] || '',
-            specialDiet: row['Özel Diyet'] || '',
+            hasHealthIssues: 'Hayır',
+            healthIssuesDetail: '',
+            medications: '',
+            allergies: '',
+            emergencyContactName: '',
+            emergencyContactPhone: '',
+            emergencyContactRelation: '',
+            specialDiet: '',
             
             // Sporcu Geçmişi
-            previousClubs: row['Önceki Kulüpler'] || '',
-            achievements: row['Başarılar'] || '',
-            sportsGoals: row['Spor Hedefleri'] || '',
-            motivation: row['Motivasyon'] || '',
+            previousClubs: '',
+            achievements: '',
+            sportsGoals: '',
+            motivation: '',
             
             // Diğer Bilgiler
-            howDidYouHear: row['Bizi Nasıl Duydunuz'] || '',
-            previousSportsExperience: row['Önceki Spor Deneyimi'] || '',
-            expectations: row['Beklentiler'] || '',
+            howDidYouHear: '',
+            previousSportsExperience: '',
+            expectations: '',
             
             // Sistem Bilgileri
-            status: row['Durum (Aktif/Pasif)'] || 'Aktif',
-            paymentStatus: row['Ödeme Durumu (Güncel/Gecikmiş)'] || 'Güncel',
-            registrationDate: registrationDate,
-            createdAt: registrationDate,
+            status: 'Aktif',
+            paymentStatus: 'Güncel',
+            registrationDate: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
             
             // Onaylar (default values for bulk upload)
             agreementAccepted: true,

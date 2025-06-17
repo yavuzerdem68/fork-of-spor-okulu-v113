@@ -18,111 +18,73 @@ export const KvkkModal: React.FC<KvkkModalProps> = ({ children }) => {
         </DialogHeader>
         <ScrollArea className="h-[60vh] pr-4">
           <div className="space-y-4 text-sm">
-            <section>
-              <h3 className="font-semibold text-base mb-2">1. Veri Sorumlusu</h3>
-              <p>
-                Kişisel verileriniz, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca, 
-                veri sorumlusu sıfatıyla [Spor Okulu Adı] tarafından aşağıda açıklanan kapsamda işlenmektedir.
+            <div className="text-center mb-6">
+              <h2 className="font-bold text-lg mb-2">G7 SPOR KULÜBÜ & TOFAŞ BASKETBOL SPOR OKULU</h2>
+              <h3 className="font-semibold text-base">KATILIM VE MUVAFAKAT BEYANI</h3>
+            </div>
+
+            <p className="mb-4">
+              Tarafımızca, aşağıda kimlik bilgileri yer alan çocuğumuzun, G7 Spor Kulübü ("G7SK") çatısı altında yürütülen "Tofaş Basketbol Spor Okulu" faaliyetlerine katılımı için gerekli kayıt işlemleri tamamlanmıştır.
+            </p>
+
+            <p className="mb-6">
+              Veli/Vasi sıfatıyla, kayıt formunda bilgilerini paylaştığımız çocuğumuzun spor yapmasına engel teşkil edecek bir sağlık problemi bulunmadığını; tarafımızdan temin edilen ve ekte sunulan sağlık raporu ile belgelendirdiğimizi beyan ederiz. Aynı zamanda, kayıt tarihi itibarıyla çocuğumuzun spor yapmaya elverişli genel sağlık durumuna sahip olduğunu da onaylarız.
+            </p>
+
+            <section className="mb-6">
+              <h3 className="font-semibold text-base mb-3 border-b pb-1">1. SORUMLULUK BİLGİLENDİRMESİ</h3>
+              <p className="mb-3">
+                G7 Spor Kulübü ve Tofaş Basketbol Okulu tarafından düzenlenen antrenman, maç, kamp, seyahat ve benzeri sportif faaliyetler kapsamında, azami özen gösterilmekte olup, tüm organizasyonlar çocuklarımızın güvenliği öncelenerek planlanmaktadır. Ancak, bu faaliyetlerin doğası gereği ortaya çıkabilecek sağlık sorunları (yaralanma, hastalık, geçici veya kalıcı sakatlık gibi) ve çeşitli kazalar (seyahat, tesis kullanımı vb.) risklerine ilişkin olarak kulübün ve eğitmen kadrosunun sınırlı sorumluluğu bulunduğunu, bu durumları anlayışla karşıladığımızı ve gerekli önlemleri kendi sorumluluğumuzda da alacağımızı kabul ederiz.
+              </p>
+              <p className="text-sm italic">
+                <strong>Not:</strong> G7SK'nin Tofaş markası altında faaliyet göstermesi, Tofaş'ın doğrudan sorumluluğu altında olduğu anlamına gelmemektedir. Tarafımız bu iş birliği modelini ve kapsamını bilerek kabul etmekteyiz.
               </p>
             </section>
 
-            <section>
-              <h3 className="font-semibold text-base mb-2">2. Kişisel Verilerin İşlenme Amacı</h3>
-              <p>Toplanan kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:</p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Spor eğitimi hizmetlerinin sunulması</li>
-                <li>Öğrenci kayıt işlemlerinin gerçekleştirilmesi</li>
-                <li>Ödeme takibi ve fatura düzenleme</li>
-                <li>İletişim faaliyetlerinin yürütülmesi</li>
-                <li>Devamsızlık takibi ve bilgilendirme</li>
-                <li>Yasal yükümlülüklerin yerine getirilmesi</li>
-                <li>Güvenlik önlemlerinin alınması</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-base mb-2">3. İşlenen Kişisel Veri Türleri</h3>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Kimlik bilgileri (ad, soyad, TC kimlik numarası, doğum tarihi)</li>
-                <li>İletişim bilgileri (telefon, e-posta, adres)</li>
-                <li>Sağlık bilgileri (sağlık durumu, alerjiler)</li>
-                <li>Finansal bilgiler (ödeme bilgileri)</li>
-                <li>Görsel ve işitsel kayıtlar (fotoğraf, video)</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-base mb-2">4. Kişisel Verilerin Toplanma Yöntemi</h3>
+            <section className="mb-6">
+              <h3 className="font-semibold text-base mb-3 border-b pb-1">2. GÖRSEL ve TANITIM AMAÇLI PAYLAŞIM ONAYI</h3>
               <p>
-                Kişisel verileriniz, kayıt formları, web sitesi, telefon görüşmeleri, 
-                e-posta yazışmaları ve fiziksel ortamda düzenlenen belgeler aracılığıyla toplanmaktadır.
+                Çocuğumuzun, G7SK ve Tofaş Basketbol Okulu bünyesinde yer aldığı etkinliklerde çekilen görüntüleri ve videoları, sadece kulüp tanıtımı amacıyla, sosyal medya hesapları ve resmi tanıtım materyallerinde kullanılabilir. Bu içeriklerin etik kurallar çerçevesinde, çocuğumuzun saygınlığına uygun şekilde paylaşılması koşuluyla, süresiz ve ücretsiz olarak kullanılmasına onay vermekteyiz.
               </p>
             </section>
 
-            <section>
-              <h3 className="font-semibold text-base mb-2">5. Kişisel Verilerin Aktarılması</h3>
+            <section className="mb-6">
+              <h3 className="font-semibold text-base mb-3 border-b pb-1">3. VERİ İLETİŞİMİ VE TANITIM ONAYI</h3>
               <p>
-                Toplanan kişisel verileriniz, KVKK'nın 8. ve 9. maddelerinde belirtilen şartlar dahilinde:
-              </p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Yasal yükümlülüklerin yerine getirilmesi için kamu kurum ve kuruluşlarına</li>
-                <li>Hizmet sağlayıcılarına (ödeme sistemleri, iletişim platformları)</li>
-                <li>İş ortaklarımıza aktarılabilir</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-base mb-2">6. Kişisel Veri Sahibinin Hakları</h3>
-              <p>KVKK'nın 11. maddesi uyarınca sahip olduğunuz haklar:</p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Kişisel veri işlenip işlenmediğini öğrenme</li>
-                <li>İşlenen kişisel veriler hakkında bilgi talep etme</li>
-                <li>İşlenme amacını ve bunların amacına uygun kullanılıp kullanılmadığını öğrenme</li>
-                <li>Yurt içinde veya yurt dışında kişisel verilerin aktarıldığı üçüncü kişileri bilme</li>
-                <li>Kişisel verilerin eksik veya yanlış işlenmiş olması hâlinde bunların düzeltilmesini isteme</li>
-                <li>Kişisel verilerin silinmesini veya yok edilmesini isteme</li>
-                <li>Düzeltme, silme veya yok etme işlemlerinin aktarıldığı üçüncü kişilere bildirilmesini isteme</li>
-                <li>İşlenen verilerin münhasıran otomatik sistemler vasıtasıyla analiz edilmesi suretiyle kişinin aleyhine bir sonucun ortaya çıkmasına itiraz etme</li>
-                <li>Kişisel verilerin kanuna aykırı olarak işlenmesi sebebiyle zarara uğraması hâlinde zararın giderilmesini talep etme</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-base mb-2">7. Başvuru Yöntemi</h3>
-              <p>
-                Yukarıda belirtilen haklarınızı kullanmak için kimliğinizi tespit edici gerekli bilgiler ile 
-                talebinizin konusunu açıkça belirttiğiniz başvurunuzu aşağıdaki yöntemlerle iletebilirsiniz:
-              </p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>E-posta: kvkk@sporokulu.com</li>
-                <li>Posta: [Spor Okulu Adresi]</li>
-                <li>Fiziksel başvuru: Kayıtlı elektronik posta (KEP) adresi</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-base mb-2">8. Veri Saklama Süresi</h3>
-              <p>
-                Kişisel verileriniz, işleme amacının gerektirdiği süre boyunca ve yasal saklama 
-                yükümlülüklerimiz çerçevesinde saklanacaktır. Bu süre sonunda verileriniz silinecek, 
-                yok edilecek veya anonim hale getirilecektir.
+                G7SK, Tofaş Basketbol Okulu ve iş birliği içinde olduğu paydaşların; duyuru, etkinlik, bilgilendirme ve gelişim süreçleri hakkında tarafımıza ulaşmasına KVKK kapsamında izin verdiğimizi, SMS, e-posta veya diğer iletişim araçlarıyla bilgilendirme yapılmasına açık rıza gösterdiğimizi beyan ederiz.
               </p>
             </section>
 
-            <section>
-              <h3 className="font-semibold text-base mb-2">9. İletişim</h3>
+            <section className="mb-6">
+              <h3 className="font-semibold text-base mb-3 border-b pb-1">4. KİŞİSEL EŞYALARLA İLGİLİ SORUMLULUK</h3>
               <p>
-                KVKK kapsamındaki sorularınız için bizimle iletişime geçebilirsiniz:
+                Çocuğumuzun kendi sorumluluğunda olan kıyafet, para, elektronik cihazlar gibi kişisel eşyalarının kulüp faaliyetleri süresince kaybolması veya zarar görmesi durumunda G7SK ve Tofaş Basketbol Okulu'nun sorumlu tutulamayacağını kabul ederiz.
               </p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>E-posta: info@sporokulu.com</li>
-                <li>Telefon: [Telefon Numarası]</li>
-                <li>Adres: [Spor Okulu Adresi]</li>
-              </ul>
             </section>
 
-            <p className="text-xs text-muted-foreground mt-6">
-              Bu aydınlatma metni [Tarih] tarihinde güncellenmiştir.
+            <section className="mb-6">
+              <h3 className="font-semibold text-base mb-3 border-b pb-1">5. SPORTİF FAALİYET VE SEYAHAT MUVAFAKATI</h3>
+              <p className="mb-3">Aşağıda belirtilen kimlik bilgilerine sahip çocuğumuzun:</p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>Tofaş Basketbol Spor Okulu antrenman ve müsabakalarına katılımına,</li>
+                <li>G7 Spor Kulübü yarışma takımlarında yer almasına,</li>
+                <li>Yurt içi ve yurt dışı kamp, turnuva ve benzeri organizasyonlara katılmasına,</li>
+                <li>Lisans, pasaport ve diğer resmi işlemlerinin yürütülmesine</li>
+              </ul>
+              <p className="mt-3">
+                veli/vasi sıfatıyla onay verdiğimizi ve gerekli hallerde refakat olmadan katılımına da muvafakat ettiğimizi beyan ederiz.
+              </p>
+            </section>
+
+            <div className="bg-muted p-4 rounded-lg mb-6">
+              <h4 className="font-semibold mb-2">Bilgilendirme Notu:</h4>
+              <p className="text-sm">
+                Bu belge, G7 Spor Kulübü ile Tofaş Basketbol Okulu'nun iş birliği çerçevesinde hazırlanan ortak bir bilgilendirme ve muvafakat metnidir. Tüm faaliyetler, ilgili kurumların profesyonel sorumluluk anlayışı içinde yürütülmekte olup, veli onayı gerektiren alanlar şeffaflıkla açıklanmıştır.
+              </p>
+            </div>
+
+            <p className="text-center font-medium border-t pt-4">
+              İmzalanmak suretiyle yürürlüğe girecek olan bu metin, veli/vasi olarak bilgilendirilmiş ve onaylanmış iradeyi temsil eder.
             </p>
           </div>
         </ScrollArea>
