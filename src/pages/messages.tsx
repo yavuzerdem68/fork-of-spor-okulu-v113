@@ -141,6 +141,13 @@ export default function Messages() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [messageContent, setMessageContent] = useState("");
+  const [groupFormData, setGroupFormData] = useState({
+    name: "",
+    sport: "",
+    description: ""
+  });
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   
   // Data state
   const [whatsappGroups, setWhatsappGroups] = useState<any[]>([]);
@@ -187,6 +194,49 @@ export default function Messages() {
       setMessageContent(template.content);
     }
     setSelectedTemplate(templateId);
+  };
+
+  const handleGroupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    // Validation
+    if (!groupFormData.name || !groupFormData.sport) {
+      setError("Lütfen grup adı ve spor branşı alanlarını doldurun");
+      return;
+    }
+
+    const newGroup = {
+      id: Date.now().toString(),
+      name: groupFormData.name,
+      sport: groupFormData.sport,
+      description: groupFormData.description,
+      memberCount: 0,
+      parentCount: 0,
+      coachCount: 0,
+      status: "Aktif",
+      createdDate: new Date().toISOString(),
+      lastMessage: "Grup oluşturuldu",
+      lastMessageTime: new Date().toISOString()
+    };
+
+    const updatedGroups = [...whatsappGroups, newGroup];
+    setWhatsappGroups(updatedGroups);
+    saveWhatsAppGroups(updatedGroups);
+    
+    setSuccess("WhatsApp grubu başarıyla oluşturuldu");
+    resetGroupForm();
+    setIsGroupDialogOpen(false);
+  };
+
+  const resetGroupForm = () => {
+    setGroupFormData({
+      name: "",
+      sport: "",
+      description: ""
+    });
+    setError("");
   };
 
   return (
@@ -394,40 +444,68 @@ export default function Messages() {
                               </DialogDescription>
                             </DialogHeader>
                             
-                            <div className="space-y-4 py-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="groupName">Grup Adı</Label>
-                                <Input id="groupName" placeholder="U14 Basketbol Takımı" />
+                            <form onSubmit={handleGroupSubmit}>
+                              {error && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                  <p className="text-sm text-red-600">{error}</p>
+                                </div>
+                              )}
+                              
+                              {success && (
+                                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                                  <p className="text-sm text-green-600">{success}</p>
+                                </div>
+                              )}
+
+                              <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="groupName">Grup Adı *</Label>
+                                  <Input 
+                                    id="groupName" 
+                                    placeholder="U14 Basketbol Takımı"
+                                    value={groupFormData.name}
+                                    onChange={(e) => setGroupFormData({...groupFormData, name: e.target.value})}
+                                    required
+                                  />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor="sport">Spor Branşı *</Label>
+                                  <Select value={groupFormData.sport} onValueChange={(value) => setGroupFormData({...groupFormData, sport: value})}>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Branş seçin" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {sports.map(sport => (
+                                        <SelectItem key={sport} value={sport}>{sport}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor="description">Açıklama</Label>
+                                  <Textarea 
+                                    id="description" 
+                                    placeholder="Grup açıklaması"
+                                    value={groupFormData.description}
+                                    onChange={(e) => setGroupFormData({...groupFormData, description: e.target.value})}
+                                  />
+                                </div>
                               </div>
                               
-                              <div className="space-y-2">
-                                <Label htmlFor="sport">Spor Branşı</Label>
-                                <Select>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Branş seçin" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {sports.map(sport => (
-                                      <SelectItem key={sport} value={sport}>{sport}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                              <div className="flex justify-end space-x-2">
+                                <Button type="button" variant="outline" onClick={() => {
+                                  setIsGroupDialogOpen(false);
+                                  resetGroupForm();
+                                }}>
+                                  İptal
+                                </Button>
+                                <Button type="submit">
+                                  Grup Oluştur
+                                </Button>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor="description">Açıklama</Label>
-                                <Textarea id="description" placeholder="Grup açıklaması" />
-                              </div>
-                            </div>
-                            
-                            <div className="flex justify-end space-x-2">
-                              <Button variant="outline" onClick={() => setIsGroupDialogOpen(false)}>
-                                İptal
-                              </Button>
-                              <Button onClick={() => setIsGroupDialogOpen(false)}>
-                                Grup Oluştur
-                              </Button>
-                            </div>
+                            </form>
                           </DialogContent>
                         </Dialog>
                       </div>

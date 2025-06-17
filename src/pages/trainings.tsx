@@ -70,6 +70,21 @@ export default function Trainings() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [trainings, setTrainings] = useState<any[]>([]);
   const [coaches, setCoaches] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    title: "",
+    sport: "",
+    coach: "",
+    location: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    maxParticipants: "",
+    ageGroup: "",
+    level: "",
+    description: ""
+  });
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -97,6 +112,62 @@ export default function Trainings() {
   const todayTrainings = trainings.filter(t => t.date === new Date().toISOString().split('T')[0]);
   const activeTrainings = trainings.filter(t => t.status === "Aktif");
   const totalParticipants = trainings.reduce((sum, t) => sum + t.participants, 0);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    // Validation
+    if (!formData.title || !formData.sport || !formData.coach || !formData.location || 
+        !formData.date || !formData.startTime || !formData.endTime || !formData.maxParticipants) {
+      setError("Lütfen tüm zorunlu alanları doldurun");
+      return;
+    }
+
+    const newTraining = {
+      id: Date.now().toString(),
+      title: formData.title,
+      sport: formData.sport,
+      coach: formData.coach,
+      location: formData.location,
+      date: formData.date,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      maxParticipants: parseInt(formData.maxParticipants),
+      participants: 0,
+      ageGroup: formData.ageGroup || "Genel",
+      level: formData.level || "Başlangıç",
+      description: formData.description,
+      status: "Aktif",
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedTrainings = [...trainings, newTraining];
+    setTrainings(updatedTrainings);
+    localStorage.setItem('trainings', JSON.stringify(updatedTrainings));
+    
+    setSuccess("Antrenman başarıyla eklendi");
+    resetForm();
+    setIsAddDialogOpen(false);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      sport: "",
+      coach: "",
+      location: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      maxParticipants: "",
+      ageGroup: "",
+      level: "",
+      description: ""
+    });
+    setError("");
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -284,116 +355,176 @@ export default function Trainings() {
                                 </DialogDescription>
                               </DialogHeader>
                               
-                              <div className="grid grid-cols-2 gap-4 py-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor="title">Antrenman Başlığı</Label>
-                                  <Input id="title" placeholder="U14 Basketbol Antrenmanı" />
+                              <form onSubmit={handleSubmit}>
+                                {error && (
+                                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                    <p className="text-sm text-red-600">{error}</p>
+                                  </div>
+                                )}
+                                
+                                {success && (
+                                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                                    <p className="text-sm text-green-600">{success}</p>
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-4 py-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="title">Antrenman Başlığı *</Label>
+                                    <Input 
+                                      id="title" 
+                                      placeholder="U14 Basketbol Antrenmanı"
+                                      value={formData.title}
+                                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="sport">Spor Branşı *</Label>
+                                    <Select value={formData.sport} onValueChange={(value) => setFormData({...formData, sport: value})}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Branş seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {sports.map(sport => (
+                                          <SelectItem key={sport} value={sport}>{sport}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="coach">Antrenör *</Label>
+                                    <Select value={formData.coach} onValueChange={(value) => setFormData({...formData, coach: value})}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Antrenör seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {coaches.map((coach, index) => {
+                                          const coachName = typeof coach === 'string' 
+                                            ? coach 
+                                            : `${coach.name || ''} ${coach.surname || ''}`.trim();
+                                          return (
+                                            <SelectItem key={coach.id || index} value={coachName}>
+                                              {coachName}
+                                            </SelectItem>
+                                          );
+                                        })}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="location">Lokasyon *</Label>
+                                    <Select value={formData.location} onValueChange={(value) => setFormData({...formData, location: value})}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Lokasyon seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {locations.map(location => (
+                                          <SelectItem key={location} value={location}>{location}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="date">Tarih *</Label>
+                                    <Input 
+                                      id="date" 
+                                      type="date"
+                                      value={formData.date}
+                                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="startTime">Başlangıç Saati *</Label>
+                                    <Input 
+                                      id="startTime" 
+                                      type="time"
+                                      value={formData.startTime}
+                                      onChange={(e) => setFormData({...formData, startTime: e.target.value})}
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="endTime">Bitiş Saati *</Label>
+                                    <Input 
+                                      id="endTime" 
+                                      type="time"
+                                      value={formData.endTime}
+                                      onChange={(e) => setFormData({...formData, endTime: e.target.value})}
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="maxParticipants">Maksimum Katılımcı *</Label>
+                                    <Input 
+                                      id="maxParticipants" 
+                                      type="number" 
+                                      placeholder="20"
+                                      value={formData.maxParticipants}
+                                      onChange={(e) => setFormData({...formData, maxParticipants: e.target.value})}
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="ageGroup">Yaş Grubu</Label>
+                                    <Select value={formData.ageGroup} onValueChange={(value) => setFormData({...formData, ageGroup: value})}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Yaş grubu seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {ageGroups.map(age => (
+                                          <SelectItem key={age} value={age}>{age}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="level">Seviye</Label>
+                                    <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Seviye seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {levels.map(level => (
+                                          <SelectItem key={level} value={level}>{level}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="col-span-2 space-y-2">
+                                    <Label htmlFor="description">Açıklama</Label>
+                                    <Textarea 
+                                      id="description" 
+                                      placeholder="Antrenman içeriği ve hedefleri"
+                                      value={formData.description}
+                                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    />
+                                  </div>
                                 </div>
                                 
-                                <div className="space-y-2">
-                                  <Label htmlFor="sport">Spor Branşı</Label>
-                                  <Select>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Branş seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {sports.map(sport => (
-                                        <SelectItem key={sport} value={sport}>{sport}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                <div className="flex justify-end space-x-2">
+                                  <Button type="button" variant="outline" onClick={() => {
+                                    setIsAddDialogOpen(false);
+                                    resetForm();
+                                  }}>
+                                    İptal
+                                  </Button>
+                                  <Button type="submit">
+                                    Kaydet
+                                  </Button>
                                 </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="coach">Antrenör</Label>
-                                  <Select>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Antrenör seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {coaches.map(coach => (
-                                        <SelectItem key={coach} value={coach}>{coach}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="location">Lokasyon</Label>
-                                  <Select>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Lokasyon seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {locations.map(location => (
-                                        <SelectItem key={location} value={location}>{location}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="date">Tarih</Label>
-                                  <Input id="date" type="date" />
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="startTime">Başlangıç Saati</Label>
-                                  <Input id="startTime" type="time" />
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="endTime">Bitiş Saati</Label>
-                                  <Input id="endTime" type="time" />
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="maxParticipants">Maksimum Katılımcı</Label>
-                                  <Input id="maxParticipants" type="number" placeholder="20" />
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="ageGroup">Yaş Grubu</Label>
-                                  <Select>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Yaş grubu seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {ageGroups.map(age => (
-                                        <SelectItem key={age} value={age}>{age}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="level">Seviye</Label>
-                                  <Select>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Seviye seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {levels.map(level => (
-                                        <SelectItem key={level} value={level}>{level}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="col-span-2 space-y-2">
-                                  <Label htmlFor="description">Açıklama</Label>
-                                  <Textarea id="description" placeholder="Antrenman içeriği ve hedefleri" />
-                                </div>
-                              </div>
-                              
-                              <div className="flex justify-end space-x-2">
-                                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                                  İptal
-                                </Button>
-                                <Button onClick={() => setIsAddDialogOpen(false)}>
-                                  Kaydet
-                                </Button>
-                              </div>
+                              </form>
                             </DialogContent>
                           </Dialog>
                         </div>
