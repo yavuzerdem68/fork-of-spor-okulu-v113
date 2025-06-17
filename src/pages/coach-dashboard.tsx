@@ -54,13 +54,40 @@ export default function CoachDashboard() {
 
   const loadMyStudents = (coach: any) => {
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-    // Filter students who are in coach's training groups
-    const myStudents = allStudents.filter((student: any) => 
-      coach.trainingGroups?.some((group: string) => 
-        student.trainingGroups?.includes(group) || 
-        student.sportsBranches?.some((branch: string) => coach.sportsBranches?.includes(branch))
-      )
-    );
+    
+    // Filter students who are in coach's training groups or sports branches
+    const myStudents = allStudents.filter((student: any) => {
+      // Check if student is in any of the coach's training groups
+      if (coach.trainingGroups?.length > 0 && student.trainingGroups?.length > 0) {
+        const hasMatchingGroup = coach.trainingGroups.some((group: string) => 
+          student.trainingGroups.includes(group)
+        );
+        if (hasMatchingGroup) return true;
+      }
+      
+      // Check if student plays any of the coach's sports branches
+      if (coach.sportsBranches?.length > 0 && student.sportsBranches?.length > 0) {
+        const hasMatchingSport = coach.sportsBranches.some((branch: string) => 
+          student.sportsBranches.includes(branch)
+        );
+        if (hasMatchingSport) return true;
+      }
+      
+      // Also check selectedSports field (alternative field name)
+      if (coach.sportsBranches?.length > 0 && student.selectedSports?.length > 0) {
+        const hasMatchingSport = coach.sportsBranches.some((branch: string) => 
+          student.selectedSports.includes(branch)
+        );
+        if (hasMatchingSport) return true;
+      }
+      
+      return false;
+    });
+    
+    console.log('Coach:', coach);
+    console.log('All students:', allStudents);
+    console.log('Coach students:', myStudents);
+    
     setMyStudents(myStudents);
   };
 

@@ -227,9 +227,74 @@ export default function Register() {
       return;
     }
 
-    // Mock registration - replace with real API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Calculate age from birth date
+      let studentAge = '';
+      if (formData.studentBirthDate) {
+        const today = new Date();
+        const birthDate = new Date(formData.studentBirthDate);
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          studentAge = (age - 1).toString();
+        } else {
+          studentAge = age.toString();
+        }
+      }
+
+      // Create student record
+      const studentId = Date.now();
+      const studentData = {
+        id: studentId,
+        ...formData,
+        studentAge: studentAge,
+        sportsBranches: formData.selectedSports,
+        status: 'Aktif',
+        paymentStatus: 'Güncel',
+        registrationDate: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+      
+      // Save student to localStorage
+      const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+      existingStudents.push(studentData);
+      localStorage.setItem('students', JSON.stringify(existingStudents));
+      
+      // Update parent's linkedAthletes if parent is logged in
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser && isParentLoggedIn) {
+        try {
+          const user = JSON.parse(currentUser);
+          const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+          
+          // Find and update the parent user
+          const updatedParentUsers = parentUsers.map((parent: any) => {
+            if (parent.email === user.email) {
+              return {
+                ...parent,
+                linkedAthletes: [...(parent.linkedAthletes || []), studentId]
+              };
+            }
+            return parent;
+          });
+          
+          localStorage.setItem('parentUsers', JSON.stringify(updatedParentUsers));
+          
+          // Update current user in localStorage
+          const updatedCurrentUser = {
+            ...user,
+            linkedAthletes: [...(user.linkedAthletes || []), studentId]
+          };
+          localStorage.setItem('currentUser', JSON.stringify(updatedCurrentUser));
+          
+        } catch (e) {
+          console.error('Error updating parent user:', e);
+        }
+      }
+      
       setSuccess(true);
       setTimeout(() => {
         router.push("/login");

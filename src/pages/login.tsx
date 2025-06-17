@@ -130,12 +130,23 @@ export default function Login() {
       if (user) {
         localStorage.setItem("userRole", "parent");
         localStorage.setItem("currentUser", JSON.stringify(user));
+        localStorage.setItem("userEmail", user.email);
         router.push("/parent-dashboard");
       } else {
         // Fallback to demo account
         if (parentCredentials.email === "veli@example.com" && parentCredentials.password === "veli123") {
+          const demoParent = {
+            id: "demo-parent",
+            firstName: "Demo",
+            lastName: "Veli",
+            email: "veli@example.com",
+            phone: "0532 123 45 67",
+            username: "demoveli",
+            role: "parent"
+          };
           localStorage.setItem("userRole", "parent");
-          localStorage.setItem("userEmail", parentCredentials.email);
+          localStorage.setItem("currentUser", JSON.stringify(demoParent));
+          localStorage.setItem("userEmail", demoParent.email);
           router.push("/parent-dashboard");
         } else {
           setError("Geçersiz kullanıcı adı/email veya şifre");
@@ -245,7 +256,11 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-=======
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-800">
+                      <strong>Demo Hesap:</strong> admin@sportscr.com / admin123
+                    </p>
+                  </div>
                 </TabsContent>
 
                 {/* Coach Login */}
@@ -293,7 +308,11 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-=======
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-800">
+                      <strong>Demo Hesap:</strong> antrenor@example.com / antrenor123
+                    </p>
+                  </div>
                 </TabsContent>
 
                 {/* Parent Login */}
@@ -301,10 +320,10 @@ export default function Login() {
                   <motion.form onSubmit={handleParentLogin} variants={fadeInUp}>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="parent-email">Email</Label>
+                        <Label htmlFor="parent-email">Email / Kullanıcı Adı</Label>
                         <Input
                           id="parent-email"
-                          type="email"
+                          type="text"
                           placeholder="veli@example.com"
                           value={parentCredentials.email}
                           onChange={(e) => setParentCredentials({...parentCredentials, email: e.target.value})}
@@ -341,7 +360,11 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-=======
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-800">
+                      <strong>Demo Hesap:</strong> veli@example.com / veli123
+                    </p>
+                  </div>
                 </TabsContent>
               </Tabs>
 

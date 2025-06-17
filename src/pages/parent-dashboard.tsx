@@ -53,6 +53,7 @@ export default function ParentDashboard() {
     // Check if user is logged in and has parent role
     const role = localStorage.getItem("userRole");
     const email = localStorage.getItem("userEmail");
+    const storedUser = localStorage.getItem("currentUser");
     
     if (role !== "parent") {
       router.push("/login");
@@ -61,24 +62,76 @@ export default function ParentDashboard() {
     
     setUserEmail(email || "");
     
-    // Load parent user data
-    const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
-    const currentParent = parentUsers.find((parent: any) => parent.email === email);
+    // Try to get current user from localStorage first
+    let currentParent = null;
+    if (storedUser) {
+      try {
+        currentParent = JSON.parse(storedUser);
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+      }
+    }
+    
+    // If no stored user, try to find by email in parentUsers
+    if (!currentParent && email) {
+      const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+      currentParent = parentUsers.find((parent: any) => parent.email === email);
+    }
     
     if (currentParent) {
       setCurrentUser(currentParent);
       loadChildrenData(currentParent);
+    } else {
+      console.log('No parent user found. Email:', email, 'Stored user:', storedUser);
     }
   }, [router]);
 
   const loadChildrenData = (parent: any) => {
     // Load all students and filter by parent's linked athletes
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-    const parentChildren = allStudents.filter((student: any) => 
-      parent.linkedAthletes?.includes(student.id) ||
-      student.parentEmail === parent.email ||
-      student.parentPhone === parent.phone
-    );
+    
+    // Multiple ways to match parent with children:
+    // 1. Direct linkedAthletes array
+    // 2. Email match
+    // 3. Phone match
+    // 4. Name match (for cases where email/phone might be different)
+    const parentChildren = allStudents.filter((student: any) => {
+      // Check linkedAthletes array
+      if (parent.linkedAthletes?.includes(student.id)) {
+        return true;
+      }
+      
+      // Check email match
+      if (student.parentEmail && parent.email && 
+          student.parentEmail.toLowerCase() === parent.email.toLowerCase()) {
+        return true;
+      }
+      
+      // Check phone match (remove spaces and special characters)
+      if (student.parentPhone && parent.phone) {
+        const studentPhone = student.parentPhone.replace(/\s+/g, '').replace(/[^\d]/g, '');
+        const parentPhone = parent.phone.replace(/\s+/g, '').replace(/[^\d]/g, '');
+        if (studentPhone === parentPhone) {
+          return true;
+        }
+      }
+      
+      // Check name match (first name + last name)
+      if (student.parentName && student.parentSurname && 
+          parent.firstName && parent.lastName) {
+        const studentParentName = `${student.parentName} ${student.parentSurname}`.toLowerCase();
+        const parentName = `${parent.firstName} ${parent.lastName}`.toLowerCase();
+        if (studentParentName === parentName) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
+    
+    console.log('Parent:', parent);
+    console.log('All students:', allStudents);
+    console.log('Matched children:', parentChildren);
     
     setChildren(parentChildren);
     
