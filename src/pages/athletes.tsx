@@ -205,6 +205,8 @@ function EditAthleteForm({ athlete, onSave, onCancel }: {
       ...formData,
       studentTcNo: formData.studentTcNo.replace(/\D/g, ''),
       parentTcNo: formData.parentTcNo.replace(/\D/g, ''),
+      sportsBranches: formData.sportsBranches, // Ensure sports branches are saved
+      selectedSports: formData.sportsBranches, // Also save as selectedSports for compatibility
       updatedAt: new Date().toISOString()
     };
 

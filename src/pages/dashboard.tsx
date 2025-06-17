@@ -123,10 +123,10 @@ export default function Dashboard() {
     const todayStr = today.toISOString().split('T')[0];
     const tomorrowStr = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    const todayTrainings = trainings.filter((t: any) => t.date === todayStr);
-    const tomorrowTrainings = trainings.filter((t: any) => t.date === tomorrowStr);
+    const todayTrainings = trainings.filter((t: any) => t.date === todayStr || t.startDate === todayStr);
+    const tomorrowTrainings = trainings.filter((t: any) => t.date === tomorrowStr || t.startDate === tomorrowStr);
     
-    // Calculate monthly income (simplified)
+    // Calculate monthly income (fixed calculation)
     const thisMonth = new Date().toISOString().slice(0, 7);
     let monthlyIncome = 0;
     athletes.forEach((athlete: any) => {
@@ -134,7 +134,8 @@ export default function Dashboard() {
       const thisMonthPayments = accountEntries.filter((entry: any) => 
         entry.month === thisMonth && entry.type === 'credit'
       );
-      monthlyIncome += thisMonthPayments.reduce((sum: number, entry: any) => sum + entry.amountIncludingVat, 0);
+      const athleteMonthlyIncome = thisMonthPayments.reduce((sum: number, entry: any) => sum + (entry.amountIncludingVat || 0), 0);
+      monthlyIncome += athleteMonthlyIncome;
     });
 
     // Calculate pending payments
@@ -143,8 +144,8 @@ export default function Dashboard() {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
       const balance = accountEntries.reduce((total: number, entry: any) => {
         return entry.type === 'debit' 
-          ? total + entry.amountIncludingVat 
-          : total - entry.amountIncludingVat;
+          ? total + (entry.amountIncludingVat || 0)
+          : total - (entry.amountIncludingVat || 0);
       }, 0);
       if (balance > 0) {
         pendingPayments += balance;
@@ -163,7 +164,7 @@ export default function Dashboard() {
       },
       {
         title: "Aylık Gelir",
-        value: `₺${monthlyIncome.toLocaleString('tr-TR')}`,
+        value: `₺${Math.round(monthlyIncome).toLocaleString('tr-TR')}`,
         change: "0%",
         trend: "up",
         icon: DollarSign,
@@ -171,7 +172,7 @@ export default function Dashboard() {
       },
       {
         title: "Aktif Antrenman",
-        value: trainings.length.toString(),
+        value: trainings.filter((t: any) => t.status === 'Aktif' || !t.status).length.toString(),
         change: "0",
         trend: "up",
         icon: Activity,
@@ -179,7 +180,7 @@ export default function Dashboard() {
       },
       {
         title: "Bekleyen Ödeme",
-        value: `₺${pendingPayments.toLocaleString('tr-TR')}`,
+        value: `₺${Math.round(pendingPayments).toLocaleString('tr-TR')}`,
         change: "0%",
         trend: "down",
         icon: Clock,
@@ -189,8 +190,8 @@ export default function Dashboard() {
 
     // Set upcoming trainings
     const upcomingList = [
-      ...todayTrainings.map((t: any) => ({ ...t, date: "Bugün" })),
-      ...tomorrowTrainings.map((t: any) => ({ ...t, date: "Yarın" }))
+      ...todayTrainings.map((t: any) => ({ ...t, displayDate: "Bugün" })),
+      ...tomorrowTrainings.map((t: any) => ({ ...t, displayDate: "Yarın" }))
     ].slice(0, 5);
     
     setUpcomingTrainings(upcomingList);
@@ -411,16 +412,16 @@ export default function Dashboard() {
                         upcomingTrainings.map((training) => (
                           <div key={training.id} className="p-3 rounded-lg border border-border">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium">{training.sport}</h4>
+                              <h4 className="font-medium">{training.title || training.sport}</h4>
                               <Badge variant="outline" className="text-xs">
-                                {training.date}
+                                {training.displayDate}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mb-1">
-                              {training.time}
+                              {training.startTime} - {training.endTime}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {training.participants} sporcu • {training.coach}
+                              {training.assignedAthletes?.length || 0} sporcu • {training.coach}
                             </p>
                           </div>
                         ))
@@ -434,7 +435,11 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
-                    <Button className="w-full mt-4" variant="outline">
+                    <Button 
+                      className="w-full mt-4" 
+                      variant="outline"
+                      onClick={() => router.push('/trainings')}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Yeni Antrenman
                     </Button>

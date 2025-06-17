@@ -542,7 +542,10 @@ export default function AdminSettings() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => setSelectedUser(user)}
+                                      onClick={() => {
+                                        setSelectedUser(user);
+                                        setIsEditDialogOpen(true);
+                                      }}
                                     >
                                       <Edit className="w-4 h-4" />
                                     </Button>
