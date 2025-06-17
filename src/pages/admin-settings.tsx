@@ -302,7 +302,6 @@ export default function AdminSettings() {
     );
     saveAdminUsers(updatedUsers);
   };
-=======
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
