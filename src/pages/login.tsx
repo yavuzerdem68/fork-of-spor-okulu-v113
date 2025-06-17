@@ -31,14 +31,25 @@ export default function Login() {
     setLoading(true);
     setError("");
 
-    // Mock authentication - replace with real authentication
-    if (adminCredentials.email === "admin@sportscr.com" && adminCredentials.password === "admin123") {
-      localStorage.setItem("userRole", "admin");
-      localStorage.setItem("userEmail", adminCredentials.email);
-      router.push("/dashboard");
-    } else {
-      setError("Geçersiz email veya şifre");
+    try {
+      // Check against registered admin users
+      const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+      const admin = adminUsers.find((a: any) => 
+        a.email === adminCredentials.email && a.password === adminCredentials.password
+      );
+
+      if (admin) {
+        localStorage.setItem("userRole", "admin");
+        localStorage.setItem("currentUser", JSON.stringify(admin));
+        localStorage.setItem("userEmail", admin.email);
+        router.push("/dashboard");
+      } else {
+        setError("Geçersiz email veya şifre");
+      }
+    } catch (error) {
+      setError("Giriş sırasında bir hata oluştu");
     }
+    
     setLoading(false);
   };
 

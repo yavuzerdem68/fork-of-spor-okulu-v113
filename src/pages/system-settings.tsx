@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   Settings, 
   Upload, 
@@ -18,7 +20,13 @@ import {
   Save,
   Image as ImageIcon,
   Palette,
-  Building
+  Building,
+  Shield,
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  UserCheck
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -46,6 +54,18 @@ const SystemSettings = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  
+  // Admin hesapları için state'ler
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [isAddAdminDialogOpen, setIsAddAdminDialogOpen] = useState(false);
+  const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
+  const [newAdmin, setNewAdmin] = useState({
+    name: '',
+    surname: '',
+    email: '',
+    password: '',
+    role: 'admin'
+  });
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
@@ -60,7 +80,100 @@ const SystemSettings = () => {
     if (savedSettings) {
       setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
     }
+
+    // Load admin users
+    loadAdminUsers();
   }, [router]);
+
+  const loadAdminUsers = () => {
+    const savedAdmins = localStorage.getItem('adminUsers');
+    if (savedAdmins) {
+      setAdminUsers(JSON.parse(savedAdmins));
+    } else {
+      // İlk kurulum için varsayılan admin hesabı
+      const defaultAdmin = {
+        id: 'default-admin',
+        name: 'Sistem',
+        surname: 'Yöneticisi',
+        email: 'admin@sportscr.com',
+        password: 'admin123',
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+        isDefault: true
+      };
+      setAdminUsers([defaultAdmin]);
+      localStorage.setItem('adminUsers', JSON.stringify([defaultAdmin]));
+    }
+  };
+
+  const handleAddAdmin = () => {
+    if (!newAdmin.name || !newAdmin.surname || !newAdmin.email || !newAdmin.password) {
+      setMessage({ type: 'error', text: 'Lütfen tüm alanları doldurun.' });
+      return;
+    }
+
+    // Email kontrolü
+    const existingAdmin = adminUsers.find(admin => admin.email === newAdmin.email);
+    if (existingAdmin) {
+      setMessage({ type: 'error', text: 'Bu email adresi zaten kullanılıyor.' });
+      return;
+    }
+
+    const adminToAdd = {
+      id: Date.now().toString(),
+      ...newAdmin,
+      createdAt: new Date().toISOString(),
+      isDefault: false
+    };
+
+    const updatedAdmins = [...adminUsers, adminToAdd];
+    setAdminUsers(updatedAdmins);
+    localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+
+    // Form'u temizle
+    setNewAdmin({
+      name: '',
+      surname: '',
+      email: '',
+      password: '',
+      role: 'admin'
+    });
+
+    setIsAddAdminDialogOpen(false);
+    setMessage({ type: 'success', text: 'Admin hesabı başarıyla oluşturuldu!' });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleDeleteAdmin = (adminId: string) => {
+    const adminToDelete = adminUsers.find(admin => admin.id === adminId);
+    if (adminToDelete?.isDefault) {
+      setMessage({ type: 'error', text: 'Varsayılan admin hesabı silinemez.' });
+      return;
+    }
+
+    const updatedAdmins = adminUsers.filter(admin => admin.id !== adminId);
+    setAdminUsers(updatedAdmins);
+    localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+
+    setMessage({ type: 'success', text: 'Admin hesabı başarıyla silindi!' });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const togglePasswordVisibility = (adminId: string) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [adminId]: !prev[adminId]
+    }));
+  };
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewAdmin(prev => ({ ...prev, password }));
+  };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setSettings(prev => ({
@@ -140,11 +253,12 @@ const SystemSettings = () => {
         )}
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="general">Genel Bilgiler</TabsTrigger>
             <TabsTrigger value="branding">Marka & Logo</TabsTrigger>
             <TabsTrigger value="contact">İletişim</TabsTrigger>
             <TabsTrigger value="financial">Mali Bilgiler</TabsTrigger>
+            <TabsTrigger value="admins">Admin Hesapları</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general">
@@ -447,6 +561,187 @@ const SystemSettings = () => {
                     placeholder="TR00 0000 0000 0000 0000 0000 00"
                   />
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="admins">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Admin Hesapları
+                </CardTitle>
+                <CardDescription>
+                  Sistem yöneticisi hesaplarını yönetin
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium">Mevcut Admin Hesapları</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Sisteme erişim yetkisi olan yönetici hesapları
+                    </p>
+                  </div>
+                  <Dialog open={isAddAdminDialogOpen} onOpenChange={setIsAddAdminDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Yeni Admin Ekle
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Yeni Admin Hesabı Oluştur</DialogTitle>
+                        <DialogDescription>
+                          Sisteme erişim yetkisi olan yeni bir yönetici hesabı oluşturun.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="admin-name">Ad</Label>
+                            <Input
+                              id="admin-name"
+                              value={newAdmin.name}
+                              onChange={(e) => setNewAdmin(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="Admin adı"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="admin-surname">Soyad</Label>
+                            <Input
+                              id="admin-surname"
+                              value={newAdmin.surname}
+                              onChange={(e) => setNewAdmin(prev => ({ ...prev, surname: e.target.value }))}
+                              placeholder="Admin soyadı"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="admin-email">E-posta</Label>
+                          <Input
+                            id="admin-email"
+                            type="email"
+                            value={newAdmin.email}
+                            onChange={(e) => setNewAdmin(prev => ({ ...prev, email: e.target.value }))}
+                            placeholder="admin@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="admin-password">Şifre</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="admin-password"
+                              type="text"
+                              value={newAdmin.password}
+                              onChange={(e) => setNewAdmin(prev => ({ ...prev, password: e.target.value }))}
+                              placeholder="Güçlü bir şifre girin"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={generateRandomPassword}
+                              className="shrink-0"
+                            >
+                              Oluştur
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            En az 6 karakter uzunluğunda olmalıdır
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddAdminDialogOpen(false)}>
+                          İptal
+                        </Button>
+                        <Button onClick={handleAddAdmin}>
+                          Admin Hesabı Oluştur
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ad Soyad</TableHead>
+                        <TableHead>E-posta</TableHead>
+                        <TableHead>Şifre</TableHead>
+                        <TableHead>Oluşturulma</TableHead>
+                        <TableHead>Durum</TableHead>
+                        <TableHead className="text-right">İşlemler</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {adminUsers.map((admin) => (
+                        <TableRow key={admin.id}>
+                          <TableCell className="font-medium">
+                            {admin.name} {admin.surname}
+                            {admin.isDefault && (
+                              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                                Varsayılan
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>{admin.email}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm">
+                                {showPasswords[admin.id] ? admin.password : '••••••••'}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => togglePasswordVisibility(admin.id)}
+                                className="h-6 w-6 p-0"
+                              >
+                                {showPasswords[admin.id] ? (
+                                  <EyeOff className="h-3 w-3" />
+                                ) : (
+                                  <Eye className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(admin.createdAt).toLocaleDateString('tr-TR')}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                              <span className="text-sm text-green-600">Aktif</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {!admin.isDefault && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteAdmin(admin.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <Alert>
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Güvenlik Uyarısı:</strong> Admin hesapları sisteme tam erişim sağlar. 
+                    Sadece güvenilir kişilere admin yetkisi verin ve güçlü şifreler kullanın.
+                  </AlertDescription>
+                </Alert>
               </CardContent>
             </Card>
           </TabsContent>
