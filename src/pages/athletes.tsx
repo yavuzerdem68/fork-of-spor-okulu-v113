@@ -625,9 +625,11 @@ export default function Athletes() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
   const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
+  const [isBulkFeeDialogOpen, setIsBulkFeeDialogOpen] = useState(false);
   const [selectedAthlete, setSelectedAthlete] = useState<any>(null);
   const [accountEntries, setAccountEntries] = useState<any[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [bulkFeeFile, setBulkFeeFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResults, setUploadResults] = useState<any[]>([]);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
@@ -789,6 +791,212 @@ export default function Athletes() {
         ? total + entry.amountIncludingVat 
         : total - entry.amountIncludingVat;
     }, 0);
+  };
+
+  // Export active athletes function
+  const exportActiveAthletes = () => {
+    const activeAthletes = athletes.filter(athlete => athlete.status === 'Aktif' || !athlete.status);
+    
+    if (activeAthletes.length === 0) {
+      alert('Dışa aktarılacak aktif sporcu bulunamadı!');
+      return;
+    }
+
+    const exportData = activeAthletes.map((athlete, index) => ({
+      'Sıra No': index + 1,
+      'Sporcu Adı': athlete.studentName || '',
+      'Sporcu Soyadı': athlete.studentSurname || '',
+      'TC Kimlik No': athlete.studentTcNo || '',
+      'Doğum Tarihi': athlete.studentBirthDate || '',
+      'Yaş': athlete.studentAge || '',
+      'Cinsiyet': athlete.studentGender || '',
+      'Okul': athlete.studentSchool || '',
+      'Sınıf': athlete.studentClass || '',
+      'Spor Branşları': athlete.sportsBranches?.join(', ') || '',
+      'Boy (cm)': athlete.studentHeight || '',
+      'Kilo (kg)': athlete.studentWeight || '',
+      'Kan Grubu': athlete.bloodType || '',
+      'Veli Adı': athlete.parentName || '',
+      'Veli Soyadı': athlete.parentSurname || '',
+      'Veli TC': athlete.parentTcNo || '',
+      'Veli Telefon': athlete.parentPhone || '',
+      'Veli Email': athlete.parentEmail || '',
+      'Yakınlık': athlete.parentRelation || '',
+      'Adres': athlete.address || '',
+      'İl': athlete.city || '',
+      'İlçe': athlete.district || '',
+      'Kayıt Tarihi': athlete.registrationDate ? new Date(athlete.registrationDate).toLocaleDateString('tr-TR') : '',
+      'Durum': athlete.status || 'Aktif'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Aktif Sporcular');
+    
+    // Set column widths
+    const colWidths = Object.keys(exportData[0]).map(() => ({ wch: 15 }));
+    ws['!cols'] = colWidths;
+    
+    const fileName = `Aktif_Sporcular_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    alert(`${activeAthletes.length} aktif sporcu Excel dosyasına aktarıldı! (${fileName})`);
+  };
+
+  // Generate bulk fee template
+  const generateBulkFeeTemplate = () => {
+    const activeAthletes = athletes.filter(athlete => athlete.status === 'Aktif' || !athlete.status);
+    
+    if (activeAthletes.length === 0) {
+      alert('Şablon oluşturulacak aktif sporcu bulunamadı!');
+      return;
+    }
+
+    const templateData = activeAthletes.map(athlete => ({
+      'Sporcu Adı Soyadı': `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
+      'Açıklama': '',
+      'Tutar': '',
+      'KDV Oranı (%)': '10',
+      'Toplam': '',
+      'Birim Kod': 'Ay'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Toplu Aidat Şablonu');
+    
+    // Set column widths
+    const colWidths = [
+      { wch: 25 }, // Sporcu Adı Soyadı
+      { wch: 30 }, // Açıklama
+      { wch: 12 }, // Tutar
+      { wch: 15 }, // KDV Oranı
+      { wch: 12 }, // Toplam
+      { wch: 12 }  // Birim Kod
+    ];
+    ws['!cols'] = colWidths;
+    
+    // Add formulas for automatic total calculation
+    for (let row = 1; row <= activeAthletes.length; row++) {
+      const totalCell = XLSX.utils.encode_cell({ r: row, c: 4 }); // Toplam column
+      ws[totalCell] = {
+        f: `C${row + 1}*(1+D${row + 1}/100)`,
+        t: 'n'
+      };
+    }
+    
+    const fileName = `Toplu_Aidat_Sablonu_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    alert(`${activeAthletes.length} sporcu için toplu aidat şablonu oluşturuldu! (${fileName})\n\nŞablonu doldurup tekrar yükleyebilirsiniz.`);
+  };
+
+  // Handle bulk fee file upload
+  const handleBulkFeeFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && 
+          file.type !== 'application/vnd.ms-excel') {
+        alert("Lütfen Excel dosyası (.xlsx veya .xls) seçin");
+        return;
+      }
+      setBulkFeeFile(file);
+    }
+  };
+
+  // Process bulk fee file
+  const processBulkFeeFile = async () => {
+    if (!bulkFeeFile) return;
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+
+    try {
+      const data = await bulkFeeFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      let processedCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row: any = jsonData[i];
+        setUploadProgress(((i + 1) / jsonData.length) * 100);
+
+        try {
+          const athleteName = row['Sporcu Adı Soyadı']?.toString().trim();
+          const description = row['Açıklama']?.toString().trim();
+          const amount = parseFloat(row['Tutar']?.toString().replace(',', '.') || '0');
+          const vatRate = parseFloat(row['KDV Oranı (%)']?.toString() || '10');
+          const unitCode = row['Birim Kod']?.toString().trim() || 'Ay';
+
+          if (!athleteName || !description || !amount) {
+            errors.push(`Satır ${i + 2}: Sporcu adı, açıklama veya tutar eksik`);
+            errorCount++;
+            continue;
+          }
+
+          // Find athlete by name
+          const athlete = athletes.find(a => {
+            const fullName = `${a.studentName || ''} ${a.studentSurname || ''}`.trim();
+            return fullName.toLowerCase() === athleteName.toLowerCase();
+          });
+
+          if (!athlete) {
+            errors.push(`Satır ${i + 2}: "${athleteName}" adlı sporcu bulunamadı`);
+            errorCount++;
+            continue;
+          }
+
+          // Calculate VAT and total
+          const vatAmount = (amount * vatRate) / 100;
+          const totalAmount = amount + vatAmount;
+
+          // Create account entry
+          const entry = {
+            id: Date.now() + Math.random(),
+            date: new Date().toISOString(),
+            month: new Date().toISOString().slice(0, 7),
+            description: description,
+            amountExcludingVat: amount,
+            vatRate: vatRate,
+            vatAmount: vatAmount,
+            amountIncludingVat: totalAmount,
+            unitCode: unitCode,
+            type: 'debit'
+          };
+
+          // Add to athlete's account
+          const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+          existingEntries.push(entry);
+          localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+
+          processedCount++;
+        } catch (error) {
+          errors.push(`Satır ${i + 2}: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+          errorCount++;
+        }
+      }
+
+      if (errors.length > 0) {
+        const errorMessage = errors.slice(0, 10).join('\n') + (errors.length > 10 ? `\n... ve ${errors.length - 10} hata daha` : '');
+        alert(`Toplu aidat girişi tamamlandı!\n\n✅ Başarılı: ${processedCount} kayıt\n❌ Hatalı: ${errorCount} kayıt\n\nHatalar:\n${errorMessage}`);
+      } else {
+        alert(`Toplu aidat girişi başarıyla tamamlandı!\n${processedCount} sporcu için aidat kaydı eklendi.`);
+      }
+
+      setBulkFeeFile(null);
+      setIsBulkFeeDialogOpen(false);
+      
+    } catch (error) {
+      alert('Excel dosyası işlenirken hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
+    } finally {
+      setIsProcessing(false);
+      setUploadProgress(0);
+    }
   };
 
   // Bulk Upload Functions
@@ -1546,10 +1754,204 @@ export default function Athletes() {
                   </div>
                   
                   {userRole === 'admin' && (
-                    <Button variant="outline">
-                      <Download className="h-4 w-4 mr-2" />
-                      Dışa Aktar
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={exportActiveAthletes}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Aktif Sporcuları Dışa Aktar
+                      </Button>
+                      <Dialog open={isBulkFeeDialogOpen} onOpenChange={setIsBulkFeeDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline">
+                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                            Toplu Aidat Girişi
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center space-x-2">
+                              <FileSpreadsheet className="h-5 w-5" />
+                              <span>Toplu Aidat Girişi</span>
+                            </DialogTitle>
+                            <DialogDescription>
+                              Excel dosyası ile tüm aktif sporcular için toplu aidat girişi yapın
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="space-y-6">
+                            <Alert>
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertDescription>
+                                Bu işlem aktif sporcuların cari hesaplarına aidat kaydı ekleyecektir. Önce şablonu indirip doldurun.
+                              </AlertDescription>
+                            </Alert>
+
+                            {/* Template Download */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">1. Şablon İndir ve Doldur</CardTitle>
+                                <CardDescription>
+                                  Aktif sporcular için aidat şablonunu indirin
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <Button onClick={generateBulkFeeTemplate} variant="outline" className="w-full">
+                                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                  Toplu Aidat Şablonunu İndir
+                                </Button>
+                                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                                  <h4 className="font-medium text-blue-900 mb-2">Şablon Özellikleri:</h4>
+                                  <ul className="text-sm text-blue-800 space-y-1">
+                                    <li>• Sporcu Adı Soyadı: Otomatik doldurulur</li>
+                                    <li>• Açıklama: Aidat açıklaması (örn: "Haziran 2024 Aylık Aidat")</li>
+                                    <li>• Tutar: KDV hariç tutar</li>
+                                    <li>• KDV Oranı: 10 veya 20 seçin</li>
+                                    <li>• Toplam: Otomatik hesaplanır</li>
+                                    <li>• Birim Kod: "Ay" (aidat için) veya "Adet" (forma vb. için)</li>
+                                  </ul>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            {/* File Upload */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">2. Doldurulmuş Dosyayı Yükle</CardTitle>
+                                <CardDescription>
+                                  Aidat bilgilerini doldurduğunuz Excel dosyasını seçin
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-4">
+                                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                    <input
+                                      type="file"
+                                      accept=".xlsx,.xls"
+                                      onChange={handleBulkFeeFileUpload}
+                                      className="hidden"
+                                      id="bulk-fee-file"
+                                    />
+                                    <label htmlFor="bulk-fee-file" className="cursor-pointer">
+                                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                      <p className="text-lg font-medium text-gray-900 mb-2">
+                                        Doldurulmuş Excel dosyasını seçin
+                                      </p>
+                                      <p className="text-sm text-gray-500">
+                                        .xlsx veya .xls formatında olmalıdır
+                                      </p>
+                                    </label>
+                                  </div>
+
+                                  {bulkFeeFile && (
+                                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                      <div className="flex items-center space-x-2">
+                                        <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                                        <span className="text-sm font-medium text-green-900">
+                                          {bulkFeeFile.name}
+                                        </span>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setBulkFeeFile(null)}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+
+                                  {bulkFeeFile && (
+                                    <Button 
+                                      onClick={processBulkFeeFile} 
+                                      disabled={isProcessing}
+                                      className="w-full"
+                                    >
+                                      {isProcessing ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                          İşleniyor...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircle className="h-4 w-4 mr-2" />
+                                          Toplu Aidat Girişini Başlat
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            {/* Progress */}
+                            {isProcessing && (
+                              <Card>
+                                <CardContent className="p-4">
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                      <span>Aidat kayıtları ekleniyor...</span>
+                                      <span>{Math.round(uploadProgress)}%</span>
+                                    </div>
+                                    <Progress value={uploadProgress} className="w-full" />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+
+                            {/* Example Data */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Örnek Veri Formatı</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Sporcu Adı Soyadı</TableHead>
+                                      <TableHead>Açıklama</TableHead>
+                                      <TableHead>Tutar</TableHead>
+                                      <TableHead>KDV Oranı (%)</TableHead>
+                                      <TableHead>Toplam</TableHead>
+                                      <TableHead>Birim Kod</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    <TableRow>
+                                      <TableCell>Ahmet Yılmaz</TableCell>
+                                      <TableCell>Haziran 2024 Aylık Aidat</TableCell>
+                                      <TableCell>350</TableCell>
+                                      <TableCell>10</TableCell>
+                                      <TableCell>385 (otomatik)</TableCell>
+                                      <TableCell>Ay</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell>Elif Demir</TableCell>
+                                      <TableCell>Forma Ücreti</TableCell>
+                                      <TableCell>150</TableCell>
+                                      <TableCell>20</TableCell>
+                                      <TableCell>180 (otomatik)</TableCell>
+                                      <TableCell>Adet</TableCell>
+                                    </TableRow>
+                                  </TableBody>
+                                </Table>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <div className="flex justify-end space-x-2 mt-6">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => {
+                                setIsBulkFeeDialogOpen(false);
+                                setBulkFeeFile(null);
+                                setUploadProgress(0);
+                              }}
+                            >
+                              Kapat
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   )}
                 </div>
               </CardContent>
