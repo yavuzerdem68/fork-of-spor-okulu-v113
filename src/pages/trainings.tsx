@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Calendar, 
   Plus,
@@ -26,7 +27,9 @@ import {
   Target,
   Activity,
   ArrowLeft,
-  Users
+  Users,
+  UserPlus,
+  Trash2
 } from "lucide-react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -56,6 +59,12 @@ const loadCoaches = () => {
   return storedCoaches ? JSON.parse(storedCoaches) : [];
 };
 
+// Load athletes from localStorage
+const loadAthletes = () => {
+  const storedAthletes = localStorage.getItem('students');
+  return storedAthletes ? JSON.parse(storedAthletes).filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status) : [];
+};
+
 const locations = ["Spor Salonu A", "Spor Salonu B", "Futbol Sahası", "Yüzme Havuzu", "Satranç Odası"];
 const ageGroups = ["U8", "U10", "U12", "U14", "U16", "U18", "Yetişkin"];
 const levels = ["Başlangıç", "Orta", "İleri"];
@@ -67,9 +76,13 @@ export default function Trainings() {
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [trainings, setTrainings] = useState<any[]>([]);
   const [coaches, setCoaches] = useState<any[]>([]);
+  const [athletes, setAthletes] = useState<any[]>([]);
+  const [selectedTraining, setSelectedTraining] = useState<any>(null);
   const [formData, setFormData] = useState({
     title: "",
     sport: "",
@@ -81,7 +94,8 @@ export default function Trainings() {
     maxParticipants: "",
     ageGroup: "",
     level: "",
-    description: ""
+    description: "",
+    assignedAthletes: [] as string[]
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -97,6 +111,7 @@ export default function Trainings() {
     setUserRole(role);
     setTrainings(loadTrainings());
     setCoaches(loadCoaches());
+    setAthletes(loadAthletes());
   }, [router]);
 
   const filteredTrainings = trainings.filter(training => {
@@ -111,7 +126,7 @@ export default function Trainings() {
 
   const todayTrainings = trainings.filter(t => t.date === new Date().toISOString().split('T')[0]);
   const activeTrainings = trainings.filter(t => t.status === "Aktif");
-  const totalParticipants = trainings.reduce((sum, t) => sum + t.participants, 0);
+  const totalParticipants = trainings.reduce((sum, t) => sum + (t.assignedAthletes?.length || 0), 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,10 +150,11 @@ export default function Trainings() {
       startTime: formData.startTime,
       endTime: formData.endTime,
       maxParticipants: parseInt(formData.maxParticipants),
-      participants: 0,
+      participants: formData.assignedAthletes.length,
       ageGroup: formData.ageGroup || "Genel",
       level: formData.level || "Başlangıç",
       description: formData.description,
+      assignedAthletes: formData.assignedAthletes,
       status: "Aktif",
       createdAt: new Date().toISOString()
     };
@@ -150,6 +166,76 @@ export default function Trainings() {
     setSuccess("Antrenman başarıyla eklendi");
     resetForm();
     setIsAddDialogOpen(false);
+  };
+
+  const handleEdit = (training: any) => {
+    setSelectedTraining(training);
+    setFormData({
+      title: training.title,
+      sport: training.sport,
+      coach: training.coach,
+      location: training.location,
+      date: training.date,
+      startTime: training.startTime,
+      endTime: training.endTime,
+      maxParticipants: training.maxParticipants.toString(),
+      ageGroup: training.ageGroup,
+      level: training.level,
+      description: training.description,
+      assignedAthletes: training.assignedAthletes || []
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!selectedTraining) return;
+
+    const updatedTraining = {
+      ...selectedTraining,
+      title: formData.title,
+      sport: formData.sport,
+      coach: formData.coach,
+      location: formData.location,
+      date: formData.date,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      maxParticipants: parseInt(formData.maxParticipants),
+      participants: formData.assignedAthletes.length,
+      ageGroup: formData.ageGroup,
+      level: formData.level,
+      description: formData.description,
+      assignedAthletes: formData.assignedAthletes,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedTrainings = trainings.map(t => 
+      t.id === selectedTraining.id ? updatedTraining : t
+    );
+    
+    setTrainings(updatedTrainings);
+    localStorage.setItem('trainings', JSON.stringify(updatedTrainings));
+    
+    setSuccess("Antrenman başarıyla güncellendi");
+    resetForm();
+    setIsEditDialogOpen(false);
+    setSelectedTraining(null);
+  };
+
+  const handleView = (training: any) => {
+    setSelectedTraining(training);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleDelete = (training: any) => {
+    if (confirm(`"${training.title}" antrenmanını silmek istediğinizden emin misiniz?`)) {
+      const updatedTrainings = trainings.filter(t => t.id !== training.id);
+      setTrainings(updatedTrainings);
+      localStorage.setItem('trainings', JSON.stringify(updatedTrainings));
+    }
   };
 
   const resetForm = () => {
@@ -164,9 +250,38 @@ export default function Trainings() {
       maxParticipants: "",
       ageGroup: "",
       level: "",
-      description: ""
+      description: "",
+      assignedAthletes: []
     });
     setError("");
+    setSuccess("");
+  };
+
+  const handleAthleteToggle = (athleteId: string, checked: boolean) => {
+    if (checked) {
+      setFormData(prev => ({
+        ...prev,
+        assignedAthletes: [...prev.assignedAthletes, athleteId]
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        assignedAthletes: prev.assignedAthletes.filter(id => id !== athleteId)
+      }));
+    }
+  };
+
+  const getFilteredAthletes = () => {
+    if (!formData.sport || formData.sport === "") return athletes;
+    
+    return athletes.filter(athlete => 
+      athlete.sportsBranches?.includes(formData.sport) || 
+      athlete.selectedSports?.includes(formData.sport)
+    );
+  };
+
+  const getAthleteById = (id: string) => {
+    return athletes.find(athlete => athlete.id.toString() === id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -347,11 +462,11 @@ export default function Trainings() {
                                 Yeni Antrenman
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>Yeni Antrenman Programı</DialogTitle>
                                 <DialogDescription>
-                                  Antrenman detaylarını girin
+                                  Antrenman detaylarını girin ve sporcuları atayın
                                 </DialogDescription>
                               </DialogHeader>
                               
@@ -382,7 +497,7 @@ export default function Trainings() {
                                   
                                   <div className="space-y-2">
                                     <Label htmlFor="sport">Spor Branşı *</Label>
-                                    <Select value={formData.sport} onValueChange={(value) => setFormData({...formData, sport: value})}>
+                                    <Select value={formData.sport} onValueChange={(value) => setFormData({...formData, sport: value, assignedAthletes: []})}>
                                       <SelectTrigger>
                                         <SelectValue placeholder="Branş seçin" />
                                       </SelectTrigger>
@@ -518,8 +633,59 @@ export default function Trainings() {
                                     />
                                   </div>
                                 </div>
+
+                                {/* Athlete Assignment */}
+                                {formData.sport && (
+                                  <div className="space-y-4 border-t pt-4">
+                                    <div className="flex items-center space-x-2">
+                                      <UserPlus className="h-5 w-5 text-primary" />
+                                      <Label className="text-lg font-medium">Sporcu Ataması</Label>
+                                      <Badge variant="outline">
+                                        {formData.assignedAthletes.length} sporcu seçildi
+                                      </Badge>
+                                    </div>
+                                    
+                                    <div className="max-h-64 overflow-y-auto border rounded-lg p-4">
+                                      {getFilteredAthletes().length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                          {getFilteredAthletes().map((athlete) => (
+                                            <div key={athlete.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-muted/50">
+                                              <Checkbox
+                                                id={`athlete-${athlete.id}`}
+                                                checked={formData.assignedAthletes.includes(athlete.id.toString())}
+                                                onCheckedChange={(checked) => 
+                                                  handleAthleteToggle(athlete.id.toString(), checked as boolean)
+                                                }
+                                              />
+                                              <Avatar className="h-8 w-8">
+                                                <AvatarFallback className="text-xs">
+                                                  {`${athlete.studentName?.charAt(0) || ''}${athlete.studentSurname?.charAt(0) || ''}`}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <div className="flex-1">
+                                                <p className="text-sm font-medium">
+                                                  {athlete.studentName} {athlete.studentSurname}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  {athlete.studentAge} yaş - {athlete.parentName} {athlete.parentSurname}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="text-center py-8">
+                                          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                          <p className="text-muted-foreground">
+                                            {formData.sport} branşında sporcu bulunamadı
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                                 
-                                <div className="flex justify-end space-x-2">
+                                <div className="flex justify-end space-x-2 pt-4">
                                   <Button type="button" variant="outline" onClick={() => {
                                     setIsAddDialogOpen(false);
                                     resetForm();
@@ -574,7 +740,7 @@ export default function Trainings() {
                                   <div className="flex items-center space-x-2">
                                     <Avatar className="h-8 w-8">
                                       <AvatarFallback className="text-xs">
-                                        {training.coach.split(' ').map(n => n[0]).join('')}
+                                        {training.coach.split(' ').map((n: string) => n[0]).join('')}
                                       </AvatarFallback>
                                     </Avatar>
                                     <span className="text-sm">{training.coach}</span>
@@ -599,12 +765,12 @@ export default function Trainings() {
                                 <TableCell>
                                   <div className="text-center">
                                     <p className="text-sm font-medium">
-                                      {training.participants}/{training.maxParticipants}
+                                      {training.assignedAthletes?.length || 0}/{training.maxParticipants}
                                     </p>
                                     <div className="w-full bg-muted rounded-full h-1.5 mt-1">
                                       <div 
                                         className="bg-primary h-1.5 rounded-full" 
-                                        style={{ width: `${(training.participants / training.maxParticipants) * 100}%` }}
+                                        style={{ width: `${((training.assignedAthletes?.length || 0) / training.maxParticipants) * 100}%` }}
                                       ></div>
                                     </div>
                                   </div>
@@ -613,14 +779,29 @@ export default function Trainings() {
                                 <TableCell>{getStatusBadge(training.status)}</TableCell>
                                 <TableCell>
                                   <div className="flex space-x-2">
-                                    <Button variant="ghost" size="sm">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => handleView(training)}
+                                      title="Görüntüle"
+                                    >
                                       <Eye className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="sm">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => handleEdit(training)}
+                                      title="Düzenle"
+                                    >
                                       <Edit className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="sm">
-                                      <Copy className="h-4 w-4" />
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => handleDelete(training)}
+                                      title="Sil"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
                                 </TableCell>
@@ -702,8 +883,8 @@ export default function Trainings() {
                                   <Avatar>
                                     <AvatarFallback>
                                       {typeof coach === 'string' 
-                                        ? coach.split(' ').map(n => n[0]).join('') 
-                                        : `${coach.name || ''} ${coach.surname || ''}`.split(' ').map(n => n[0]).join('')
+                                        ? coach.split(' ').map((n: string) => n[0]).join('') 
+                                        : `${coach.name || ''} ${coach.surname || ''}`.split(' ').map((n: string) => n[0]).join('')
                                       }
                                     </AvatarFallback>
                                   </Avatar>
@@ -738,7 +919,7 @@ export default function Trainings() {
                                           ? coach 
                                           : `${coach.name || ''} ${coach.surname || ''}`.trim();
                                         return t.coach === coachName;
-                                      }).reduce((sum, t) => sum + (t.participants || 0), 0)}
+                                      }).reduce((sum, t) => sum + (t.assignedAthletes?.length || 0), 0)}
                                     </span>
                                   </div>
                                 </div>
@@ -768,6 +949,357 @@ export default function Trainings() {
                 </TabsContent>
               </Tabs>
           </motion.div>
+
+          {/* View Training Dialog */}
+          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Eye className="h-5 w-5" />
+                  <span>Antrenman Detayları - {selectedTraining?.title}</span>
+                </DialogTitle>
+              </DialogHeader>
+
+              {selectedTraining && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Antrenman Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Başlık:</span>
+                          <span className="font-medium">{selectedTraining.title}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Spor Branşı:</span>
+                          <Badge variant="outline">{selectedTraining.sport}</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Antrenör:</span>
+                          <span className="font-medium">{selectedTraining.coach}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Lokasyon:</span>
+                          <span className="font-medium">{selectedTraining.location}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Tarih:</span>
+                          <span className="font-medium">{new Date(selectedTraining.date).toLocaleDateString('tr-TR')}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Saat:</span>
+                          <span className="font-medium">{selectedTraining.startTime} - {selectedTraining.endTime}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Seviye:</span>
+                          {getLevelBadge(selectedTraining.level)}
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Durum:</span>
+                          {getStatusBadge(selectedTraining.status)}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Katılımcı Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Atanan Sporcu:</span>
+                            <span className="font-medium">{selectedTraining.assignedAthletes?.length || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Maksimum Kapasite:</span>
+                            <span className="font-medium">{selectedTraining.maxParticipants}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Yaş Grubu:</span>
+                            <Badge variant="secondary">{selectedTraining.ageGroup}</Badge>
+                          </div>
+                        </div>
+
+                        {selectedTraining.assignedAthletes && selectedTraining.assignedAthletes.length > 0 && (
+                          <div className="mt-4">
+                            <Label className="text-sm font-medium">Atanan Sporcular:</Label>
+                            <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                              {selectedTraining.assignedAthletes.map((athleteId: string) => {
+                                const athlete = getAthleteById(athleteId);
+                                if (!athlete) return null;
+                                return (
+                                  <div key={athleteId} className="flex items-center space-x-2 p-2 bg-muted rounded">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarFallback className="text-xs">
+                                        {`${athlete.studentName?.charAt(0) || ''}${athlete.studentSurname?.charAt(0) || ''}`}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm">{athlete.studentName} {athlete.studentSurname}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {selectedTraining.description && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Açıklama</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">{selectedTraining.description}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Training Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Edit className="h-5 w-5" />
+                  <span>Antrenman Düzenle - {selectedTraining?.title}</span>
+                </DialogTitle>
+              </DialogHeader>
+
+              <form onSubmit={handleUpdate}>
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+                
+                {success && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <p className="text-sm text-green-600">{success}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-title">Antrenman Başlığı *</Label>
+                    <Input 
+                      id="edit-title" 
+                      value={formData.title}
+                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sport">Spor Branşı *</Label>
+                    <Select value={formData.sport} onValueChange={(value) => setFormData({...formData, sport: value, assignedAthletes: []})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sports.map(sport => (
+                          <SelectItem key={sport} value={sport}>{sport}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-coach">Antrenör *</Label>
+                    <Select value={formData.coach} onValueChange={(value) => setFormData({...formData, coach: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {coaches.map((coach, index) => {
+                          const coachName = typeof coach === 'string' 
+                            ? coach 
+                            : `${coach.name || ''} ${coach.surname || ''}`.trim();
+                          return (
+                            <SelectItem key={coach.id || index} value={coachName}>
+                              {coachName}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-location">Lokasyon *</Label>
+                    <Select value={formData.location} onValueChange={(value) => setFormData({...formData, location: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {locations.map(location => (
+                          <SelectItem key={location} value={location}>{location}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-date">Tarih *</Label>
+                    <Input 
+                      id="edit-date" 
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-startTime">Başlangıç Saati *</Label>
+                    <Input 
+                      id="edit-startTime" 
+                      type="time"
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({...formData, startTime: e.target.value})}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-endTime">Bitiş Saati *</Label>
+                    <Input 
+                      id="edit-endTime" 
+                      type="time"
+                      value={formData.endTime}
+                      onChange={(e) => setFormData({...formData, endTime: e.target.value})}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-maxParticipants">Maksimum Katılımcı *</Label>
+                    <Input 
+                      id="edit-maxParticipants" 
+                      type="number" 
+                      value={formData.maxParticipants}
+                      onChange={(e) => setFormData({...formData, maxParticipants: e.target.value})}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-ageGroup">Yaş Grubu</Label>
+                    <Select value={formData.ageGroup} onValueChange={(value) => setFormData({...formData, ageGroup: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ageGroups.map(age => (
+                          <SelectItem key={age} value={age}>{age}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-level">Seviye</Label>
+                    <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {levels.map(level => (
+                          <SelectItem key={level} value={level}>{level}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="edit-description">Açıklama</Label>
+                    <Textarea 
+                      id="edit-description" 
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                {/* Athlete Assignment for Edit */}
+                {formData.sport && (
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center space-x-2">
+                      <UserPlus className="h-5 w-5 text-primary" />
+                      <Label className="text-lg font-medium">Sporcu Ataması</Label>
+                      <Badge variant="outline">
+                        {formData.assignedAthletes.length} sporcu seçildi
+                      </Badge>
+                    </div>
+                    
+                    <div className="max-h-64 overflow-y-auto border rounded-lg p-4">
+                      {getFilteredAthletes().length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {getFilteredAthletes().map((athlete) => (
+                            <div key={athlete.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-muted/50">
+                              <Checkbox
+                                id={`edit-athlete-${athlete.id}`}
+                                checked={formData.assignedAthletes.includes(athlete.id.toString())}
+                                onCheckedChange={(checked) => 
+                                  handleAthleteToggle(athlete.id.toString(), checked as boolean)
+                                }
+                              />
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="text-xs">
+                                  {`${athlete.studentName?.charAt(0) || ''}${athlete.studentSurname?.charAt(0) || ''}`}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">
+                                  {athlete.studentName} {athlete.studentSurname}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {athlete.studentAge} yaş - {athlete.parentName} {athlete.parentSurname}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">
+                            {formData.sport} branşında sporcu bulunamadı
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setSelectedTraining(null);
+                    resetForm();
+                  }}>
+                    İptal
+                  </Button>
+                  <Button type="submit">
+                    Güncelle
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>
