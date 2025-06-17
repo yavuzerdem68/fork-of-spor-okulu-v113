@@ -630,8 +630,7 @@ export default function Trainings() {
                   </Card>
                 </TabsContent>
               </Tabs>
-            </motion.div>
-          </main>
+          </motion.div>
         </div>
       </div>
     </>
