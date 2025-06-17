@@ -54,138 +54,32 @@ const fadeInUp = {
   transition: { duration: 0.4 }
 };
 
-// Mock data
-const mediaItems = [
-  {
-    id: 1,
-    title: "U14 Basketbol Antrenmanı",
-    type: "image",
-    sport: "Basketbol",
-    date: "2024-06-07",
-    uploadedBy: "Mehmet Özkan",
-    url: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=300&fit=crop",
-    thumbnail: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200&h=150&fit=crop",
-    description: "Bugünkü antrenman fotoğrafları",
-    likes: 12,
-    comments: 3,
-    views: 45,
-    shared: true,
-    tags: ["antrenman", "basketbol", "u14"]
-  },
-  {
-    id: 2,
-    title: "Yüzme Yarışması Videosu",
-    type: "video",
-    sport: "Yüzme",
-    date: "2024-06-06",
-    uploadedBy: "Ayşe Kaya",
-    url: "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=400&h=300&fit=crop",
-    thumbnail: "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=200&h=150&fit=crop",
-    description: "Bölge yarışması final koşusu",
-    likes: 28,
-    comments: 8,
-    views: 156,
-    shared: true,
-    tags: ["yarışma", "yüzme", "final"],
-    duration: "2:34"
-  },
-  {
-    id: 3,
-    title: "Futbol Maçı Golleri",
-    type: "video",
-    sport: "Futbol",
-    date: "2024-06-05",
-    uploadedBy: "Ali Demir",
-    url: "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=400&h=300&fit=crop",
-    thumbnail: "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=200&h=150&fit=crop",
-    description: "Maçın en güzel anları",
-    likes: 35,
-    comments: 12,
-    views: 203,
-    shared: true,
-    tags: ["maç", "futbol", "gol"],
-    duration: "4:12"
-  },
-  {
-    id: 4,
-    title: "Hentbol Takım Fotoğrafı",
-    type: "image",
-    sport: "Hentbol",
-    date: "2024-06-04",
-    uploadedBy: "Fatma Şen",
-    url: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop",
-    thumbnail: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=150&fit=crop",
-    description: "Sezon sonu takım fotoğrafı",
-    likes: 18,
-    comments: 5,
-    views: 67,
-    shared: false,
-    tags: ["takım", "hentbol", "sezon"]
-  },
-  {
-    id: 5,
-    title: "Voleybol Antrenman Teknikleri",
-    type: "video",
-    sport: "Voleybol",
-    date: "2024-06-03",
-    uploadedBy: "Hasan Yıldız",
-    url: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&h=300&fit=crop",
-    thumbnail: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=200&h=150&fit=crop",
-    description: "Smaç tekniği eğitimi",
-    likes: 22,
-    comments: 6,
-    views: 89,
-    shared: true,
-    tags: ["teknik", "voleybol", "smaç"],
-    duration: "3:45"
-  },
-  {
-    id: 6,
-    title: "Satranç Turnuvası",
-    type: "image",
-    sport: "Satranç",
-    date: "2024-06-02",
-    uploadedBy: "Zehra Öztürk",
-    url: "https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=400&h=300&fit=crop",
-    thumbnail: "https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=200&h=150&fit=crop",
-    description: "Okul içi satranç turnuvası",
-    likes: 15,
-    comments: 4,
-    views: 52,
-    shared: true,
-    tags: ["turnuva", "satranç", "okul"]
+// Load media data from localStorage
+const loadMediaData = () => {
+  if (typeof window !== 'undefined') {
+    return JSON.parse(localStorage.getItem('mediaItems') || '[]');
   }
-];
+  return [];
+};
 
-const albums = [
-  {
-    id: 1,
-    name: "2024 Basketbol Sezonu",
-    sport: "Basketbol",
-    itemCount: 45,
-    coverImage: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200&h=150&fit=crop",
-    createdDate: "2024-01-15",
-    lastUpdated: "2024-06-07"
-  },
-  {
-    id: 2,
-    name: "Yüzme Yarışmaları",
-    sport: "Yüzme",
-    itemCount: 32,
-    coverImage: "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=200&h=150&fit=crop",
-    createdDate: "2024-02-20",
-    lastUpdated: "2024-06-06"
-  },
-  {
-    id: 3,
-    name: "Futbol Maçları 2024",
-    sport: "Futbol",
-    itemCount: 67,
-    coverImage: "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=200&h=150&fit=crop",
-    createdDate: "2024-01-10",
-    lastUpdated: "2024-06-05"
+const loadAlbumsData = () => {
+  if (typeof window !== 'undefined') {
+    return JSON.parse(localStorage.getItem('mediaAlbums') || '[]');
   }
-];
+  return [];
+};
+
+const saveMediaData = (mediaItems: any[]) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('mediaItems', JSON.stringify(mediaItems));
+  }
+};
+
+const saveAlbumsData = (albums: any[]) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('mediaAlbums', JSON.stringify(albums));
+  }
+};
 
 const sidebarItems = [
   { icon: Home, label: "Dashboard", href: "/dashboard" },
@@ -208,6 +102,14 @@ export default function Media() {
   const [viewMode, setViewMode] = useState("grid");
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mediaItems, setMediaItems] = useState<any[]>([]);
+  const [albums, setAlbums] = useState<any[]>([]);
+
+  // Load data on component mount
+  React.useEffect(() => {
+    setMediaItems(loadMediaData());
+    setAlbums(loadAlbumsData());
+  }, []);
 
   const filteredMedia = mediaItems.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -512,7 +414,21 @@ export default function Media() {
                   </Card>
 
                   {/* Media Gallery */}
-                  {viewMode === "grid" ? (
+                  {filteredMedia.length === 0 ? (
+                    <Card>
+                      <CardContent className="p-12 text-center">
+                        <Camera className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                        <h3 className="text-lg font-medium mb-2">Henüz medya yok</h3>
+                        <p className="text-muted-foreground mb-4">
+                          Fotoğraf ve videolarınızı yükleyerek medya galerinizi oluşturmaya başlayın.
+                        </p>
+                        <Button onClick={() => setIsUploadDialogOpen(true)}>
+                          <Upload className="h-4 w-4 mr-2" />
+                          İlk Medyanızı Yükleyin
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : viewMode === "grid" ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                       {filteredMedia.map((item) => {
                         const TypeIcon = getTypeIcon(item.type);
@@ -690,48 +606,62 @@ export default function Media() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {albums.map((album) => (
-                          <Card key={album.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                            <div className="relative">
-                              <img 
-                                src={album.coverImage} 
-                                alt={album.name}
-                                className="w-full h-48 object-cover"
-                              />
-                              <div className="absolute top-2 right-2">
-                                <Badge variant="secondary">
-                                  {album.itemCount} öğe
-                                </Badge>
-                              </div>
-                            </div>
-                            
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <h3 className="font-medium">{album.name}</h3>
-                                <Badge variant="outline" className="text-xs">
-                                  {album.sport}
-                                </Badge>
+                      {albums.length === 0 ? (
+                        <div className="p-12 text-center">
+                          <Folder className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                          <h3 className="text-lg font-medium mb-2">Henüz albüm yok</h3>
+                          <p className="text-muted-foreground mb-4">
+                            Medyalarınızı organize etmek için albümler oluşturun.
+                          </p>
+                          <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            İlk Albümünüzü Oluşturun
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {albums.map((album) => (
+                            <Card key={album.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                              <div className="relative">
+                                <img 
+                                  src={album.coverImage} 
+                                  alt={album.name}
+                                  className="w-full h-48 object-cover"
+                                />
+                                <div className="absolute top-2 right-2">
+                                  <Badge variant="secondary">
+                                    {album.itemCount} öğe
+                                  </Badge>
+                                </div>
                               </div>
                               
-                              <div className="text-xs text-muted-foreground space-y-1">
-                                <p>Oluşturulma: {new Date(album.createdDate).toLocaleDateString('tr-TR')}</p>
-                                <p>Son güncelleme: {new Date(album.lastUpdated).toLocaleDateString('tr-TR')}</p>
-                              </div>
-                              
-                              <div className="flex justify-between items-center mt-3">
-                                <Button variant="outline" size="sm">
-                                  <Folder className="h-3 w-3 mr-1" />
-                                  Aç
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  <Share className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  <h3 className="font-medium">{album.name}</h3>
+                                  <Badge variant="outline" className="text-xs">
+                                    {album.sport}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="text-xs text-muted-foreground space-y-1">
+                                  <p>Oluşturulma: {new Date(album.createdDate).toLocaleDateString('tr-TR')}</p>
+                                  <p>Son güncelleme: {new Date(album.lastUpdated).toLocaleDateString('tr-TR')}</p>
+                                </div>
+                                
+                                <div className="flex justify-between items-center mt-3">
+                                  <Button variant="outline" size="sm">
+                                    <Folder className="h-3 w-3 mr-1" />
+                                    Aç
+                                  </Button>
+                                  <Button variant="ghost" size="sm">
+                                    <Share className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -745,43 +675,57 @@ export default function Media() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredMedia.filter(item => item.shared).map((item) => {
-                          const TypeIcon = getTypeIcon(item.type);
-                          return (
-                            <Card key={item.id} className="overflow-hidden">
-                              <div className="relative">
-                                <img 
-                                  src={item.thumbnail} 
-                                  alt={item.title}
-                                  className="w-full h-48 object-cover"
-                                />
-                                <div className="absolute top-2 left-2">
-                                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                                    <ExternalLink className="h-3 w-3 mr-1" />
-                                    Paylaşıldı
-                                  </Badge>
-                                </div>
-                              </div>
-                              
-                              <CardContent className="p-4">
-                                <h3 className="font-medium mb-2">{item.title}</h3>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  {item.description}
-                                </p>
-                                
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{new Date(item.date).toLocaleDateString('tr-TR')}</span>
-                                  <div className="flex items-center space-x-2">
-                                    <span>👁 {item.views}</span>
-                                    <span>❤️ {item.likes}</span>
+                      {filteredMedia.filter(item => item.shared).length === 0 ? (
+                        <div className="p-12 text-center">
+                          <Share className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                          <h3 className="text-lg font-medium mb-2">Henüz paylaşılan medya yok</h3>
+                          <p className="text-muted-foreground mb-4">
+                            Velilerle paylaştığınız fotoğraf ve videolar burada görünecek.
+                          </p>
+                          <Button onClick={() => setIsUploadDialogOpen(true)}>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Medya Yükle ve Paylaş
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {filteredMedia.filter(item => item.shared).map((item) => {
+                            const TypeIcon = getTypeIcon(item.type);
+                            return (
+                              <Card key={item.id} className="overflow-hidden">
+                                <div className="relative">
+                                  <img 
+                                    src={item.thumbnail} 
+                                    alt={item.title}
+                                    className="w-full h-48 object-cover"
+                                  />
+                                  <div className="absolute top-2 left-2">
+                                    <Badge className="bg-green-100 text-green-800 border-green-200">
+                                      <ExternalLink className="h-3 w-3 mr-1" />
+                                      Paylaşıldı
+                                    </Badge>
                                   </div>
                                 </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
+                                
+                                <CardContent className="p-4">
+                                  <h3 className="font-medium mb-2">{item.title}</h3>
+                                  <p className="text-sm text-muted-foreground mb-3">
+                                    {item.description}
+                                  </p>
+                                  
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>{new Date(item.date).toLocaleDateString('tr-TR')}</span>
+                                    <div className="flex items-center space-x-2">
+                                      <span>👁 {item.views}</span>
+                                      <span>❤️ {item.likes}</span>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
