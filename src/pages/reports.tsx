@@ -83,15 +83,30 @@ const loadReportData = () => {
 
 const generateMonthlyStats = (athletes: any[], payments: any[]) => {
   const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran"];
+  const currentYear = new Date().getFullYear();
+  
   return months.map((month, index) => {
-    const monthlyPayments = payments.filter(p => {
-      const paymentDate = new Date(p.paymentDate || p.createdAt);
-      return paymentDate.getMonth() === index;
+    // Calculate actual monthly income from account entries
+    let monthlyRevenue = 0;
+    athletes.forEach((athlete: any) => {
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      const monthlyPayments = accountEntries.filter((entry: any) => {
+        if (entry.type !== 'credit') return false;
+        const entryDate = new Date(entry.date);
+        return entryDate.getMonth() === index && entryDate.getFullYear() === currentYear;
+      });
+      
+      monthlyPayments.forEach((entry: any) => {
+        const amount = parseFloat(entry.amountIncludingVat) || 0;
+        if (!isNaN(amount) && amount > 0) {
+          monthlyRevenue += amount;
+        }
+      });
     });
     
     return {
       month,
-      revenue: monthlyPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
+      revenue: monthlyRevenue,
       students: athletes.filter(a => a.status === 'Aktif' || !a.status).length,
       attendance: Math.floor(Math.random() * 10) + 85 // Random attendance between 85-95%
     };

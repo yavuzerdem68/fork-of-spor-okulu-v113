@@ -134,8 +134,12 @@ export default function Dashboard() {
       const thisMonthPayments = accountEntries.filter((entry: any) => 
         entry.month === thisMonth && entry.type === 'credit'
       );
-      const athleteMonthlyIncome = thisMonthPayments.reduce((sum: number, entry: any) => sum + (entry.amountIncludingVat || 0), 0);
-      monthlyIncome += athleteMonthlyIncome;
+      thisMonthPayments.forEach((entry: any) => {
+        const amount = parseFloat(entry.amountIncludingVat) || 0;
+        if (!isNaN(amount) && amount > 0) {
+          monthlyIncome += amount;
+        }
+      });
     });
 
     // Calculate pending payments

@@ -210,13 +210,6 @@ function EditAthleteForm({ athlete, onSave, onCancel }: {
       updatedAt: new Date().toISOString()
     };
 
-    // Save to localStorage immediately
-    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-    const updatedStudents = allStudents.map((student: any) => 
-      student.id === updatedAthlete.id ? updatedAthlete : student
-    );
-    localStorage.setItem('students', JSON.stringify(updatedStudents));
-
     onSave(updatedAthlete);
   };
 
