@@ -131,11 +131,13 @@ export default function Dashboard() {
     let monthlyIncome = 0;
     athletes.forEach((athlete: any) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
-      const thisMonthPayments = accountEntries.filter((entry: any) => 
-        entry.month === thisMonth && entry.type === 'credit'
-      );
+      const thisMonthPayments = accountEntries.filter((entry: any) => {
+        // Check both month field and date field for this month
+        const entryMonth = entry.month || new Date(entry.date).toISOString().slice(0, 7);
+        return entryMonth === thisMonth && entry.type === 'credit';
+      });
       thisMonthPayments.forEach((entry: any) => {
-        const amount = parseFloat(entry.amountIncludingVat) || 0;
+        const amount = parseFloat(String(entry.amountIncludingVat).replace(',', '.')) || 0;
         if (!isNaN(amount) && amount > 0) {
           monthlyIncome += amount;
         }

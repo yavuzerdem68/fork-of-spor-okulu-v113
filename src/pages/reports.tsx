@@ -92,12 +92,14 @@ const generateMonthlyStats = (athletes: any[], payments: any[]) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
       const monthlyPayments = accountEntries.filter((entry: any) => {
         if (entry.type !== 'credit') return false;
-        const entryDate = new Date(entry.date);
-        return entryDate.getMonth() === index && entryDate.getFullYear() === currentYear;
+        // Check both month field and date field for this month
+        const entryMonth = entry.month || new Date(entry.date).toISOString().slice(0, 7);
+        const targetMonth = `${currentYear}-${(index + 1).toString().padStart(2, '0')}`;
+        return entryMonth === targetMonth;
       });
       
       monthlyPayments.forEach((entry: any) => {
-        const amount = parseFloat(entry.amountIncludingVat) || 0;
+        const amount = parseFloat(String(entry.amountIncludingVat).replace(',', '.')) || 0;
         if (!isNaN(amount) && amount > 0) {
           monthlyRevenue += amount;
         }

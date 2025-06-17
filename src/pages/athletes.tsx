@@ -2702,22 +2702,31 @@ export default function Athletes() {
                 <EditAthleteForm 
                   athlete={selectedAthleteForEdit}
                   onSave={(updatedAthlete) => {
-                    // Update athlete in localStorage
-                    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-                    const updatedStudents = allStudents.map((student: any) => 
-                      student.id === updatedAthlete.id ? updatedAthlete : student
-                    );
-                    localStorage.setItem('students', JSON.stringify(updatedStudents));
-                    
-                    // Reload athletes
-                    loadAthletes(userRole!, currentUser);
-                    
-                    // Close dialog
-                    setIsEditDialogOpen(false);
-                    setSelectedAthleteForEdit(null);
-                    
-                    // Show success message
-                    alert(`${updatedAthlete.studentName} ${updatedAthlete.studentSurname} adlı sporcunun bilgileri başarıyla güncellendi.`);
+                    try {
+                      // Update athlete in localStorage
+                      const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+                      const updatedStudents = allStudents.map((student: any) => 
+                        student.id === updatedAthlete.id ? {
+                          ...student,
+                          ...updatedAthlete,
+                          updatedAt: new Date().toISOString()
+                        } : student
+                      );
+                      localStorage.setItem('students', JSON.stringify(updatedStudents));
+                      
+                      // Reload athletes
+                      loadAthletes(userRole!, currentUser);
+                      
+                      // Close dialog
+                      setIsEditDialogOpen(false);
+                      setSelectedAthleteForEdit(null);
+                      
+                      // Show success message
+                      alert(`${updatedAthlete.studentName} ${updatedAthlete.studentSurname} adlı sporcunun bilgileri başarıyla güncellendi.`);
+                    } catch (error) {
+                      console.error('Error saving athlete:', error);
+                      alert('Sporcu bilgileri kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.');
+                    }
                   }}
                   onCancel={() => {
                     setIsEditDialogOpen(false);

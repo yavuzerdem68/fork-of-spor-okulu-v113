@@ -53,7 +53,8 @@ const SystemSettings = () => {
     taxNumber: '',
     taxOffice: '',
     bankAccount: '',
-    iban: ''
+    iban: '',
+    trainingLocations: ['Ana Salon', 'Yan Salon', 'Dış Saha']
   });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -302,6 +303,53 @@ const SystemSettings = () => {
                     onChange={(e) => handleInputChange('schoolName', e.target.value)}
                     placeholder="Spor okulu adını giriniz"
                   />
+                </div>
+
+                <div className="space-y-4">
+                  <Label>Antrenman Lokasyonları</Label>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Antrenman programlarında kullanılacak lokasyonları yönetin
+                    </p>
+                    <div className="space-y-2">
+                      {settings.trainingLocations.map((location, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Input
+                            value={location}
+                            onChange={(e) => {
+                              const newLocations = [...settings.trainingLocations];
+                              newLocations[index] = e.target.value;
+                              setSettings(prev => ({ ...prev, trainingLocations: newLocations }));
+                            }}
+                            placeholder="Lokasyon adı"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newLocations = settings.trainingLocations.filter((_, i) => i !== index);
+                              setSettings(prev => ({ ...prev, trainingLocations: newLocations }));
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSettings(prev => ({ 
+                            ...prev, 
+                            trainingLocations: [...prev.trainingLocations, 'Yeni Lokasyon'] 
+                          }));
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Lokasyon Ekle
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
