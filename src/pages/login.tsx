@@ -87,25 +87,7 @@ export default function Login() {
         localStorage.setItem("currentUser", JSON.stringify(coach));
         router.push("/coach-dashboard");
       } else {
-        // Demo coach account
-        if (coachCredentials.email === "antrenor@example.com" && coachCredentials.password === "antrenor123") {
-          const demoCoach = {
-            id: "demo-coach",
-            name: "Ahmet",
-            surname: "Yılmaz",
-            email: "antrenor@example.com",
-            phone: "0532 123 45 67",
-            sportsBranches: ["Basketbol", "Futbol"],
-            trainingGroups: ["U12 Basketbol", "U14 Futbol"],
-            specialization: "Basketbol Antrenörü",
-            experience: "5 yıl"
-          };
-          localStorage.setItem("userRole", "coach");
-          localStorage.setItem("currentUser", JSON.stringify(demoCoach));
-          router.push("/coach-dashboard");
-        } else {
-          setError("Geçersiz email veya şifre");
-        }
+        setError("Geçersiz email veya şifre");
       }
     } catch (error) {
       setError("Giriş sırasında bir hata oluştu");
@@ -133,24 +115,7 @@ export default function Login() {
         localStorage.setItem("userEmail", user.email);
         router.push("/parent-dashboard");
       } else {
-        // Fallback to demo account
-        if (parentCredentials.email === "veli@example.com" && parentCredentials.password === "veli123") {
-          const demoParent = {
-            id: "demo-parent",
-            firstName: "Demo",
-            lastName: "Veli",
-            email: "veli@example.com",
-            phone: "0532 123 45 67",
-            username: "demoveli",
-            role: "parent"
-          };
-          localStorage.setItem("userRole", "parent");
-          localStorage.setItem("currentUser", JSON.stringify(demoParent));
-          localStorage.setItem("userEmail", demoParent.email);
-          router.push("/parent-dashboard");
-        } else {
-          setError("Geçersiz kullanıcı adı/email veya şifre");
-        }
+        setError("Geçersiz kullanıcı adı/email veya şifre");
       }
     } catch (error) {
       setError("Giriş sırasında bir hata oluştu");
@@ -256,11 +221,7 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-800">
-                      <strong>Demo Hesap:</strong> admin@sportscr.com / admin123
-                    </p>
-                  </div>
+
                 </TabsContent>
 
                 {/* Coach Login */}
@@ -308,11 +269,7 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-800">
-                      <strong>Demo Hesap:</strong> antrenor@example.com / antrenor123
-                    </p>
-                  </div>
+
                 </TabsContent>
 
                 {/* Parent Login */}
@@ -360,11 +317,7 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-800">
-                      <strong>Demo Hesap:</strong> veli@example.com / veli123
-                    </p>
-                  </div>
+
                 </TabsContent>
               </Tabs>
 
