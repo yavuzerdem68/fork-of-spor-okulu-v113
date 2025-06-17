@@ -208,6 +208,13 @@ function EditAthleteForm({ athlete, onSave, onCancel }: {
       updatedAt: new Date().toISOString()
     };
 
+    // Save to localStorage immediately
+    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    const updatedStudents = allStudents.map((student: any) => 
+      student.id === updatedAthlete.id ? updatedAthlete : student
+    );
+    localStorage.setItem('students', JSON.stringify(updatedStudents));
+
     onSave(updatedAthlete);
   };
 
@@ -1197,9 +1204,36 @@ export default function Athletes() {
     // Get existing students
     const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
     
-    // Add new students
-    const updatedStudents = [...existingStudents, ...uploadResults];
-    localStorage.setItem('students', JSON.stringify(updatedStudents));
+    // Check for duplicates and merge
+    const mergedStudents = [...existingStudents];
+    let addedCount = 0;
+    let mergedCount = 0;
+    
+    uploadResults.forEach(newStudent => {
+      // Check for duplicate by TC number or name
+      const existingIndex = mergedStudents.findIndex(existing => 
+        existing.studentTcNo === newStudent.studentTcNo ||
+        (existing.studentName === newStudent.studentName && 
+         existing.studentSurname === newStudent.studentSurname)
+      );
+      
+      if (existingIndex >= 0) {
+        // Merge with existing student (update with new data)
+        mergedStudents[existingIndex] = {
+          ...mergedStudents[existingIndex],
+          ...newStudent,
+          id: mergedStudents[existingIndex].id, // Keep original ID
+          updatedAt: new Date().toISOString()
+        };
+        mergedCount++;
+      } else {
+        // Add as new student
+        mergedStudents.push(newStudent);
+        addedCount++;
+      }
+    });
+    
+    localStorage.setItem('students', JSON.stringify(mergedStudents));
     
     // Check for parent accounts that need to be created
     const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
@@ -1243,7 +1277,7 @@ export default function Athletes() {
     setIsBulkUploadDialogOpen(false);
     
     // Show success message
-    alert(`${uploadResults.length} sporcu başarıyla eklendi!${accountsToCreate.length > 0 ? ` ${accountsToCreate.length} veli için hesap oluşturma gerekiyor.` : ''}`);
+    alert(`Toplu yükleme tamamlandı!\n\n✅ Yeni eklenen: ${addedCount} sporcu\n🔄 Güncellenen: ${mergedCount} sporcu\n\n${accountsToCreate.length > 0 ? `${accountsToCreate.length} veli için hesap oluşturma gerekiyor.` : 'Tüm işlemler tamamlandı.'}`);
   };
 
   // Status change functions

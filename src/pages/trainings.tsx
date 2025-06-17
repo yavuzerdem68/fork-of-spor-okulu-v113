@@ -88,14 +88,17 @@ export default function Trainings() {
     sport: "",
     coach: "",
     location: "",
-    date: "",
+    startDate: "",
+    endDate: "",
     startTime: "",
     endTime: "",
     maxParticipants: "",
     ageGroup: "",
     level: "",
     description: "",
-    assignedAthletes: [] as string[]
+    assignedAthletes: [] as string[],
+    isRecurring: false,
+    recurringDays: [] as string[]
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -135,8 +138,13 @@ export default function Trainings() {
 
     // Validation
     if (!formData.title || !formData.sport || !formData.coach || !formData.location || 
-        !formData.date || !formData.startTime || !formData.endTime || !formData.maxParticipants) {
+        !formData.startDate || !formData.startTime || !formData.endTime || !formData.maxParticipants) {
       setError("Lütfen tüm zorunlu alanları doldurun");
+      return;
+    }
+
+    if (formData.endDate && formData.endDate < formData.startDate) {
+      setError("Bitiş tarihi başlangıç tarihinden önce olamaz");
       return;
     }
 
@@ -146,7 +154,9 @@ export default function Trainings() {
       sport: formData.sport,
       coach: formData.coach,
       location: formData.location,
-      date: formData.date,
+      startDate: formData.startDate,
+      endDate: formData.endDate || formData.startDate,
+      date: formData.startDate, // Keep for backward compatibility
       startTime: formData.startTime,
       endTime: formData.endTime,
       maxParticipants: parseInt(formData.maxParticipants),
@@ -155,6 +165,8 @@ export default function Trainings() {
       level: formData.level || "Başlangıç",
       description: formData.description,
       assignedAthletes: formData.assignedAthletes,
+      isRecurring: formData.isRecurring,
+      recurringDays: formData.recurringDays,
       status: "Aktif",
       createdAt: new Date().toISOString()
     };
@@ -175,14 +187,17 @@ export default function Trainings() {
       sport: training.sport,
       coach: training.coach,
       location: training.location,
-      date: training.date,
+      startDate: training.startDate || training.date,
+      endDate: training.endDate || '',
       startTime: training.startTime,
       endTime: training.endTime,
       maxParticipants: training.maxParticipants.toString(),
       ageGroup: training.ageGroup,
       level: training.level,
       description: training.description,
-      assignedAthletes: training.assignedAthletes || []
+      assignedAthletes: training.assignedAthletes || [],
+      isRecurring: training.isRecurring || false,
+      recurringDays: training.recurringDays || []
     });
     setIsEditDialogOpen(true);
   };
@@ -194,13 +209,27 @@ export default function Trainings() {
 
     if (!selectedTraining) return;
 
+    // Validation
+    if (!formData.title || !formData.sport || !formData.coach || !formData.location || 
+        !formData.startDate || !formData.startTime || !formData.endTime || !formData.maxParticipants) {
+      setError("Lütfen tüm zorunlu alanları doldurun");
+      return;
+    }
+
+    if (formData.endDate && formData.endDate < formData.startDate) {
+      setError("Bitiş tarihi başlangıç tarihinden önce olamaz");
+      return;
+    }
+
     const updatedTraining = {
       ...selectedTraining,
       title: formData.title,
       sport: formData.sport,
       coach: formData.coach,
       location: formData.location,
-      date: formData.date,
+      startDate: formData.startDate,
+      endDate: formData.endDate || formData.startDate,
+      date: formData.startDate, // Keep for backward compatibility
       startTime: formData.startTime,
       endTime: formData.endTime,
       maxParticipants: parseInt(formData.maxParticipants),
@@ -209,6 +238,8 @@ export default function Trainings() {
       level: formData.level,
       description: formData.description,
       assignedAthletes: formData.assignedAthletes,
+      isRecurring: formData.isRecurring,
+      recurringDays: formData.recurringDays,
       updatedAt: new Date().toISOString()
     };
 
@@ -244,14 +275,17 @@ export default function Trainings() {
       sport: "",
       coach: "",
       location: "",
-      date: "",
+      startDate: "",
+      endDate: "",
       startTime: "",
       endTime: "",
       maxParticipants: "",
       ageGroup: "",
       level: "",
       description: "",
-      assignedAthletes: []
+      assignedAthletes: [],
+      isRecurring: false,
+      recurringDays: []
     });
     setError("");
     setSuccess("");
@@ -551,13 +585,24 @@ export default function Trainings() {
                                   </div>
                                   
                                   <div className="space-y-2">
-                                    <Label htmlFor="date">Tarih *</Label>
+                                    <Label htmlFor="startDate">Başlangıç Tarihi *</Label>
                                     <Input 
-                                      id="date" 
+                                      id="startDate" 
                                       type="date"
-                                      value={formData.date}
-                                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                                      value={formData.startDate}
+                                      onChange={(e) => setFormData({...formData, startDate: e.target.value})}
                                       required
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="endDate">Bitiş Tarihi (Opsiyonel)</Label>
+                                    <Input 
+                                      id="endDate" 
+                                      type="date"
+                                      value={formData.endDate}
+                                      onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                                      placeholder="Uzun süreli antrenmanlar için"
                                     />
                                   </div>
                                   
@@ -1153,13 +1198,24 @@ export default function Trainings() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="edit-date">Tarih *</Label>
+                    <Label htmlFor="edit-startDate">Başlangıç Tarihi *</Label>
                     <Input 
-                      id="edit-date" 
+                      id="edit-startDate" 
                       type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({...formData, startDate: e.target.value})}
                       required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-endDate">Bitiş Tarihi (Opsiyonel)</Label>
+                    <Input 
+                      id="edit-endDate" 
+                      type="date"
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                      placeholder="Uzun süreli antrenmanlar için"
                     />
                   </div>
                   
