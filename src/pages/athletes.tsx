@@ -1005,15 +1005,34 @@ export default function Athletes() {
   const generateBulkUploadTemplate = () => {
     const templateData = [
       {
+        'Öğrenci Adı': 'Ahmet',
+        'Öğrenci Soyadı': 'Yılmaz',
+        'TC Kimlik No': '12345678901',
+        'Doğum Tarihi (DD/MM/YYYY)': '15/03/2010',
+        'Yaş': '14',
+        'Cinsiyet': 'Erkek',
+        'Spor Branşları (virgülle ayırın)': 'Basketbol, Futbol',
+        'Veli Adı': 'Mehmet',
+        'Veli Soyadı': 'Yılmaz',
+        'Veli TC Kimlik No': '98765432109',
+        'Veli Telefon': '05551234567',
+        'Veli Email': 'mehmet.yilmaz@email.com',
+        'Yakınlık Derecesi': 'Baba'
+      },
+      {
         'Öğrenci Adı': '',
         'Öğrenci Soyadı': '',
         'TC Kimlik No': '',
         'Doğum Tarihi (DD/MM/YYYY)': '',
+        'Yaş': '',
+        'Cinsiyet': '',
+        'Spor Branşları (virgülle ayırın)': '',
         'Veli Adı': '',
         'Veli Soyadı': '',
         'Veli TC Kimlik No': '',
         'Veli Telefon': '',
-        'Veli Email': ''
+        'Veli Email': '',
+        'Yakınlık Derecesi': ''
       }
     ];
 
@@ -1081,22 +1100,82 @@ export default function Athletes() {
             continue;
           }
 
-          // Parse birth date
+          // Parse birth date - handle multiple formats
           let birthDate = '';
+          let age = '';
+          
           if (row['Doğum Tarihi (DD/MM/YYYY)']) {
-            const dateStr = row['Doğum Tarihi (DD/MM/YYYY)'].toString();
-            const dateParts = dateStr.split('/');
-            if (dateParts.length === 3) {
-              birthDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+            const dateStr = row['Doğum Tarihi (DD/MM/YYYY)'].toString().trim();
+            
+            // Try different date formats
+            let parsedDate = null;
+            
+            // Format: DD/MM/YYYY
+            if (dateStr.includes('/')) {
+              const dateParts = dateStr.split('/');
+              if (dateParts.length === 3) {
+                const day = dateParts[0].padStart(2, '0');
+                const month = dateParts[1].padStart(2, '0');
+                const year = dateParts[2];
+                birthDate = `${year}-${month}-${day}`;
+                parsedDate = new Date(year, parseInt(month) - 1, parseInt(day));
+              }
+            }
+            // Format: DD.MM.YYYY
+            else if (dateStr.includes('.')) {
+              const dateParts = dateStr.split('.');
+              if (dateParts.length === 3) {
+                const day = dateParts[0].padStart(2, '0');
+                const month = dateParts[1].padStart(2, '0');
+                const year = dateParts[2];
+                birthDate = `${year}-${month}-${day}`;
+                parsedDate = new Date(year, parseInt(month) - 1, parseInt(day));
+              }
+            }
+            // Format: DD-MM-YYYY
+            else if (dateStr.includes('-') && dateStr.length === 10) {
+              const dateParts = dateStr.split('-');
+              if (dateParts.length === 3 && dateParts[0].length === 2) {
+                const day = dateParts[0].padStart(2, '0');
+                const month = dateParts[1].padStart(2, '0');
+                const year = dateParts[2];
+                birthDate = `${year}-${month}-${day}`;
+                parsedDate = new Date(year, parseInt(month) - 1, parseInt(day));
+              }
+            }
+            // Format: YYYY-MM-DD (already correct)
+            else if (dateStr.includes('-') && dateStr.length === 10) {
+              birthDate = dateStr;
+              parsedDate = new Date(dateStr);
+            }
+            
+            // Calculate age if we have a valid date
+            if (parsedDate && !isNaN(parsedDate.getTime())) {
+              const today = new Date();
+              let calculatedAge = today.getFullYear() - parsedDate.getFullYear();
+              const monthDiff = today.getMonth() - parsedDate.getMonth();
+              
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < parsedDate.getDate())) {
+                calculatedAge--;
+              }
+              
+              age = calculatedAge.toString();
             }
           }
+          
+          // Also check if age is provided directly
+          if (!age && row['Yaş']) {
+            age = row['Yaş'].toString();
+          }
 
-          // Calculate age
-          let age = '';
-          if (birthDate) {
-            const today = new Date();
-            const birth = new Date(birthDate);
-            age = (today.getFullYear() - birth.getFullYear()).toString();
+          // Parse sports branches
+          let sportsBranches: string[] = [];
+          if (row['Spor Branşları (virgülle ayırın)']) {
+            sportsBranches = row['Spor Branşları (virgülle ayırın)']
+              .toString()
+              .split(',')
+              .map((sport: string) => sport.trim())
+              .filter((sport: string) => sport.length > 0);
           }
 
           const athleteData = {
@@ -1107,11 +1186,11 @@ export default function Athletes() {
             studentTcNo: studentTc,
             studentBirthDate: birthDate,
             studentAge: age,
-            studentGender: '',
+            studentGender: row['Cinsiyet'] || '',
             studentSchool: '',
             studentClass: '',
-            sportsBranches: [],
-            selectedSports: [],
+            sportsBranches: sportsBranches,
+            selectedSports: sportsBranches,
             
             // Fiziksel Bilgiler
             studentHeight: '',
@@ -1127,7 +1206,7 @@ export default function Athletes() {
             parentTcNo: parentTc || '',
             parentPhone: row['Veli Telefon'],
             parentEmail: row['Veli Email'],
-            parentRelation: '',
+            parentRelation: row['Yakınlık Derecesi'] || '',
             parentOccupation: '',
             
             // İkinci Veli Bilgileri
