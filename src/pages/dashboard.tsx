@@ -53,104 +53,49 @@ const staggerContainer = {
   }
 };
 
-// Mock data
-const stats = [
-  {
-    title: "Toplam Sporcu",
-    value: "524",
-    change: "+12%",
-    trend: "up",
-    icon: Users,
-    color: "text-blue-600"
-  },
-  {
-    title: "Aylık Gelir",
-    value: "₺45,280",
-    change: "+8%",
-    trend: "up",
-    icon: DollarSign,
-    color: "text-green-600"
-  },
-  {
-    title: "Aktif Antrenman",
-    value: "28",
-    change: "+3",
-    trend: "up",
-    icon: Activity,
-    color: "text-purple-600"
-  },
-  {
-    title: "Bekleyen Ödeme",
-    value: "₺8,450",
-    change: "-15%",
-    trend: "down",
-    icon: Clock,
-    color: "text-orange-600"
-  }
-];
-
-const recentActivities = [
-  {
-    id: 1,
-    type: "payment",
-    message: "Ahmet Yılmaz aidat ödemesi yaptı",
-    time: "2 dakika önce",
-    amount: "₺350"
-  },
-  {
-    id: 2,
-    type: "registration",
-    message: "Yeni sporcu kaydı: Elif Demir",
-    time: "15 dakika önce",
-    sport: "Basketbol"
-  },
-  {
-    id: 3,
-    type: "attendance",
-    message: "Futbol antrenmanı tamamlandı",
-    time: "1 saat önce",
-    participants: "18 sporcu"
-  },
-  {
-    id: 4,
-    type: "message",
-    message: "WhatsApp grubu oluşturuldu: Yüzme U12",
-    time: "2 saat önce"
-  }
-];
-
-const upcomingTrainings = [
-  {
-    id: 1,
-    sport: "Basketbol",
-    time: "16:00 - 17:30",
-    date: "Bugün",
-    participants: 15,
-    coach: "Mehmet Özkan"
-  },
-  {
-    id: 2,
-    sport: "Yüzme",
-    time: "18:00 - 19:00",
-    date: "Bugün",
-    participants: 12,
-    coach: "Ayşe Kaya"
-  },
-  {
-    id: 3,
-    sport: "Futbol",
-    time: "09:00 - 10:30",
-    date: "Yarın",
-    participants: 22,
-    coach: "Ali Demir"
-  }
-];
+=======
 
 export default function Dashboard() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userRole, setUserRole] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [stats, setStats] = useState([
+    {
+      title: "Toplam Sporcu",
+      value: "0",
+      change: "0%",
+      trend: "up",
+      icon: Users,
+      color: "text-blue-600"
+    },
+    {
+      title: "Aylık Gelir",
+      value: "₺0",
+      change: "0%",
+      trend: "up",
+      icon: DollarSign,
+      color: "text-green-600"
+    },
+    {
+      title: "Aktif Antrenman",
+      value: "0",
+      change: "0",
+      trend: "up",
+      icon: Activity,
+      color: "text-purple-600"
+    },
+    {
+      title: "Bekleyen Ödeme",
+      value: "₺0",
+      change: "0%",
+      trend: "down",
+      icon: Clock,
+      color: "text-orange-600"
+    }
+  ]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [upcomingTrainings, setUpcomingTrainings] = useState<any[]>([]);
 
   useEffect(() => {
     // Check if user is logged in and has admin role
@@ -164,7 +109,97 @@ export default function Dashboard() {
     
     setUserRole(role);
     setUserEmail(email || "");
+    
+    // Load real data from localStorage
+    loadDashboardData();
   }, [router]);
+
+  const loadDashboardData = () => {
+    // Load athletes
+    const athletes = JSON.parse(localStorage.getItem('students') || '[]');
+    const activeAthletes = athletes.filter((a: any) => a.status === 'Aktif' || !a.status);
+    
+    // Load trainings
+    const trainings = JSON.parse(localStorage.getItem('trainings') || '[]');
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const tomorrowStr = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const todayTrainings = trainings.filter((t: any) => t.date === todayStr);
+    const tomorrowTrainings = trainings.filter((t: any) => t.date === tomorrowStr);
+    
+    // Calculate monthly income (simplified)
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    let monthlyIncome = 0;
+    athletes.forEach((athlete: any) => {
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      const thisMonthPayments = accountEntries.filter((entry: any) => 
+        entry.month === thisMonth && entry.type === 'credit'
+      );
+      monthlyIncome += thisMonthPayments.reduce((sum: number, entry: any) => sum + entry.amountIncludingVat, 0);
+    });
+
+    // Calculate pending payments
+    let pendingPayments = 0;
+    athletes.forEach((athlete: any) => {
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      const balance = accountEntries.reduce((total: number, entry: any) => {
+        return entry.type === 'debit' 
+          ? total + entry.amountIncludingVat 
+          : total - entry.amountIncludingVat;
+      }, 0);
+      if (balance > 0) {
+        pendingPayments += balance;
+      }
+    });
+
+    // Update stats
+    setStats([
+      {
+        title: "Toplam Sporcu",
+        value: athletes.length.toString(),
+        change: "0%",
+        trend: "up",
+        icon: Users,
+        color: "text-blue-600"
+      },
+      {
+        title: "Aylık Gelir",
+        value: `₺${monthlyIncome.toLocaleString('tr-TR')}`,
+        change: "0%",
+        trend: "up",
+        icon: DollarSign,
+        color: "text-green-600"
+      },
+      {
+        title: "Aktif Antrenman",
+        value: trainings.length.toString(),
+        change: "0",
+        trend: "up",
+        icon: Activity,
+        color: "text-purple-600"
+      },
+      {
+        title: "Bekleyen Ödeme",
+        value: `₺${pendingPayments.toLocaleString('tr-TR')}`,
+        change: "0%",
+        trend: "down",
+        icon: Clock,
+        color: "text-orange-600"
+      }
+    ]);
+
+    // Set upcoming trainings
+    const upcomingList = [
+      ...todayTrainings.map((t: any) => ({ ...t, date: "Bugün" })),
+      ...tomorrowTrainings.map((t: any) => ({ ...t, date: "Yarın" }))
+    ].slice(0, 5);
+    
+    setUpcomingTrainings(upcomingList);
+
+    // Set recent activities (empty for now, will be populated as users use the system)
+    setRecentActivities([]);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("userRole");
@@ -333,21 +368,31 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {recentActivities.map((activity) => (
-                        <div key={activity.id} className="flex items-center space-x-4 p-3 rounded-lg bg-accent/50">
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{activity.message}</p>
-                            <p className="text-xs text-muted-foreground">{activity.time}</p>
+                      {recentActivities.length > 0 ? (
+                        recentActivities.map((activity) => (
+                          <div key={activity.id} className="flex items-center space-x-4 p-3 rounded-lg bg-accent/50">
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{activity.message}</p>
+                              <p className="text-xs text-muted-foreground">{activity.time}</p>
+                            </div>
+                            {activity.amount && (
+                              <Badge variant="secondary">{activity.amount}</Badge>
+                            )}
+                            {activity.sport && (
+                              <Badge variant="outline">{activity.sport}</Badge>
+                            )}
                           </div>
-                          {activity.amount && (
-                            <Badge variant="secondary">{activity.amount}</Badge>
-                          )}
-                          {activity.sport && (
-                            <Badge variant="outline">{activity.sport}</Badge>
-                          )}
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">Henüz aktivite bulunmuyor</p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Sistem kullanıldıkça aktiviteler burada görünecek
+                          </p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -364,22 +409,32 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {upcomingTrainings.map((training) => (
-                        <div key={training.id} className="p-3 rounded-lg border border-border">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{training.sport}</h4>
-                            <Badge variant="outline" className="text-xs">
-                              {training.date}
-                            </Badge>
+                      {upcomingTrainings.length > 0 ? (
+                        upcomingTrainings.map((training) => (
+                          <div key={training.id} className="p-3 rounded-lg border border-border">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium">{training.sport}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                {training.date}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-1">
+                              {training.time}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {training.participants} sporcu • {training.coach}
+                            </p>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-1">
-                            {training.time}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {training.participants} sporcu • {training.coach}
+                        ))
+                      ) : (
+                        <div className="text-center py-6">
+                          <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-muted-foreground text-sm">Yaklaşan antrenman yok</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Antrenman programı oluşturun
                           </p>
                         </div>
-                      ))}
+                      )}
                     </div>
                     <Button className="w-full mt-4" variant="outline">
                       <Plus className="h-4 w-4 mr-2" />

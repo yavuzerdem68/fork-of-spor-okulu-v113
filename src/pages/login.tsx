@@ -217,11 +217,7 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-2">Demo hesap bilgileri:</p>
-                    <p className="text-xs font-mono">Email: admin@sportscr.com</p>
-                    <p className="text-xs font-mono">Şifre: admin123</p>
-                  </div>
+=======
                 </TabsContent>
 
                 {/* Coach Login */}
@@ -269,11 +265,7 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-2">Demo hesap bilgileri:</p>
-                    <p className="text-xs font-mono">Email: antrenor@example.com</p>
-                    <p className="text-xs font-mono">Şifre: antrenor123</p>
-                  </div>
+=======
                 </TabsContent>
 
                 {/* Parent Login */}
@@ -321,11 +313,7 @@ export default function Login() {
                     </div>
                   </motion.form>
                   
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-2">Demo hesap bilgileri:</p>
-                    <p className="text-xs font-mono">Email: veli@example.com</p>
-                    <p className="text-xs font-mono">Şifre: veli123</p>
-                  </div>
+=======
                 </TabsContent>
               </Tabs>
 
