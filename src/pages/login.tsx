@@ -32,8 +32,25 @@ export default function Login() {
     setError("");
 
     try {
+      // Initialize default admin if no admin users exist
+      let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+      
+      if (adminUsers.length === 0) {
+        const defaultAdmin = {
+          id: 'default-admin',
+          name: 'Sistem',
+          surname: 'Yöneticisi',
+          email: 'admin@sportscr.com',
+          password: 'admin123',
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+          isDefault: true
+        };
+        adminUsers = [defaultAdmin];
+        localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
+      }
+
       // Check against registered admin users
-      const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
       const admin = adminUsers.find((a: any) => 
         a.email === adminCredentials.email && a.password === adminCredentials.password
       );
