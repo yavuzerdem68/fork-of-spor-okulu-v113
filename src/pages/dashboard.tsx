@@ -53,8 +53,6 @@ const staggerContainer = {
   }
 };
 
-=======
-
 export default function Dashboard() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -283,8 +281,8 @@ export default function Dashboard() {
               </Avatar>
               {sidebarOpen && (
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Ahmet Yönetici</p>
-                  <p className="text-xs text-muted-foreground">Yönetici</p>
+                  <p className="text-sm font-medium">Yönetici</p>
+                  <p className="text-xs text-muted-foreground">Admin</p>
                 </div>
               )}
               <Button variant="ghost" size="sm" onClick={handleLogout}>
