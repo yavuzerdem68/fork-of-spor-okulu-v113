@@ -2673,7 +2673,7 @@ export default function Payments() {
                                 {/* Manual Matching for Unmatched Payments with Smart Suggestions */}
                                 {match.status === 'unmatched' && (
                                   <div className="border-t pt-4">
-                                    {/* Multi-athlete matching section */}
+                                    {/* Multi-athlete matching section - Always show for debugging */}
                                     {(() => {
                                       const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
                                       let athletes = [];
@@ -2699,7 +2699,15 @@ export default function Payments() {
                                       const isMultipleAmount = detectMultipleAthletes(extractedAmount, athletes);
                                       const siblingGroups = findSiblings(athletes);
                                       
-                                      if (isMultipleAmount && Object.keys(siblingGroups).length > 0) {
+                                      console.log('Multi-athlete debug:', {
+                                        extractedAmount,
+                                        isMultipleAmount,
+                                        siblingGroupsCount: Object.keys(siblingGroups).length,
+                                        siblingGroups
+                                      });
+                                      
+                                      // Show multi-athlete section if amount suggests multiple payments OR if sibling groups exist
+                                      if (isMultipleAmount || Object.keys(siblingGroups).length > 0) {
                                         return (
                                           <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
                                             <div className="flex items-center space-x-2 mb-3">
@@ -2708,88 +2716,94 @@ export default function Payments() {
                                                 Çoklu Sporcu Eşleştirme (Kardeş Önerisi)
                                               </Label>
                                               <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700">
-                                                ₺{extractedAmount} - Çoklu ödeme algılandı
+                                                ₺{extractedAmount} {isMultipleAmount ? '- Çoklu ödeme algılandı' : '- Kardeş grupları mevcut'}
                                               </Badge>
                                             </div>
                                             <p className="text-xs text-purple-700 mb-3">
                                               Bu tutar birden fazla sporcu için olabilir. Aşağıdaki kardeş gruplarından seçim yapabilirsiniz:
                                             </p>
                                             
-                                            <div className="space-y-3">
-                                              {Object.entries(siblingGroups).map(([parentName, siblings]) => (
-                                                <div key={parentName} className="border border-purple-200 rounded-lg p-3 bg-white">
-                                                  <div className="flex items-center justify-between mb-2">
-                                                    <span className="font-medium text-sm text-purple-800">
-                                                      {parentName} - {siblings.length} kardeş
-                                                    </span>
-                                                    <span className="text-xs text-purple-600">
-                                                      ₺{(extractedAmount / siblings.length).toFixed(2)} / sporcu
-                                                    </span>
+                                            {Object.keys(siblingGroups).length > 0 ? (
+                                              <div className="space-y-3">
+                                                {Object.entries(siblingGroups).map(([parentName, siblings]) => (
+                                                  <div key={parentName} className="border border-purple-200 rounded-lg p-3 bg-white">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                      <span className="font-medium text-sm text-purple-800">
+                                                        {parentName} - {siblings.length} kardeş
+                                                      </span>
+                                                      <span className="text-xs text-purple-600">
+                                                        ₺{(extractedAmount / siblings.length).toFixed(2)} / sporcu
+                                                      </span>
+                                                    </div>
+                                                    
+                                                    <div className="space-y-2">
+                                                      {siblings.map((sibling: any) => {
+                                                        const siblingName = `${sibling.studentName || sibling.firstName || ''} ${sibling.studentSurname || sibling.lastName || ''}`.trim();
+                                                        const isSelected = selectedMultipleAthletes[index]?.includes(sibling.id.toString()) || false;
+                                                        
+                                                        return (
+                                                          <div key={sibling.id} className="flex items-center space-x-2">
+                                                            <input
+                                                              type="checkbox"
+                                                              id={`sibling-${index}-${sibling.id}`}
+                                                              checked={isSelected}
+                                                              onChange={(e) => {
+                                                                setSelectedMultipleAthletes(prev => {
+                                                                  const current = prev[index] || [];
+                                                                  if (e.target.checked) {
+                                                                    return {
+                                                                      ...prev,
+                                                                      [index]: [...current, sibling.id.toString()]
+                                                                    };
+                                                                  } else {
+                                                                    return {
+                                                                      ...prev,
+                                                                      [index]: current.filter(id => id !== sibling.id.toString())
+                                                                    };
+                                                                  }
+                                                                });
+                                                              }}
+                                                              className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                                                            />
+                                                            <label 
+                                                              htmlFor={`sibling-${index}-${sibling.id}`}
+                                                              className="text-sm cursor-pointer flex-1"
+                                                            >
+                                                              {siblingName}
+                                                              <span className="text-xs text-muted-foreground ml-2">
+                                                                ({sibling.selectedSports ? sibling.selectedSports[0] : 'Genel'})
+                                                              </span>
+                                                            </label>
+                                                          </div>
+                                                        );
+                                                      })}
+                                                    </div>
+                                                    
+                                                    <div className="mt-3 flex justify-end">
+                                                      <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-purple-700 border-purple-300 hover:bg-purple-100"
+                                                        onClick={() => {
+                                                          const siblingIds = siblings.map((s: any) => s.id.toString());
+                                                          setSelectedMultipleAthletes(prev => ({
+                                                            ...prev,
+                                                            [index]: siblingIds
+                                                          }));
+                                                        }}
+                                                      >
+                                                        <Users className="h-4 w-4 mr-1" />
+                                                        Tüm Kardeşleri Seç
+                                                      </Button>
+                                                    </div>
                                                   </div>
-                                                  
-                                                  <div className="space-y-2">
-                                                    {siblings.map((sibling: any) => {
-                                                      const siblingName = `${sibling.studentName || sibling.firstName || ''} ${sibling.studentSurname || sibling.lastName || ''}`.trim();
-                                                      const isSelected = selectedMultipleAthletes[index]?.includes(sibling.id.toString()) || false;
-                                                      
-                                                      return (
-                                                        <div key={sibling.id} className="flex items-center space-x-2">
-                                                          <input
-                                                            type="checkbox"
-                                                            id={`sibling-${index}-${sibling.id}`}
-                                                            checked={isSelected}
-                                                            onChange={(e) => {
-                                                              setSelectedMultipleAthletes(prev => {
-                                                                const current = prev[index] || [];
-                                                                if (e.target.checked) {
-                                                                  return {
-                                                                    ...prev,
-                                                                    [index]: [...current, sibling.id.toString()]
-                                                                  };
-                                                                } else {
-                                                                  return {
-                                                                    ...prev,
-                                                                    [index]: current.filter(id => id !== sibling.id.toString())
-                                                                  };
-                                                                }
-                                                              });
-                                                            }}
-                                                            className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
-                                                          />
-                                                          <label 
-                                                            htmlFor={`sibling-${index}-${sibling.id}`}
-                                                            className="text-sm cursor-pointer flex-1"
-                                                          >
-                                                            {siblingName}
-                                                            <span className="text-xs text-muted-foreground ml-2">
-                                                              ({sibling.selectedSports ? sibling.selectedSports[0] : 'Genel'})
-                                                            </span>
-                                                          </label>
-                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
-                                                  
-                                                  <div className="mt-3 flex justify-end">
-                                                    <Button
-                                                      size="sm"
-                                                      variant="outline"
-                                                      className="text-purple-700 border-purple-300 hover:bg-purple-100"
-                                                      onClick={() => {
-                                                        const siblingIds = siblings.map((s: any) => s.id.toString());
-                                                        setSelectedMultipleAthletes(prev => ({
-                                                          ...prev,
-                                                          [index]: siblingIds
-                                                        }));
-                                                      }}
-                                                    >
-                                                      <Users className="h-4 w-4 mr-1" />
-                                                      Tüm Kardeşleri Seç
-                                                    </Button>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <div className="text-center py-4 text-purple-600">
+                                                <p className="text-sm">Kardeş grubu bulunamadı. Manuel eşleştirme kullanın.</p>
+                                              </div>
+                                            )}
                                             
                                             {selectedMultipleAthletes[index] && selectedMultipleAthletes[index].length > 0 && (
                                               <div className="mt-4 flex justify-end">
