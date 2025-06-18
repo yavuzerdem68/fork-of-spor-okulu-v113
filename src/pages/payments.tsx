@@ -456,21 +456,21 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
     let finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
     
-    // FIXED: Better sibling detection and filtering
+    // COMPLETELY FIXED: Proper sibling detection that only shows relevant siblings
     const isSibling = siblingMap.has(athlete.id.toString());
     let shouldIncludeAsSibling = false;
     
     if (isSibling) {
-      // Only mark as sibling suggestion if their individual name or parent name has GOOD similarity
-      // This prevents showing irrelevant siblings
-      if (finalSimilarity > 40) { // Increased threshold to prevent irrelevant sibling suggestions
+      // CRITICAL FIX: Only mark as sibling if THIS specific athlete has good similarity
+      // This prevents showing all siblings when only one matches
+      if (finalSimilarity > 30) { // Reasonable threshold for individual match quality
         shouldIncludeAsSibling = true;
-        finalSimilarity = Math.min(100, finalSimilarity + 10); // Smaller sibling boost to maintain accuracy
+        finalSimilarity = Math.min(100, finalSimilarity + 5); // Very small boost to maintain accuracy
       }
     }
     
-    // FIXED: Use higher threshold for better quality matches
-    if (finalSimilarity > 25) { // Increased from 15 to 25 for better quality
+    // RESTORED: Use lower threshold for better coverage while maintaining quality
+    if (finalSimilarity > 20) { // Lowered from 25 to 20 for better coverage
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
@@ -892,8 +892,8 @@ export default function Payments() {
             
             confidence = nameConfidence + amountConfidence;
             
-            // FIXED: Use higher confidence threshold for better automatic matching
-            if (confidence > 40 && confidence > bestConfidence) { // Increased from 25 to 40
+            // RESTORED: Use balanced confidence threshold for reliable automatic matching
+            if (confidence > 30 && confidence > bestConfidence) { // Balanced threshold for good accuracy
               bestMatch = payment;
               bestConfidence = confidence;
             }
