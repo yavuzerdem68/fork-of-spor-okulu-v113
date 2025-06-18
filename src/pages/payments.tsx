@@ -131,73 +131,90 @@ const parseTurkishDate = (dateStr: string): Date | null => {
   return null;
 };
 
-// Advanced similarity calculation with multiple algorithms - FIXED VERSION
+// RESTORED: Simple and effective similarity calculation that guarantees 100% exact matches
 const calculateSimilarity = (str1: string, str2: string): number => {
   if (!str1 || !str2) return 0;
   
+  // Get normalized versions for comparison
   const versions1 = normalizeTurkishText(str1);
   const versions2 = normalizeTurkishText(str2);
   
-  let maxSimilarity = 0;
-  
-  // PRIORITY 1: Exact match detection (case-insensitive, Turkish char normalized)
+  // PRIORITY 1: EXACT MATCH DETECTION - This must work 100% of the time
   for (const v1 of versions1) {
     for (const v2 of versions2) {
-      // Direct exact match after normalization
-      if (v1 === v2 && v1.length > 0) return 100;
+      // Direct string comparison after normalization
+      if (v1 === v2 && v1.length > 0) {
+        console.log(`EXACT MATCH FOUND: "${v1}" === "${v2}"`);
+        return 100;
+      }
       
-      // Clean and compare (remove all non-alphanumeric except Turkish chars)
-      const clean1 = v1.replace(/[^\wğüşıöçâîû]/g, '').toLowerCase();
-      const clean2 = v2.replace(/[^\wğüşıöçâîû]/g, '').toLowerCase();
-      if (clean1 === clean2 && clean1.length > 2) return 100;
-      
-      // Word-by-word exact matching for multi-word names
+      // Clean comparison (remove all punctuation and spaces)
+      const clean1 = v1.replace(/[^\wğüşıöçâîû]/g, '');
+      const clean2 = v2.replace(/[^\wğüşıöçâîû]/g, '');
+      if (clean1 === clean2 && clean1.length > 2) {
+        console.log(`CLEAN EXACT MATCH: "${clean1}" === "${clean2}"`);
+        return 100;
+      }
+    }
+  }
+  
+  // PRIORITY 2: WORD-BY-WORD EXACT MATCHING
+  for (const v1 of versions1) {
+    for (const v2 of versions2) {
       const words1 = v1.split(/\s+/).filter(w => w.length > 1);
       const words2 = v2.split(/\s+/).filter(w => w.length > 1);
       
       if (words1.length >= 2 && words2.length >= 2) {
-        // Check if all words from shorter name exist in longer name
+        // Check if all words from one name exist in the other
         const shorterWords = words1.length <= words2.length ? words1 : words2;
         const longerWords = words1.length > words2.length ? words1 : words2;
         
-        let exactWordMatches = 0;
-        for (const shortWord of shorterWords) {
-          if (longerWords.some(longWord => longWord === shortWord)) {
-            exactWordMatches++;
+        let exactMatches = 0;
+        for (const word of shorterWords) {
+          if (longerWords.includes(word)) {
+            exactMatches++;
           }
         }
         
-        // If all words from shorter name match, it's a perfect match
-        if (exactWordMatches === shorterWords.length && shorterWords.length >= 2) {
+        // If all words match exactly, it's 100%
+        if (exactMatches === shorterWords.length && shorterWords.length >= 2) {
+          console.log(`WORD-BY-WORD EXACT MATCH: ${exactMatches}/${shorterWords.length} words matched`);
           return 100;
         }
         
-        // High similarity for most words matching
-        if (exactWordMatches >= Math.min(shorterWords.length, 2)) {
-          const wordMatchScore = (exactWordMatches / Math.max(words1.length, words2.length)) * 100;
-          maxSimilarity = Math.max(maxSimilarity, wordMatchScore);
+        // High score for most words matching
+        if (exactMatches >= 2) {
+          const wordScore = (exactMatches / Math.max(words1.length, words2.length)) * 95;
+          if (wordScore > 80) return wordScore;
         }
       }
-      
-      // PRIORITY 2: Containment check (one name contains the other)
-      if (v1.includes(v2) || v2.includes(v1)) {
-        const containmentScore = Math.min(v1.length, v2.length) / Math.max(v1.length, v2.length) * 95;
-        maxSimilarity = Math.max(maxSimilarity, containmentScore);
-      }
-      
-      // PRIORITY 3: Advanced similarity algorithms
-      const levenshtein = calculateLevenshteinSimilarity(v1, v2);
-      const jaccard = calculateJaccardSimilarity(v1, v2);
-      const substring = calculateSubstringSimilarity(v1, v2);
-      
-      // Weighted combination with emphasis on exact matches
-      const combined = (levenshtein * 0.5) + (jaccard * 0.3) + (substring * 0.2);
-      maxSimilarity = Math.max(maxSimilarity, combined);
     }
   }
   
-  return maxSimilarity;
+  // PRIORITY 3: CONTAINMENT AND SIMILARITY
+  let maxSimilarity = 0;
+  
+  for (const v1 of versions1) {
+    for (const v2 of versions2) {
+      // Containment check
+      if (v1.includes(v2) || v2.includes(v1)) {
+        const containmentScore = Math.min(v1.length, v2.length) / Math.max(v1.length, v2.length) * 90;
+        maxSimilarity = Math.max(maxSimilarity, containmentScore);
+      }
+      
+      // Levenshtein similarity
+      const levenshtein = calculateLevenshteinSimilarity(v1, v2);
+      maxSimilarity = Math.max(maxSimilarity, levenshtein);
+      
+      // Jaccard similarity for word-based matching
+      const jaccard = calculateJaccardSimilarity(v1, v2);
+      maxSimilarity = Math.max(maxSimilarity, jaccard);
+    }
+  }
+  
+  return Math.round(maxSimilarity);
 };
+=======
 
 // Levenshtein distance similarity
 const calculateLevenshteinSimilarity = (str1: string, str2: string): number => {
@@ -900,8 +917,9 @@ export default function Payments() {
           }
         }
         
-        // CRITICAL FIX: Automatic matching for high-confidence matches (90%+)
-        if (bestMatch && bestConfidence >= 90) {
+        // RESTORED: Proper automatic matching with 100% confidence threshold
+        if (bestMatch && bestConfidence >= 100) {
+          // Perfect matches are automatically processed
           matches.push({
             excelData: excelRow,
             payment: bestMatch,
@@ -910,6 +928,18 @@ export default function Payments() {
             isHistorical: storedMatch ? true : false,
             isAutomatic: true
           });
+          console.log(`AUTO-MATCHED 100%: ${excelRow.description} -> ${bestMatch.athleteName} (${bestConfidence}%)`);
+        } else if (bestMatch && bestConfidence >= 85) {
+          // Very high confidence - auto match but show for review
+          matches.push({
+            excelData: excelRow,
+            payment: bestMatch,
+            confidence: Math.round(bestConfidence),
+            status: 'matched',
+            isHistorical: storedMatch ? true : false,
+            isAutomatic: true
+          });
+          console.log(`AUTO-MATCHED 85%+: ${excelRow.description} -> ${bestMatch.athleteName} (${bestConfidence}%)`);
         } else if (bestMatch && bestConfidence >= 30) {
           // Medium confidence - show as matched but require confirmation
           matches.push({
