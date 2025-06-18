@@ -892,21 +892,33 @@ export default function Payments() {
             
             confidence = nameConfidence + amountConfidence;
             
-            // RESTORED: Use balanced confidence threshold for reliable automatic matching
-            if (confidence > 30 && confidence > bestConfidence) { // Balanced threshold for good accuracy
+            // FIXED: Use proper threshold for automatic matching - 100% matches should always be automatic
+            if (confidence > bestConfidence) {
               bestMatch = payment;
               bestConfidence = confidence;
             }
           }
         }
         
-        if (bestMatch) {
+        // CRITICAL FIX: Automatic matching for high-confidence matches (90%+)
+        if (bestMatch && bestConfidence >= 90) {
           matches.push({
             excelData: excelRow,
             payment: bestMatch,
             confidence: Math.round(bestConfidence),
             status: 'matched',
-            isHistorical: storedMatch ? true : false
+            isHistorical: storedMatch ? true : false,
+            isAutomatic: true
+          });
+        } else if (bestMatch && bestConfidence >= 30) {
+          // Medium confidence - show as matched but require confirmation
+          matches.push({
+            excelData: excelRow,
+            payment: bestMatch,
+            confidence: Math.round(bestConfidence),
+            status: 'matched',
+            isHistorical: storedMatch ? true : false,
+            requiresConfirmation: true
           });
         } else {
           // For unmatched payments, find closest suggestions
