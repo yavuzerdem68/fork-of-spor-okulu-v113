@@ -1444,6 +1444,90 @@ export default function Athletes() {
     };
   };
 
+  // Download parent credentials as text file
+  const downloadParentCredentials = () => {
+    const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+    
+    if (parentUsers.length === 0) {
+      alert('Henüz oluşturulmuş veli hesabı bulunmuyor!');
+      return;
+    }
+
+    const textContent = [
+      '=== VELİ KULLANICI ADI VE ŞİFRELERİ ===',
+      `Oluşturulma Tarihi: ${new Date().toLocaleDateString('tr-TR')} ${new Date().toLocaleTimeString('tr-TR')}`,
+      `Toplam Veli Sayısı: ${parentUsers.length}`,
+      '',
+      '--- DETAYLAR ---'
+    ];
+
+    parentUsers.forEach((parent: any, index: number) => {
+      // Find linked athlete name
+      const linkedAthlete = athletes.find(athlete => 
+        parent.linkedAthletes && parent.linkedAthletes.includes(athlete.id)
+      );
+      const athleteName = linkedAthlete ? 
+        `${linkedAthlete.studentName} ${linkedAthlete.studentSurname}` : 
+        'Bilinmeyen Sporcu';
+
+      textContent.push(
+        `${index + 1}. ${parent.firstName} ${parent.lastName} (${athleteName})`,
+        `   Telefon: ${parent.phone}`,
+        `   Email: ${parent.email}`,
+        `   Kullanıcı Adı: ${parent.username}`,
+        `   Şifre: ${parent.password}`,
+        ''
+      );
+    });
+
+    textContent.push(
+      '--- TOPLU MESAJ İÇİN ÖZET FORMAT ---',
+      ''
+    );
+
+    parentUsers.forEach((parent: any) => {
+      const linkedAthlete = athletes.find(athlete => 
+        parent.linkedAthletes && parent.linkedAthletes.includes(athlete.id)
+      );
+      const athleteName = linkedAthlete ? 
+        `${linkedAthlete.studentName} ${linkedAthlete.studentSurname}` : 
+        'Bilinmeyen Sporcu';
+
+      textContent.push(
+        `${parent.firstName} ${parent.lastName} (${athleteName}): Kullanıcı Adı: ${parent.username}, Şifre: ${parent.password}`
+      );
+    });
+
+    textContent.push(
+      '',
+      '--- WHATSAPP MESAJ ÖRNEĞİ ---',
+      '',
+      'Merhaba [VELİ ADI],',
+      '',
+      'Spor okulu veli paneli giriş bilgileriniz:',
+      'Kullanıcı Adı: [KULLANICI_ADI]',
+      'Şifre: [ŞİFRE]',
+      '',
+      'Panel adresi: [WEB_SİTE_ADRESİ]',
+      '',
+      'Bu bilgilerle sisteme giriş yaparak çocuğunuzun antrenman programı, devam durumu ve ödeme bilgilerini takip edebilirsiniz.',
+      '',
+      'İyi günler dileriz.'
+    );
+
+    const blob = new Blob([textContent.join('\n')], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `veli_kullanici_bilgileri_${new Date().toISOString().split('T')[0]}.txt`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    alert(`${parentUsers.length} veli hesabının giriş bilgileri text dosyası olarak indirildi!\n\nDosyayı açarak toplu mesaj gönderiminde kullanabilirsiniz.`);
+  };
+
   const createParentAccounts = () => {
     const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
     const newParentAccounts: any[] = [];
@@ -1940,6 +2024,10 @@ export default function Athletes() {
                       <Button variant="outline" onClick={exportActiveAthletes}>
                         <Download className="h-4 w-4 mr-2" />
                         Aktif Sporcuları Dışa Aktar
+                      </Button>
+                      <Button variant="outline" onClick={downloadParentCredentials}>
+                        <Key className="h-4 w-4 mr-2" />
+                        Veli Giriş Bilgileri İndir
                       </Button>
                       <Dialog open={isBulkFeeDialogOpen} onOpenChange={setIsBulkFeeDialogOpen}>
                         <DialogTrigger asChild>
