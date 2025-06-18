@@ -687,6 +687,69 @@ export default function Trainings() {
                                       onChange={(e) => setFormData({...formData, description: e.target.value})}
                                     />
                                   </div>
+
+                                  {/* Tekrarlanan Antrenman Günleri */}
+                                  <div className="col-span-2 space-y-4">
+                                    <div className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        id="isRecurring"
+                                        checked={formData.isRecurring}
+                                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked, recurringDays: []})}
+                                        className="rounded"
+                                      />
+                                      <Label htmlFor="isRecurring" className="font-medium">
+                                        Tekrarlanan Antrenman (Haftalık)
+                                      </Label>
+                                    </div>
+                                    
+                                    {formData.isRecurring && (
+                                      <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+                                        <Label className="text-sm font-medium">Antrenman Günleri:</Label>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                          {[
+                                            { key: 'monday', label: 'Pazartesi' },
+                                            { key: 'tuesday', label: 'Salı' },
+                                            { key: 'wednesday', label: 'Çarşamba' },
+                                            { key: 'thursday', label: 'Perşembe' },
+                                            { key: 'friday', label: 'Cuma' },
+                                            { key: 'saturday', label: 'Cumartesi' },
+                                            { key: 'sunday', label: 'Pazar' }
+                                          ].map((day) => (
+                                            <div key={day.key} className="flex items-center space-x-2">
+                                              <input
+                                                type="checkbox"
+                                                id={`day-${day.key}`}
+                                                checked={formData.recurringDays.includes(day.key)}
+                                                onChange={(e) => {
+                                                  if (e.target.checked) {
+                                                    setFormData(prev => ({
+                                                      ...prev,
+                                                      recurringDays: [...prev.recurringDays, day.key]
+                                                    }));
+                                                  } else {
+                                                    setFormData(prev => ({
+                                                      ...prev,
+                                                      recurringDays: prev.recurringDays.filter(d => d !== day.key)
+                                                    }));
+                                                  }
+                                                }}
+                                                className="rounded"
+                                              />
+                                              <Label htmlFor={`day-${day.key}`} className="text-sm">
+                                                {day.label}
+                                              </Label>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        {formData.recurringDays.length === 0 && (
+                                          <p className="text-sm text-muted-foreground">
+                                            En az bir gün seçmelisiniz
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
 
                                 {/* Athlete Assignment */}
@@ -1297,6 +1360,69 @@ export default function Trainings() {
                       value={formData.description}
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
                     />
+                  </div>
+
+                  {/* Tekrarlanan Antrenman Günleri - Edit */}
+                  <div className="col-span-2 space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="edit-isRecurring"
+                        checked={formData.isRecurring}
+                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked, recurringDays: []})}
+                        className="rounded"
+                      />
+                      <Label htmlFor="edit-isRecurring" className="font-medium">
+                        Tekrarlanan Antrenman (Haftalık)
+                      </Label>
+                    </div>
+                    
+                    {formData.isRecurring && (
+                      <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+                        <Label className="text-sm font-medium">Antrenman Günleri:</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[
+                            { key: 'monday', label: 'Pazartesi' },
+                            { key: 'tuesday', label: 'Salı' },
+                            { key: 'wednesday', label: 'Çarşamba' },
+                            { key: 'thursday', label: 'Perşembe' },
+                            { key: 'friday', label: 'Cuma' },
+                            { key: 'saturday', label: 'Cumartesi' },
+                            { key: 'sunday', label: 'Pazar' }
+                          ].map((day) => (
+                            <div key={day.key} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`edit-day-${day.key}`}
+                                checked={formData.recurringDays.includes(day.key)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      recurringDays: [...prev.recurringDays, day.key]
+                                    }));
+                                  } else {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      recurringDays: prev.recurringDays.filter(d => d !== day.key)
+                                    }));
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                              <Label htmlFor={`edit-day-${day.key}`} className="text-sm">
+                                {day.label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                        {formData.recurringDays.length === 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            En az bir gün seçmelisiniz
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

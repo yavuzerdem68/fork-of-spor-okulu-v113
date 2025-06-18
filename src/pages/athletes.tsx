@@ -210,7 +210,11 @@ function EditAthleteForm({ athlete, onSave, onCancel }: {
       parentTcNo: formData.parentTcNo.replace(/\D/g, ''),
       sportsBranches: formData.sportsBranches, // Ensure sports branches are saved
       selectedSports: formData.sportsBranches, // Also save as selectedSports for compatibility
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      // Ensure the ID is preserved from the original athlete
+      id: athlete.id,
+      // Mark as manually edited to distinguish from bulk uploads
+      isManuallyEdited: true
     };
 
     onSave(updatedAthlete);
