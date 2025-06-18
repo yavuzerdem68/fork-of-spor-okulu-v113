@@ -655,6 +655,11 @@ export default function Athletes() {
   const [selectedAthleteForView, setSelectedAthleteForView] = useState<any>(null);
   const [selectedAthleteForEdit, setSelectedAthleteForEdit] = useState<any>(null);
   const [selectedAthleteForDelete, setSelectedAthleteForDelete] = useState<any>(null);
+  const [isInvoiceExportDialogOpen, setIsInvoiceExportDialogOpen] = useState(false);
+  const [selectedInvoiceMonth, setSelectedInvoiceMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [invoiceServiceDescription, setInvoiceServiceDescription] = useState('');
+  const [invoiceUnitCode, setInvoiceUnitCode] = useState('Ay');
+  const [invoiceVatRate, setInvoiceVatRate] = useState('20');
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
@@ -1632,6 +1637,175 @@ export default function Athletes() {
     return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
+  // Generate E-Invoice Export
+  const generateEInvoiceExport = () => {
+    try {
+      // Get active athletes
+      const activeAthletesList = athletes.filter(athlete => athlete.status === 'Aktif' || !athlete.status);
+      
+      if (activeAthletesList.length === 0) {
+        alert('E-fatura oluşturulacak aktif sporcu bulunamadı!');
+        return;
+      }
+
+      // Get account entries for the selected month to determine pricing
+      const selectedMonth = selectedInvoiceMonth;
+      const invoiceData: any[] = [];
+
+      activeAthletesList.forEach((athlete, index) => {
+        // Get account entries for this athlete for the selected month
+        const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+        
+        // Find entries for the selected month that match the service description
+        const monthEntries = accountEntries.filter((entry: any) => 
+          entry.month === selectedMonth && 
+          entry.type === 'debit' && 
+          entry.description.toLowerCase().includes(invoiceServiceDescription.toLowerCase())
+        );
+
+        // If no specific entries found for the month, use default values
+        let unitPrice = 350; // Default price
+        let quantity = 1;
+        let actualUnitCode = invoiceUnitCode;
+        let actualVatRate = parseFloat(invoiceVatRate);
+
+        if (monthEntries.length > 0) {
+          // Use the first matching entry's data
+          const entry = monthEntries[0];
+          unitPrice = entry.amountExcludingVat;
+          quantity = 1; // Assuming 1 unit per athlete
+          actualUnitCode = entry.unitCode || invoiceUnitCode;
+          actualVatRate = entry.vatRate || parseFloat(invoiceVatRate);
+        }
+
+        // Create the complete e-invoice row with all required columns
+        const invoiceRow = {
+          'Id': index + 1,
+          'Fatura Numarası': '', // Empty as requested
+          'ETTN': '',
+          'Fatura Tarihi': new Date().toLocaleDateString('tr-TR'),
+          'Fatura Saati': new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+          'Fatura Tipi': 'SATIS',
+          'Fatura Profili': 'EARSIVFATURA',
+          'Not1': '',
+          'Not2': '',
+          'Not3': '',
+          'Not4': '',
+          'Döviz Kodu': 'TRY',
+          'Döviz Kuru': '1',
+          'İade Tarihi': '',
+          'İade Fatura Numarası': '',
+          'Sipariş Tarihi': '',
+          'Sipariş Numarası': '',
+          'İrsaliye Numarası': '',
+          'İrsaliye Tarihi': '',
+          'Alıcı VKN/TCKN': athlete.parentTcNo || '',
+          'Alıcı Ünvan/Adı | Yabancı Alıcı Ünvan/Adı | Turist Adı': athlete.parentName || '',
+          'Alıcı Soyadı | Yabancı Alıcı Soyadı | Turist Soyadı ': athlete.parentSurname || '',
+          'Alıcı Ülke | Yabancı Ülke | Turist Ülke': 'TÜRKİYE',
+          'Alıcı Şehir | Yabancı Şehir | Turist Şehir': athlete.city || 'Kırklareli',
+          'Alıcı İlçe | Yabancı İlçe | Turist İlçe': athlete.district || 'Lüleburgaz',
+          'Alıcı Sokak | Yabancı Sokak | Turist Sokak': athlete.address || '',
+          'Alıcı Bina No | Yabancı Bina No | Turist Bina No': '',
+          'Alıcı Kapı No | Yabancı Kapı No | Turist Kapı No': '',
+          'Alıcı Eposta | Yabancı Eposta | Turist Eposta': athlete.parentEmail || '',
+          'Alıcı Telefon | Yabancı Telefon | Turist Telefon': athlete.parentPhone || '',
+          'Alıcı Vergi Dairesi': '',
+          'Alıcı Posta Kutusu': '',
+          'Yabancı Alıcı Ülkesindeki VKN': '',
+          'Yabancı Alıcı Resmi Ünvan': '',
+          'Turist Ülke Kodu': '',
+          'Turist Pasaport No': '',
+          'Pasaport Veriliş Tarihi': '',
+          'Aracı Kurum Posta Kutusu': '',
+          'Aracı Kurum VKN': '',
+          'Aracı Kurum Adı': '',
+          'Gönderim Türü': 'ELEKTRONIK',
+          'Satışın Yapıldığı Web Sitesi': '',
+          'Ödeme Tarihi': '',
+          'Ödeme Türü': 'EFT/HAVALE',
+          'Ödeyen Adı': '',
+          'Taşıyıcı Ünvanı': '',
+          'Taşıyıcı Tckn/Vkn': '',
+          'Gönderim Tarihi': '',
+          'Mal/Hizmet Adı': invoiceServiceDescription,
+          'Miktar': quantity,
+          'Birim Kodu': actualUnitCode,
+          'Birim Fiyat': unitPrice.toFixed(2),
+          'KDV Oranı': actualVatRate.toString(),
+          'KDV Muafiyet Kodu': '',
+          'KDV Muafiyet Nedeni': '',
+          'İskonto Oranı': '',
+          'İskonto Açıklaması': '',
+          'İskonto Oranı 2': '',
+          'İskonto Açıklaması 2': '',
+          'Satıcı Kodu (SellersItemIdentification)': '',
+          'Alıcı Kodu (BuyersItemIdentification)': '',
+          'Üretici Kodu (ManufacturersItemIdentification)': '',
+          'Marka (BrandName)': '',
+          'Model (ModelName)': '',
+          'Menşei Kodu': '',
+          'Açıklama (Description)': '',
+          'Not (Note)': '',
+          'Artırım Oranı': '',
+          'Artırım Tutarı': '',
+          'ÖTV Kodu': '',
+          'ÖTV Oranı': '',
+          'ÖTV Tutarı': '',
+          'Tevkifat Kodu': '',
+          'Tevkifat Oranı': '',
+          'BSMV Oranı': '',
+          'Enerji Fonu Vergi Oranı': '',
+          'TRT Payı Vergi Oranı': '',
+          'Elektrik ve Havagazı Tüketim Vergisi Oranı': '',
+          'Konaklama Vergisi Oranı': '',
+          'GTip No': '',
+          'Teslim Şartı': '',
+          'Gönderilme Şekli': '',
+          'Gümrük Takip No': '',
+          'Bulunduğu Kabın Markası': '',
+          'Bulunduğu Kabın Cinsi': '',
+          'Bulunduğu Kabın Numarası': '',
+          'Bulunduğu Kabın Adedi': '',
+          'İhracat Teslim ve Ödeme Yeri/Ülke': '',
+          'İhracat Teslim ve Ödeme Yeri/Şehir': '',
+          'İhracat Teslim ve Ödeme Yeri/Mahalle/İlçe': '',
+          'Künye No': '',
+          'Mal Sahibi Ad/Soyad/Ünvan': '',
+          'Mal Sahibi Vkn/Tckn': ''
+        };
+
+        invoiceData.push(invoiceRow);
+      });
+
+      // Create Excel file
+      const ws = XLSX.utils.json_to_sheet(invoiceData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'E-Fatura');
+      
+      // Set column widths for better readability
+      const colWidths = Object.keys(invoiceData[0]).map(() => ({ wch: 15 }));
+      ws['!cols'] = colWidths;
+      
+      // Generate filename with date and month
+      const monthName = new Date(selectedInvoiceMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+      const fileName = `E_Fatura_${monthName.replace(' ', '_')}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`;
+      
+      // Download the file
+      XLSX.writeFile(wb, fileName);
+      
+      // Show success message
+      alert(`E-fatura Excel dosyası oluşturuldu!\n\n✅ ${activeAthletesList.length} sporcu için fatura kaydı\n📅 Dönem: ${monthName}\n🏷️ Hizmet: ${invoiceServiceDescription}\n💰 KDV Oranı: %${invoiceVatRate}\n📁 Dosya: ${fileName}\n\nDosya e-arşiv fatura entegratörünüze yüklenmeye hazır!`);
+      
+      // Close dialog
+      setIsInvoiceExportDialogOpen(false);
+      
+    } catch (error) {
+      console.error('E-fatura oluşturma hatası:', error);
+      alert('E-fatura oluşturulurken bir hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
+    }
+  };
+
   return (
     <>
       <Head>
@@ -2029,6 +2203,189 @@ export default function Athletes() {
                         <Key className="h-4 w-4 mr-2" />
                         Veli Giriş Bilgileri İndir
                       </Button>
+                      <Dialog open={isInvoiceExportDialogOpen} onOpenChange={setIsInvoiceExportDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline">
+                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                            E-Fatura Dışa Aktar
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center space-x-2">
+                              <FileSpreadsheet className="h-5 w-5" />
+                              <span>E-Fatura Dışa Aktarma</span>
+                            </DialogTitle>
+                            <DialogDescription>
+                              Toplu aidat girişi yapılan tarih için e-fatura formatında Excel dosyası oluşturun
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="space-y-6">
+                            <Alert>
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertDescription>
+                                Bu işlem aktif sporcuların veli bilgilerini kullanarak e-arşiv fatura formatında Excel dosyası oluşturacaktır.
+                              </AlertDescription>
+                            </Alert>
+
+                            {/* Date Selection */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Fatura Dönemi Seçimi</CardTitle>
+                                <CardDescription>
+                                  Hangi tarihte girilen toplu aidat için fatura oluşturmak istiyorsunuz?
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="invoiceMonth">Fatura Dönemi (Ay/Yıl)</Label>
+                                    <Input
+                                      id="invoiceMonth"
+                                      type="month"
+                                      value={selectedInvoiceMonth}
+                                      onChange={(e) => setSelectedInvoiceMonth(e.target.value)}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="serviceDescription">Hizmet Açıklaması</Label>
+                                    <Input
+                                      id="serviceDescription"
+                                      placeholder="Örn: Spor Okulu Aidatı Haziran 2024"
+                                      value={invoiceServiceDescription}
+                                      onChange={(e) => setInvoiceServiceDescription(e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <Label htmlFor="unitCode">Birim Kodu</Label>
+                                      <Select value={invoiceUnitCode} onValueChange={setInvoiceUnitCode}>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Birim seçin" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="Ay">Ay (Aylık aidat için)</SelectItem>
+                                          <SelectItem value="Adet">Adet (Forma, çanta vb. için)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <Label htmlFor="vatRate">KDV Oranı (%)</Label>
+                                      <Select value={invoiceVatRate} onValueChange={setInvoiceVatRate}>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="KDV oranı seçin" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="10">%10</SelectItem>
+                                          <SelectItem value="20">%20</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            {/* Preview */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Önizleme</CardTitle>
+                                <CardDescription>
+                                  Oluşturulacak fatura verilerinin önizlemesi
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-4">
+                                  <div className="p-4 bg-blue-50 rounded-lg">
+                                    <h4 className="font-medium text-blue-900 mb-2">Fatura Bilgileri:</h4>
+                                    <ul className="text-sm text-blue-800 space-y-1">
+                                      <li>• <strong>Dönem:</strong> {selectedInvoiceMonth || 'Seçilmedi'}</li>
+                                      <li>• <strong>Hizmet:</strong> {invoiceServiceDescription || 'Belirtilmedi'}</li>
+                                      <li>• <strong>Birim:</strong> {invoiceUnitCode}</li>
+                                      <li>• <strong>KDV Oranı:</strong> %{invoiceVatRate}</li>
+                                      <li>• <strong>Aktif Sporcu Sayısı:</strong> {activeAthletes}</li>
+                                    </ul>
+                                  </div>
+
+                                  <div className="p-4 bg-green-50 rounded-lg">
+                                    <h4 className="font-medium text-green-900 mb-2">Dışa Aktarılacak Alanlar:</h4>
+                                    <ul className="text-sm text-green-800 space-y-1">
+                                      <li>• Alıcı VKN/TCKN (Veli TC Kimlik Numarası)</li>
+                                      <li>• Alıcı Ünvan/Adı (Veli Adı)</li>
+                                      <li>• Alıcı Soyadı (Veli Soyadı)</li>
+                                      <li>• Alıcı Ülke (Türkiye)</li>
+                                      <li>• Alıcı Şehir (Kırklareli)</li>
+                                      <li>• Alıcı İlçe (Lüleburgaz)</li>
+                                      <li>• Alıcı Eposta (Veli Eposta)</li>
+                                      <li>• Mal/Hizmet Adı</li>
+                                      <li>• Miktar, Birim Kodu, Birim Fiyat (KDV Hariç), KDV Oranı</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            {/* Sample Data */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Örnek Veri</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Alıcı VKN/TCKN</TableHead>
+                                      <TableHead>Alıcı Adı</TableHead>
+                                      <TableHead>Alıcı Soyadı</TableHead>
+                                      <TableHead>Alıcı Eposta</TableHead>
+                                      <TableHead>Mal/Hizmet Adı</TableHead>
+                                      <TableHead>Birim Fiyat</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    <TableRow>
+                                      <TableCell>12345678901</TableCell>
+                                      <TableCell>Mehmet</TableCell>
+                                      <TableCell>Yılmaz</TableCell>
+                                      <TableCell>mehmet@email.com</TableCell>
+                                      <TableCell>{invoiceServiceDescription || 'Spor Okulu Aidatı'}</TableCell>
+                                      <TableCell>350.00</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell>23456789012</TableCell>
+                                      <TableCell>Fatma</TableCell>
+                                      <TableCell>Demir</TableCell>
+                                      <TableCell>fatma@email.com</TableCell>
+                                      <TableCell>{invoiceServiceDescription || 'Spor Okulu Aidatı'}</TableCell>
+                                      <TableCell>350.00</TableCell>
+                                    </TableRow>
+                                  </TableBody>
+                                </Table>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <div className="flex justify-end space-x-2 mt-6">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setIsInvoiceExportDialogOpen(false)}
+                            >
+                              İptal
+                            </Button>
+                            <Button 
+                              onClick={generateEInvoiceExport}
+                              disabled={!selectedInvoiceMonth || !invoiceServiceDescription}
+                            >
+                              <FileSpreadsheet className="h-4 w-4 mr-2" />
+                              E-Fatura Excel Dosyası Oluştur
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                       <Dialog open={isBulkFeeDialogOpen} onOpenChange={setIsBulkFeeDialogOpen}>
                         <DialogTrigger asChild>
                           <Button variant="outline">
