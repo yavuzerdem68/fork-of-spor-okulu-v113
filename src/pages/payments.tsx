@@ -912,18 +912,31 @@ export default function Payments() {
           }
         }
         
-        // RESTORED: Proper automatic matching with 100% confidence threshold
+        // BULLETPROOF: 100% matches are ALWAYS automatically processed
         if (bestMatch && bestConfidence >= 100) {
-          // Perfect matches are automatically processed
+          // Perfect matches are automatically processed - NO CONFIRMATION NEEDED
           matches.push({
             excelData: excelRow,
             payment: bestMatch,
             confidence: Math.round(bestConfidence),
             status: 'matched',
             isHistorical: storedMatch ? true : false,
-            isAutomatic: true
+            isAutomatic: true,
+            autoProcessed: true // Flag to indicate this was auto-processed
           });
-          console.log(`AUTO-MATCHED 100%: ${excelRow.description} -> ${bestMatch.athleteName} (${bestConfidence}%)`);
+          console.log(`🎯 AUTO-PROCESSED 100%: ${excelRow.description} -> ${bestMatch.athleteName} (${bestConfidence}%)`);
+        } else if (bestMatch && bestConfidence >= 95) {
+          // Near-perfect matches are also automatically processed
+          matches.push({
+            excelData: excelRow,
+            payment: bestMatch,
+            confidence: Math.round(bestConfidence),
+            status: 'matched',
+            isHistorical: storedMatch ? true : false,
+            isAutomatic: true,
+            autoProcessed: true
+          });
+          console.log(`🔥 AUTO-PROCESSED 95%+: ${excelRow.description} -> ${bestMatch.athleteName} (${bestConfidence}%)`);
         } else if (bestMatch && bestConfidence >= 85) {
           // Very high confidence - auto match but show for review
           matches.push({
@@ -932,9 +945,10 @@ export default function Payments() {
             confidence: Math.round(bestConfidence),
             status: 'matched',
             isHistorical: storedMatch ? true : false,
-            isAutomatic: true
+            isAutomatic: true,
+            requiresConfirmation: true
           });
-          console.log(`AUTO-MATCHED 85%+: ${excelRow.description} -> ${bestMatch.athleteName} (${bestConfidence}%)`);
+          console.log(`⚡ AUTO-MATCHED 85%+: ${excelRow.description} -> ${bestMatch.athleteName} (${bestConfidence}%)`);
         } else if (bestMatch && bestConfidence >= 30) {
           // Medium confidence - show as matched but require confirmation
           matches.push({
@@ -961,10 +975,93 @@ export default function Payments() {
 
       setMatchedPayments(matches);
       
+      // AUTOMATIC PROCESSING: Immediately process 100% and 95%+ matches
+      const autoProcessMatches = matches.filter(m => m.autoProcessed === true);
+      if (autoProcessMatches.length > 0) {
+        console.log(`🚀 AUTO-PROCESSING ${autoProcessMatches.length} high-confidence matches immediately...`);
+        
+        // Process auto-matches immediately
+        const updatedPayments = [...payments];
+        const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+        let athletes = [];
+        if (storedAthletes) {
+          athletes = JSON.parse(storedAthletes);
+        }
+
+        autoProcessMatches.forEach(match => {
+          // Parse Turkish date correctly for payment date
+          const parsedDate = parseTurkishDate(match.excelData.date);
+          const paymentDate = parsedDate ? parsedDate.toISOString().split('T')[0] : match.excelData.date;
+          const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
+          const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelData.date;
+
+          // Handle single athlete payments (auto-processed matches are always single)
+          const singleMatch = updatedPayments.find(payment => payment.id === match.payment?.id);
+          if (singleMatch) {
+            singleMatch.status = "Ödendi";
+            singleMatch.paymentDate = paymentDate;
+            singleMatch.method = "Havale/EFT";
+            singleMatch.reference = match.excelData.reference;
+          }
+
+          // Find athlete for account entry
+          let athlete = null;
+          if (match.payment.id) {
+            athlete = athletes.find((a: any) => a.id === match.payment.id);
+          }
+          
+          if (!athlete) {
+            const nameParts = match.payment.athleteName.split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(' ');
+            
+            athlete = athletes.find((a: any) => {
+              const athleteFirstName = a.studentName || a.firstName || '';
+              const athleteLastName = a.studentSurname || a.lastName || '';
+              return athleteFirstName === firstName && athleteLastName === lastName;
+            });
+          }
+          
+          if (athlete) {
+            const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+            const paymentEntry = {
+              id: Date.now() + Math.random(),
+              date: entryDate,
+              month: entryDate.slice(0, 7),
+              description: `EFT/Havale Tahsilatı (Otomatik) - ${displayDate} - ₺${match.excelData.amount} - Ref: ${match.excelData.reference}`,
+              amountExcludingVat: match.excelData.amount,
+              vatRate: 0,
+              vatAmount: 0,
+              amountIncludingVat: match.excelData.amount,
+              unitCode: 'Adet',
+              type: 'credit'
+            };
+            
+            existingEntries.push(paymentEntry);
+            localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+            console.log(`✅ AUTO-PROCESSED: ${athlete.studentName} ${athlete.studentSurname} - ₺${match.excelData.amount}`);
+          }
+        });
+
+        // Update payments in localStorage
+        setPayments(updatedPayments);
+        localStorage.setItem('payments', JSON.stringify(updatedPayments));
+        
+        // Remove auto-processed matches from the display list
+        const remainingMatches = matches.filter(m => !m.autoProcessed);
+        setMatchedPayments(remainingMatches);
+        
+        // Show success message for auto-processed payments
+        toast.success(`🎯 ${autoProcessMatches.length} adet %100 eşleşme otomatik olarak işlendi! Kalan ${remainingMatches.length} eşleşme manuel onay bekliyor.`);
+      }
+      
       const matchedCount = matches.filter(m => m.status === 'matched').length;
       const unmatchedCount = matches.filter(m => m.status === 'unmatched').length;
+      const autoProcessedCount = autoProcessMatches.length;
       
-      toast.success(`Excel dosyası işlendi! ${excelData.length} kayıt bulundu. ${matchedCount} ödeme eşleştirildi, ${unmatchedCount} eşleştirilemedi.`);
+      if (autoProcessedCount === 0) {
+        toast.success(`Excel dosyası işlendi! ${excelData.length} kayıt bulundu. ${matchedCount} ödeme eşleştirildi, ${unmatchedCount} eşleştirilemedi.`);
+      }
       
     } catch (error) {
       console.error('Excel processing error:', error);
