@@ -345,105 +345,18 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     siblingGroupsCount: Object.keys(siblingGroups).length
   });
   
-  // If multiple amount detected, prioritize showing sibling groups
-  if (isMultipleAmount && Object.keys(siblingGroups).length > 0) {
-    // First, add all siblings from groups that match the description
-    Object.values(siblingGroups).forEach(siblings => {
-      siblings.forEach(athlete => {
-        const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
-        const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-        
-        // Calculate similarity for this athlete
-        let maxSimilarity = 0;
-        
-        const athleteVersions = normalizeTurkishText(athleteName);
-        const parentVersions = normalizeTurkishText(parentName);
-        const descVersions = normalizeTurkishText(description);
-        
-        // Test all combinations
-        for (const descVersion of descVersions) {
-          for (const athleteVersion of athleteVersions) {
-            const sim = calculateSimilarity(descVersion, athleteVersion);
-            maxSimilarity = Math.max(maxSimilarity, sim);
-          }
-          for (const parentVersion of parentVersions) {
-            const sim = calculateSimilarity(descVersion, parentVersion);
-            maxSimilarity = Math.max(maxSimilarity, sim * 1.2); // Higher boost for parent matches in multi-athlete scenarios
-          }
-        }
-        
-        // Word-by-word matching
-        const descWords = descVersions[0].split(' ').filter(w => w.length > 2);
-        const athleteWords = athleteVersions[0].split(' ').filter(w => w.length > 2);
-        const parentWords = parentVersions[0].split(' ').filter(w => w.length > 2);
-        
-        let wordMatchScore = 0;
-        let totalPossibleMatches = descWords.length;
-        
-        for (const descWord of descWords) {
-          let bestWordMatch = 0;
-          
-          // Check athlete name words
-          for (const athleteWord of athleteWords) {
-            if (descWord === athleteWord) {
-              bestWordMatch = Math.max(bestWordMatch, 100);
-            } else if (descWord.includes(athleteWord) || athleteWord.includes(descWord)) {
-              bestWordMatch = Math.max(bestWordMatch, 80);
-            } else {
-              const wordSim = calculateLevenshteinSimilarity(descWord, athleteWord);
-              if (wordSim > 70) {
-                bestWordMatch = Math.max(bestWordMatch, wordSim * 0.8);
-              }
-            }
-          }
-          
-          // Check parent name words (with higher boost for multi-athlete)
-          for (const parentWord of parentWords) {
-            if (descWord === parentWord) {
-              bestWordMatch = Math.max(bestWordMatch, 110);
-            } else if (descWord.includes(parentWord) || parentWord.includes(descWord)) {
-              bestWordMatch = Math.max(bestWordMatch, 90);
-            } else {
-              const wordSim = calculateLevenshteinSimilarity(descWord, parentWord);
-              if (wordSim > 70) {
-                bestWordMatch = Math.max(bestWordMatch, wordSim * 0.9);
-              }
-            }
-          }
-          
-          wordMatchScore += bestWordMatch;
-        }
-        
-        const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
-        const finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
-        
-        // Big boost for siblings in multi-athlete scenarios
-        const siblingBoost = 25; // Increased from 10 to 25
-        const adjustedSimilarity = Math.min(100, finalSimilarity + siblingBoost);
-        
-        // Lower threshold for siblings
-        if (adjustedSimilarity > 10 || finalSimilarity > 5) {
-          suggestions.push({
-            athleteId: athlete.id.toString(),
-            athleteName: athleteName,
-            parentName: parentName,
-            similarity: Math.round(adjustedSimilarity),
-            isSibling: true
-          });
-        }
-      });
+  // Create a map to identify which athletes are siblings
+  const siblingMap = new Map<string, any[]>();
+  Object.values(siblingGroups).forEach(siblings => {
+    siblings.forEach(athlete => {
+      siblingMap.set(athlete.id.toString(), siblings);
     });
-  }
+  });
   
-  // Then add regular matches for non-sibling athletes
+  // Process all athletes with enhanced matching
   for (const athlete of athletes) {
     const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
     const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-    
-    // Skip if already added as sibling
-    if (suggestions.some(s => s.athleteId === athlete.id.toString())) {
-      continue;
-    }
     
     // Enhanced similarity calculation
     let maxSimilarity = 0;
@@ -460,7 +373,7 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
       }
       for (const parentVersion of parentVersions) {
         const sim = calculateSimilarity(descVersion, parentVersion);
-        maxSimilarity = Math.max(maxSimilarity, sim * 1.1);
+        maxSimilarity = Math.max(maxSimilarity, sim * 1.2); // Parent name boost
       }
     }
     
@@ -507,25 +420,38 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     }
     
     const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
-    const finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
+    let finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
     
-    // Regular threshold for non-siblings
-    if (finalSimilarity > 15) {
+    // Check if this athlete is a sibling and if their individual name/parent matches well
+    const isSibling = siblingMap.has(athlete.id.toString());
+    let shouldIncludeAsSibling = false;
+    
+    if (isSibling) {
+      // Only mark as sibling suggestion if their individual name or parent name has decent similarity
+      // This prevents showing all siblings for every payment
+      if (finalSimilarity > 25) { // Higher threshold for sibling marking
+        shouldIncludeAsSibling = true;
+        finalSimilarity = Math.min(100, finalSimilarity + 15); // Moderate sibling boost only when they individually match
+      }
+    }
+    
+    // Use higher threshold for better quality suggestions (restore ~90% accuracy)
+    if (finalSimilarity > 25) { // Increased from 15 to 25 for better quality
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
         parentName: parentName,
         similarity: Math.round(finalSimilarity),
-        isSibling: false
+        isSibling: shouldIncludeAsSibling
       });
     }
   }
   
-  // Sort by sibling status first, then by similarity
+  // Sort by similarity (highest first), with slight preference for siblings when they have good individual matches
   return suggestions
     .sort((a, b) => {
-      // Prioritize siblings if multiple amount detected
-      if (isMultipleAmount && a.isSibling !== b.isSibling) {
+      // If both have similar similarity scores, prefer siblings slightly
+      if (Math.abs(a.similarity - b.similarity) <= 5 && a.isSibling !== b.isSibling) {
         return a.isSibling ? -1 : 1;
       }
       return b.similarity - a.similarity;
@@ -2673,7 +2599,7 @@ export default function Payments() {
                                 {/* Manual Matching for Unmatched Payments with Smart Suggestions */}
                                 {match.status === 'unmatched' && (
                                   <div className="border-t pt-4">
-                                    {/* Multi-athlete matching section - Always show for debugging */}
+                                    {/* Multi-athlete matching section - Only show when truly relevant */}
                                     {(() => {
                                       const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
                                       let athletes = [];
@@ -2699,15 +2625,36 @@ export default function Payments() {
                                       const isMultipleAmount = detectMultipleAthletes(extractedAmount, athletes);
                                       const siblingGroups = findSiblings(athletes);
                                       
+                                      // Check if any sibling group has members that match the description reasonably well
+                                      let hasRelevantSiblings = false;
+                                      if (Object.keys(siblingGroups).length > 0) {
+                                        for (const siblings of Object.values(siblingGroups)) {
+                                          for (const sibling of siblings) {
+                                            const athleteName = `${sibling.studentName || sibling.firstName || ''} ${sibling.studentSurname || sibling.lastName || ''}`.trim();
+                                            const parentName = `${sibling.parentName || ''} ${sibling.parentSurname || ''}`.trim();
+                                            
+                                            const athleteSim = calculateSimilarity(match.excelData.description, athleteName);
+                                            const parentSim = calculateSimilarity(match.excelData.description, parentName);
+                                            const maxSim = Math.max(athleteSim, parentSim);
+                                            
+                                            if (maxSim > 20) { // Only show if there's some reasonable match
+                                              hasRelevantSiblings = true;
+                                              break;
+                                            }
+                                          }
+                                          if (hasRelevantSiblings) break;
+                                        }
+                                      }
+                                      
                                       console.log('Multi-athlete debug:', {
                                         extractedAmount,
                                         isMultipleAmount,
                                         siblingGroupsCount: Object.keys(siblingGroups).length,
-                                        siblingGroups
+                                        hasRelevantSiblings
                                       });
                                       
-                                      // Show multi-athlete section if amount suggests multiple payments OR if sibling groups exist
-                                      if (isMultipleAmount || Object.keys(siblingGroups).length > 0) {
+                                      // Show multi-athlete section only if amount suggests multiple payments AND there are relevant sibling matches
+                                      if (isMultipleAmount && hasRelevantSiblings) {
                                         return (
                                           <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
                                             <div className="flex items-center space-x-2 mb-3">
