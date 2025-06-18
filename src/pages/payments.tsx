@@ -131,7 +131,7 @@ const parseTurkishDate = (dateStr: string): Date | null => {
   return null;
 };
 
-// Advanced similarity calculation with multiple algorithms
+// Advanced similarity calculation with multiple algorithms - FIXED VERSION
 const calculateSimilarity = (str1: string, str2: string): number => {
   if (!str1 || !str2) return 0;
   
@@ -140,60 +140,58 @@ const calculateSimilarity = (str1: string, str2: string): number => {
   
   let maxSimilarity = 0;
   
-  // Test all combinations of normalized versions
+  // PRIORITY 1: Exact match detection (case-insensitive, Turkish char normalized)
   for (const v1 of versions1) {
     for (const v2 of versions2) {
-      // Exact match gets 100% similarity (case-insensitive after normalization)
-      if (v1 === v2) return 100;
+      // Direct exact match after normalization
+      if (v1 === v2 && v1.length > 0) return 100;
       
-      // Check for exact match after removing all spaces and punctuation
-      const clean1 = v1.replace(/\s+/g, '').replace(/[^\wğüşıöçâîû]/g, '');
-      const clean2 = v2.replace(/\s+/g, '').replace(/[^\wğüşıöçâîû]/g, '');
-      if (clean1 === clean2 && clean1.length > 0) return 100;
+      // Clean and compare (remove all non-alphanumeric except Turkish chars)
+      const clean1 = v1.replace(/[^\wğüşıöçâîû]/g, '').toLowerCase();
+      const clean2 = v2.replace(/[^\wğüşıöçâîû]/g, '').toLowerCase();
+      if (clean1 === clean2 && clean1.length > 2) return 100;
       
-      // Check if one contains the other (high similarity for substring matches)
+      // Word-by-word exact matching for multi-word names
+      const words1 = v1.split(/\s+/).filter(w => w.length > 1);
+      const words2 = v2.split(/\s+/).filter(w => w.length > 1);
+      
+      if (words1.length >= 2 && words2.length >= 2) {
+        // Check if all words from shorter name exist in longer name
+        const shorterWords = words1.length <= words2.length ? words1 : words2;
+        const longerWords = words1.length > words2.length ? words1 : words2;
+        
+        let exactWordMatches = 0;
+        for (const shortWord of shorterWords) {
+          if (longerWords.some(longWord => longWord === shortWord)) {
+            exactWordMatches++;
+          }
+        }
+        
+        // If all words from shorter name match, it's a perfect match
+        if (exactWordMatches === shorterWords.length && shorterWords.length >= 2) {
+          return 100;
+        }
+        
+        // High similarity for most words matching
+        if (exactWordMatches >= Math.min(shorterWords.length, 2)) {
+          const wordMatchScore = (exactWordMatches / Math.max(words1.length, words2.length)) * 100;
+          maxSimilarity = Math.max(maxSimilarity, wordMatchScore);
+        }
+      }
+      
+      // PRIORITY 2: Containment check (one name contains the other)
       if (v1.includes(v2) || v2.includes(v1)) {
         const containmentScore = Math.min(v1.length, v2.length) / Math.max(v1.length, v2.length) * 95;
         maxSimilarity = Math.max(maxSimilarity, containmentScore);
       }
       
-      // Word-by-word exact matching for names
-      const words1 = v1.split(/\s+/).filter(w => w.length > 1);
-      const words2 = v2.split(/\s+/).filter(w => w.length > 1);
-      
-      if (words1.length > 0 && words2.length > 0) {
-        let exactWordMatches = 0;
-        let totalWords = Math.max(words1.length, words2.length);
-        
-        for (const word1 of words1) {
-          for (const word2 of words2) {
-            if (word1 === word2) {
-              exactWordMatches++;
-              break;
-            }
-          }
-        }
-        
-        if (exactWordMatches === totalWords && totalWords >= 2) {
-          return 100; // All words match exactly
-        }
-        
-        const wordMatchScore = (exactWordMatches / totalWords) * 100;
-        maxSimilarity = Math.max(maxSimilarity, wordMatchScore);
-      }
-      
-      // Levenshtein distance
+      // PRIORITY 3: Advanced similarity algorithms
       const levenshtein = calculateLevenshteinSimilarity(v1, v2);
-      
-      // Jaccard similarity (word-based)
       const jaccard = calculateJaccardSimilarity(v1, v2);
-      
-      // Substring matching
       const substring = calculateSubstringSimilarity(v1, v2);
       
-      // Combined score with weights
-      const combined = (levenshtein * 0.4) + (jaccard * 0.4) + (substring * 0.2);
-      
+      // Weighted combination with emphasis on exact matches
+      const combined = (levenshtein * 0.5) + (jaccard * 0.3) + (substring * 0.2);
       maxSimilarity = Math.max(maxSimilarity, combined);
     }
   }
@@ -458,21 +456,21 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
     let finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
     
-    // Check if this athlete is a sibling and if their individual name/parent matches well
+    // FIXED: Better sibling detection and filtering
     const isSibling = siblingMap.has(athlete.id.toString());
     let shouldIncludeAsSibling = false;
     
     if (isSibling) {
-      // Only mark as sibling suggestion if their individual name or parent name has decent similarity
-      // This prevents showing all siblings for every payment
-      if (finalSimilarity > 25) { // Higher threshold for sibling marking
+      // Only mark as sibling suggestion if their individual name or parent name has GOOD similarity
+      // This prevents showing irrelevant siblings
+      if (finalSimilarity > 40) { // Increased threshold to prevent irrelevant sibling suggestions
         shouldIncludeAsSibling = true;
-        finalSimilarity = Math.min(100, finalSimilarity + 15); // Moderate sibling boost only when they individually match
+        finalSimilarity = Math.min(100, finalSimilarity + 10); // Smaller sibling boost to maintain accuracy
       }
     }
     
-    // Use lower threshold for better coverage but still maintain quality
-    if (finalSimilarity > 15) { // Lowered back to 15 for better coverage
+    // FIXED: Use higher threshold for better quality matches
+    if (finalSimilarity > 25) { // Increased from 15 to 25 for better quality
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
@@ -894,8 +892,8 @@ export default function Payments() {
             
             confidence = nameConfidence + amountConfidence;
             
-            // Lower minimum confidence threshold to 25% for better matching
-            if (confidence > 25 && confidence > bestConfidence) {
+            // FIXED: Use higher confidence threshold for better automatic matching
+            if (confidence > 40 && confidence > bestConfidence) { // Increased from 25 to 40
               bestMatch = payment;
               bestConfidence = confidence;
             }
