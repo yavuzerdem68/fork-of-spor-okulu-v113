@@ -227,51 +227,87 @@ const calculateSubstringSimilarity = (str1: string, str2: string): number => {
 // Detect if payment amount suggests multiple athletes
 const detectMultipleAthletes = (amount: number, athletes: any[]): boolean => {
   // Common monthly fees to check against
-  const commonFees = [350, 400, 450, 500, 600, 700, 800, 1000];
+  const commonFees = [300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000];
   
-  // Check if amount is a multiple of common fees (±50 TL tolerance)
+  // Check if amount is a multiple of common fees (±100 TL tolerance for better detection)
   for (const fee of commonFees) {
-    for (let multiplier = 2; multiplier <= 4; multiplier++) {
+    for (let multiplier = 2; multiplier <= 5; multiplier++) {
       const expectedAmount = fee * multiplier;
-      if (Math.abs(amount - expectedAmount) <= 50) {
-        return true;
-      }
-    }
-  }
-  
-  // Check against average athlete fees (±100 TL tolerance)
-  if (athletes.length > 0) {
-    const avgFee = 400; // Approximate average
-    for (let multiplier = 2; multiplier <= 4; multiplier++) {
-      const expectedAmount = avgFee * multiplier;
       if (Math.abs(amount - expectedAmount) <= 100) {
         return true;
       }
     }
   }
   
+  // Additional check: if amount is greater than 600 TL, likely multiple payments
+  if (amount >= 600) {
+    return true;
+  }
+  
   return false;
 };
 
-// Find siblings (athletes with same parent)
+// Find siblings (athletes with same parent) - Enhanced version
 const findSiblings = (athletes: any[]): { [key: string]: any[] } => {
   const siblingGroups: { [key: string]: any[] } = {};
   
   athletes.forEach(athlete => {
-    const parentKey = normalizeTurkishText(`${athlete.parentName || ''} ${athlete.parentSurname || ''}`)[0];
-    if (parentKey && parentKey.length > 3) {
-      if (!siblingGroups[parentKey]) {
-        siblingGroups[parentKey] = [];
+    // Create multiple keys for better matching
+    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+    const parentPhone = athlete.parentPhone || '';
+    const parentEmail = athlete.parentEmail || '';
+    
+    if (parentName.length > 3) {
+      // Normalize parent name for consistent grouping
+      const normalizedParentName = normalizeTurkishText(parentName)[0];
+      
+      // Use parent name as primary key
+      if (!siblingGroups[normalizedParentName]) {
+        siblingGroups[normalizedParentName] = [];
       }
-      siblingGroups[parentKey].push(athlete);
+      siblingGroups[normalizedParentName].push(athlete);
+      
+      // Also group by phone if available
+      if (parentPhone && parentPhone.length > 8) {
+        const phoneKey = `phone_${parentPhone.replace(/\D/g, '')}`;
+        if (!siblingGroups[phoneKey]) {
+          siblingGroups[phoneKey] = [];
+        }
+        siblingGroups[phoneKey].push(athlete);
+      }
+      
+      // Also group by email if available
+      if (parentEmail && parentEmail.includes('@')) {
+        const emailKey = `email_${parentEmail.toLowerCase()}`;
+        if (!siblingGroups[emailKey]) {
+          siblingGroups[emailKey] = [];
+        }
+        siblingGroups[emailKey].push(athlete);
+      }
     }
   });
   
-  // Only return groups with more than one athlete
+  // Only return groups with more than one athlete and merge duplicates
   const result: { [key: string]: any[] } = {};
+  const processedAthletes = new Set();
+  
   Object.keys(siblingGroups).forEach(key => {
     if (siblingGroups[key].length > 1) {
-      result[key] = siblingGroups[key];
+      // Remove duplicates within the group
+      const uniqueAthletes = siblingGroups[key].filter(athlete => {
+        const athleteId = athlete.id;
+        if (processedAthletes.has(athleteId)) {
+          return false;
+        }
+        processedAthletes.add(athleteId);
+        return true;
+      });
+      
+      if (uniqueAthletes.length > 1) {
+        // Use parent name as the key for display
+        const parentName = `${uniqueAthletes[0].parentName || ''} ${uniqueAthletes[0].parentSurname || ''}`.trim();
+        result[parentName] = uniqueAthletes;
+      }
     }
   });
   
@@ -281,17 +317,137 @@ const findSiblings = (athletes: any[]): { [key: string]: any[] } => {
 // Find closest matching athletes for a given description with enhanced algorithm
 const findClosestMatches = (description: string, athletes: any[], limit: number = 8): SuggestedMatch[] => {
   const suggestions: SuggestedMatch[] = [];
-  const isMultipleAmount = detectMultipleAthletes(parseFloat(description.match(/\d+/)?.[0] || '0'), athletes);
+  
+  // Extract amount from description for multi-athlete detection
+  const amountMatch = description.match(/[\d.,]+/g);
+  let extractedAmount = 0;
+  if (amountMatch) {
+    // Handle Turkish number format
+    const amountStr = amountMatch[amountMatch.length - 1]; // Get the last number (likely the amount)
+    if (amountStr.includes('.') && amountStr.includes(',')) {
+      // Turkish format: 2.100,00
+      extractedAmount = parseFloat(amountStr.replace(/\./g, '').replace(',', '.'));
+    } else if (amountStr.includes(',')) {
+      // Format: 1234,56
+      extractedAmount = parseFloat(amountStr.replace(',', '.'));
+    } else {
+      extractedAmount = parseFloat(amountStr.replace(/\./g, ''));
+    }
+  }
+  
+  const isMultipleAmount = detectMultipleAthletes(extractedAmount, athletes);
   const siblingGroups = findSiblings(athletes);
   
+  console.log('Multi-athlete detection:', {
+    description,
+    extractedAmount,
+    isMultipleAmount,
+    siblingGroupsCount: Object.keys(siblingGroups).length
+  });
+  
+  // If multiple amount detected, prioritize showing sibling groups
+  if (isMultipleAmount && Object.keys(siblingGroups).length > 0) {
+    // First, add all siblings from groups that match the description
+    Object.values(siblingGroups).forEach(siblings => {
+      siblings.forEach(athlete => {
+        const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
+        const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+        
+        // Calculate similarity for this athlete
+        let maxSimilarity = 0;
+        
+        const athleteVersions = normalizeTurkishText(athleteName);
+        const parentVersions = normalizeTurkishText(parentName);
+        const descVersions = normalizeTurkishText(description);
+        
+        // Test all combinations
+        for (const descVersion of descVersions) {
+          for (const athleteVersion of athleteVersions) {
+            const sim = calculateSimilarity(descVersion, athleteVersion);
+            maxSimilarity = Math.max(maxSimilarity, sim);
+          }
+          for (const parentVersion of parentVersions) {
+            const sim = calculateSimilarity(descVersion, parentVersion);
+            maxSimilarity = Math.max(maxSimilarity, sim * 1.2); // Higher boost for parent matches in multi-athlete scenarios
+          }
+        }
+        
+        // Word-by-word matching
+        const descWords = descVersions[0].split(' ').filter(w => w.length > 2);
+        const athleteWords = athleteVersions[0].split(' ').filter(w => w.length > 2);
+        const parentWords = parentVersions[0].split(' ').filter(w => w.length > 2);
+        
+        let wordMatchScore = 0;
+        let totalPossibleMatches = descWords.length;
+        
+        for (const descWord of descWords) {
+          let bestWordMatch = 0;
+          
+          // Check athlete name words
+          for (const athleteWord of athleteWords) {
+            if (descWord === athleteWord) {
+              bestWordMatch = Math.max(bestWordMatch, 100);
+            } else if (descWord.includes(athleteWord) || athleteWord.includes(descWord)) {
+              bestWordMatch = Math.max(bestWordMatch, 80);
+            } else {
+              const wordSim = calculateLevenshteinSimilarity(descWord, athleteWord);
+              if (wordSim > 70) {
+                bestWordMatch = Math.max(bestWordMatch, wordSim * 0.8);
+              }
+            }
+          }
+          
+          // Check parent name words (with higher boost for multi-athlete)
+          for (const parentWord of parentWords) {
+            if (descWord === parentWord) {
+              bestWordMatch = Math.max(bestWordMatch, 110);
+            } else if (descWord.includes(parentWord) || parentWord.includes(descWord)) {
+              bestWordMatch = Math.max(bestWordMatch, 90);
+            } else {
+              const wordSim = calculateLevenshteinSimilarity(descWord, parentWord);
+              if (wordSim > 70) {
+                bestWordMatch = Math.max(bestWordMatch, wordSim * 0.9);
+              }
+            }
+          }
+          
+          wordMatchScore += bestWordMatch;
+        }
+        
+        const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
+        const finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
+        
+        // Big boost for siblings in multi-athlete scenarios
+        const siblingBoost = 25; // Increased from 10 to 25
+        const adjustedSimilarity = Math.min(100, finalSimilarity + siblingBoost);
+        
+        // Lower threshold for siblings
+        if (adjustedSimilarity > 10 || finalSimilarity > 5) {
+          suggestions.push({
+            athleteId: athlete.id.toString(),
+            athleteName: athleteName,
+            parentName: parentName,
+            similarity: Math.round(adjustedSimilarity),
+            isSibling: true
+          });
+        }
+      });
+    });
+  }
+  
+  // Then add regular matches for non-sibling athletes
   for (const athlete of athletes) {
     const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
     const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
     
+    // Skip if already added as sibling
+    if (suggestions.some(s => s.athleteId === athlete.id.toString())) {
+      continue;
+    }
+    
     // Enhanced similarity calculation
     let maxSimilarity = 0;
     
-    // 1. Direct name matching with all normalized versions
     const athleteVersions = normalizeTurkishText(athleteName);
     const parentVersions = normalizeTurkishText(parentName);
     const descVersions = normalizeTurkishText(description);
@@ -304,11 +460,11 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
       }
       for (const parentVersion of parentVersions) {
         const sim = calculateSimilarity(descVersion, parentVersion);
-        maxSimilarity = Math.max(maxSimilarity, sim * 1.1); // Slight boost for parent matches
+        maxSimilarity = Math.max(maxSimilarity, sim * 1.1);
       }
     }
     
-    // 2. Word-by-word matching with fuzzy logic
+    // Word-by-word matching
     const descWords = descVersions[0].split(' ').filter(w => w.length > 2);
     const athleteWords = athleteVersions[0].split(' ').filter(w => w.length > 2);
     const parentWords = parentVersions[0].split(' ').filter(w => w.length > 2);
@@ -326,7 +482,6 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
         } else if (descWord.includes(athleteWord) || athleteWord.includes(descWord)) {
           bestWordMatch = Math.max(bestWordMatch, 80);
         } else {
-          // Fuzzy matching for similar words
           const wordSim = calculateLevenshteinSimilarity(descWord, athleteWord);
           if (wordSim > 70) {
             bestWordMatch = Math.max(bestWordMatch, wordSim * 0.8);
@@ -334,7 +489,7 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
         }
       }
       
-      // Check parent name words (with slight boost)
+      // Check parent name words
       for (const parentWord of parentWords) {
         if (descWord === parentWord) {
           bestWordMatch = Math.max(bestWordMatch, 105);
@@ -352,34 +507,21 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     }
     
     const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
-    
-    // 3. Combine scores
     const finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
     
-    // 4. Boost for siblings if multiple amount detected
-    let siblingBoost = 0;
-    if (isMultipleAmount) {
-      const parentKey = normalizeTurkishText(`${athlete.parentName || ''} ${athlete.parentSurname || ''}`)[0];
-      if (siblingGroups[parentKey]) {
-        siblingBoost = 10; // Small boost for potential siblings
-      }
-    }
-    
-    const adjustedSimilarity = Math.min(100, finalSimilarity + siblingBoost);
-    
-    // Lower threshold for better coverage
-    if (adjustedSimilarity > 15) {
+    // Regular threshold for non-siblings
+    if (finalSimilarity > 15) {
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
         parentName: parentName,
-        similarity: Math.round(adjustedSimilarity),
-        isSibling: siblingBoost > 0
+        similarity: Math.round(finalSimilarity),
+        isSibling: false
       });
     }
   }
   
-  // Sort by similarity (highest first) and return top matches
+  // Sort by sibling status first, then by similarity
   return suggestions
     .sort((a, b) => {
       // Prioritize siblings if multiple amount detected
@@ -2531,6 +2673,142 @@ export default function Payments() {
                                 {/* Manual Matching for Unmatched Payments with Smart Suggestions */}
                                 {match.status === 'unmatched' && (
                                   <div className="border-t pt-4">
+                                    {/* Multi-athlete matching section */}
+                                    {(() => {
+                                      const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+                                      let athletes = [];
+                                      if (storedAthletes) {
+                                        athletes = JSON.parse(storedAthletes);
+                                      }
+                                      
+                                      const extractedAmount = (() => {
+                                        const amountMatch = match.excelData.description.match(/[\d.,]+/g);
+                                        if (amountMatch) {
+                                          const amountStr = amountMatch[amountMatch.length - 1];
+                                          if (amountStr.includes('.') && amountStr.includes(',')) {
+                                            return parseFloat(amountStr.replace(/\./g, '').replace(',', '.'));
+                                          } else if (amountStr.includes(',')) {
+                                            return parseFloat(amountStr.replace(',', '.'));
+                                          } else {
+                                            return parseFloat(amountStr.replace(/\./g, ''));
+                                          }
+                                        }
+                                        return match.excelData.amount;
+                                      })();
+                                      
+                                      const isMultipleAmount = detectMultipleAthletes(extractedAmount, athletes);
+                                      const siblingGroups = findSiblings(athletes);
+                                      
+                                      if (isMultipleAmount && Object.keys(siblingGroups).length > 0) {
+                                        return (
+                                          <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                                            <div className="flex items-center space-x-2 mb-3">
+                                              <Users className="h-5 w-5 text-purple-600" />
+                                              <Label className="text-sm font-medium text-purple-800">
+                                                Çoklu Sporcu Eşleştirme (Kardeş Önerisi)
+                                              </Label>
+                                              <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700">
+                                                ₺{extractedAmount} - Çoklu ödeme algılandı
+                                              </Badge>
+                                            </div>
+                                            <p className="text-xs text-purple-700 mb-3">
+                                              Bu tutar birden fazla sporcu için olabilir. Aşağıdaki kardeş gruplarından seçim yapabilirsiniz:
+                                            </p>
+                                            
+                                            <div className="space-y-3">
+                                              {Object.entries(siblingGroups).map(([parentName, siblings]) => (
+                                                <div key={parentName} className="border border-purple-200 rounded-lg p-3 bg-white">
+                                                  <div className="flex items-center justify-between mb-2">
+                                                    <span className="font-medium text-sm text-purple-800">
+                                                      {parentName} - {siblings.length} kardeş
+                                                    </span>
+                                                    <span className="text-xs text-purple-600">
+                                                      ₺{(extractedAmount / siblings.length).toFixed(2)} / sporcu
+                                                    </span>
+                                                  </div>
+                                                  
+                                                  <div className="space-y-2">
+                                                    {siblings.map((sibling: any) => {
+                                                      const siblingName = `${sibling.studentName || sibling.firstName || ''} ${sibling.studentSurname || sibling.lastName || ''}`.trim();
+                                                      const isSelected = selectedMultipleAthletes[index]?.includes(sibling.id.toString()) || false;
+                                                      
+                                                      return (
+                                                        <div key={sibling.id} className="flex items-center space-x-2">
+                                                          <input
+                                                            type="checkbox"
+                                                            id={`sibling-${index}-${sibling.id}`}
+                                                            checked={isSelected}
+                                                            onChange={(e) => {
+                                                              setSelectedMultipleAthletes(prev => {
+                                                                const current = prev[index] || [];
+                                                                if (e.target.checked) {
+                                                                  return {
+                                                                    ...prev,
+                                                                    [index]: [...current, sibling.id.toString()]
+                                                                  };
+                                                                } else {
+                                                                  return {
+                                                                    ...prev,
+                                                                    [index]: current.filter(id => id !== sibling.id.toString())
+                                                                  };
+                                                                }
+                                                              });
+                                                            }}
+                                                            className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                                                          />
+                                                          <label 
+                                                            htmlFor={`sibling-${index}-${sibling.id}`}
+                                                            className="text-sm cursor-pointer flex-1"
+                                                          >
+                                                            {siblingName}
+                                                            <span className="text-xs text-muted-foreground ml-2">
+                                                              ({sibling.selectedSports ? sibling.selectedSports[0] : 'Genel'})
+                                                            </span>
+                                                          </label>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                  
+                                                  <div className="mt-3 flex justify-end">
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="text-purple-700 border-purple-300 hover:bg-purple-100"
+                                                      onClick={() => {
+                                                        const siblingIds = siblings.map((s: any) => s.id.toString());
+                                                        setSelectedMultipleAthletes(prev => ({
+                                                          ...prev,
+                                                          [index]: siblingIds
+                                                        }));
+                                                      }}
+                                                    >
+                                                      <Users className="h-4 w-4 mr-1" />
+                                                      Tüm Kardeşleri Seç
+                                                    </Button>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                            
+                                            {selectedMultipleAthletes[index] && selectedMultipleAthletes[index].length > 0 && (
+                                              <div className="mt-4 flex justify-end">
+                                                <Button
+                                                  size="sm"
+                                                  className="bg-purple-600 hover:bg-purple-700"
+                                                  onClick={() => handleMultipleAthleteMatch(index, selectedMultipleAthletes[index])}
+                                                >
+                                                  <Users className="h-4 w-4 mr-2" />
+                                                  Çoklu Eşleştir ({selectedMultipleAthletes[index].length} sporcu)
+                                                </Button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
+                                    
                                     {/* Show closest suggestions first */}
                                     {match.suggestions && match.suggestions.length > 0 && (
                                       <div className="mb-4">
@@ -2551,7 +2829,9 @@ export default function Payments() {
                                             return (
                                               <div 
                                                 key={suggestion.athleteId}
-                                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
+                                                className={`flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
+                                                  suggestion.isSibling ? 'border-purple-300 bg-purple-50' : 'border-gray-200'
+                                                }`}
                                                 onClick={() => {
                                                   setManualMatches(prev => ({
                                                     ...prev,
@@ -2565,6 +2845,11 @@ export default function Payments() {
                                                     <Badge variant="outline" className="text-xs">
                                                       %{suggestion.similarity} benzerlik
                                                     </Badge>
+                                                    {suggestion.isSibling && (
+                                                      <Badge className="text-xs bg-purple-100 text-purple-700 border-purple-300">
+                                                        Kardeş
+                                                      </Badge>
+                                                    )}
                                                   </div>
                                                   <p className="text-xs text-muted-foreground">
                                                     {athlete.parentName || ''} {athlete.parentSurname || ''} - {athlete.selectedSports ? athlete.selectedSports[0] : 'Genel'}
