@@ -1233,7 +1233,7 @@ export default function Athletes() {
           }
 
           const athleteData = {
-            id: Date.now() + i,
+            id: Date.now() + Math.random() * 1000 + i, // More unique ID generation
             // Öğrenci Bilgileri
             studentName: row['Öğrenci Adı'],
             studentSurname: row['Öğrenci Soyadı'],
@@ -2874,18 +2874,47 @@ export default function Athletes() {
                   athlete={selectedAthleteForEdit}
                   onSave={(updatedAthlete) => {
                     try {
-                      // Update athlete in localStorage
+                      console.log('Saving athlete with ID:', updatedAthlete.id);
+                      console.log('Updated athlete data:', updatedAthlete);
+                      
+                      // Get all students from localStorage
                       const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-                      const updatedStudents = allStudents.map((student: any) => 
-                        student.id === updatedAthlete.id ? {
-                          ...student,
-                          ...updatedAthlete,
-                          updatedAt: new Date().toISOString()
-                        } : student
-                      );
+                      console.log('Total students before update:', allStudents.length);
+                      
+                      // Find the athlete by ID and update
+                      let athleteFound = false;
+                      const updatedStudents = allStudents.map((student: any) => {
+                        if (student.id === updatedAthlete.id) {
+                          athleteFound = true;
+                          console.log('Found athlete to update:', student.studentName, student.studentSurname);
+                          // Completely replace the student data with updated data
+                          return {
+                            ...updatedAthlete,
+                            id: student.id, // Ensure ID is preserved
+                            registrationDate: student.registrationDate || student.createdAt, // Preserve original registration date
+                            createdAt: student.createdAt, // Preserve original creation date
+                            updatedAt: new Date().toISOString(),
+                            isManuallyEdited: true // Mark as manually edited
+                          };
+                        }
+                        return student;
+                      });
+                      
+                      if (!athleteFound) {
+                        console.error('Athlete not found with ID:', updatedAthlete.id);
+                        alert('Sporcu bulunamadı. Lütfen sayfayı yenileyin ve tekrar deneyin.');
+                        return;
+                      }
+                      
+                      console.log('Saving updated students to localStorage');
                       localStorage.setItem('students', JSON.stringify(updatedStudents));
                       
-                      // Reload athletes
+                      // Verify the save was successful
+                      const verifyStudents = JSON.parse(localStorage.getItem('students') || '[]');
+                      const verifyAthlete = verifyStudents.find((s: any) => s.id === updatedAthlete.id);
+                      console.log('Verification - athlete after save:', verifyAthlete);
+                      
+                      // Reload athletes to reflect changes
                       loadAthletes(userRole!, currentUser);
                       
                       // Close dialog
