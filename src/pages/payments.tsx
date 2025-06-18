@@ -235,6 +235,7 @@ export default function Payments() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
   const [manualMatches, setManualMatches] = useState<{[key: number]: string}>({});
+  const [paymentMatchHistory, setPaymentMatchHistory] = useState<{[key: string]: string}>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newPayment, setNewPayment] = useState({
     athleteId: '',
@@ -256,6 +257,12 @@ export default function Payments() {
     setUserRole(role);
     if (user) {
       setCurrentUser(JSON.parse(user));
+    }
+
+    // Load payment match history
+    const storedMatchHistory = localStorage.getItem('paymentMatchHistory');
+    if (storedMatchHistory) {
+      setPaymentMatchHistory(JSON.parse(storedMatchHistory));
     }
 
     loadPayments();
@@ -516,62 +523,87 @@ export default function Payments() {
         let bestMatch = null;
         let bestConfidence = 0;
         
-        // Try to match with existing payments first
-        for (const payment of payments) {
-          if (payment.status === "Ödendi") continue; // Skip already paid
-          
-          let confidence = 0;
-          
-          // Enhanced name matching with Turkish character normalization
-          const normalizedDescription = normalizeTurkishText(excelRow.description);
-          const normalizedParentName = normalizeTurkishText(payment.parentName);
-          const normalizedAthleteName = normalizeTurkishText(payment.athleteName);
-          
-          // Calculate similarity scores using Levenshtein distance
-          const parentSimilarity = calculateSimilarity(excelRow.description, payment.parentName);
-          const athleteSimilarity = calculateSimilarity(excelRow.description, payment.athleteName);
-          
-          // Use the higher similarity score
-          const nameSimilarity = Math.max(parentSimilarity, athleteSimilarity);
-          
-          // Word-based matching for partial matches
-          const parentWords = normalizedParentName.split(' ').filter(w => w.length > 2);
-          const athleteWords = normalizedAthleteName.split(' ').filter(w => w.length > 2);
-          const descWords = normalizedDescription.split(' ').filter(w => w.length > 2);
-          
-          let wordMatches = 0;
-          let totalWords = parentWords.length + athleteWords.length;
-          
-          // Check parent name word matches
-          for (const word of parentWords) {
-            if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
-              wordMatches++;
-            }
+        // Check if we have a stored match for this description
+        const normalizedDesc = normalizeTurkishText(excelRow.description);
+        const storedMatch = paymentMatchHistory[normalizedDesc];
+        
+        if (storedMatch) {
+          // Try to find the stored athlete
+          const storedAthlete = athletes.find(a => a.id.toString() === storedMatch);
+          if (storedAthlete) {
+            const athleteName = `${storedAthlete.studentName || storedAthlete.firstName || ''} ${storedAthlete.studentSurname || storedAthlete.lastName || ''}`.trim();
+            const parentName = `${storedAthlete.parentName || ''} ${storedAthlete.parentSurname || ''}`.trim();
+            
+            bestMatch = {
+              id: storedAthlete.id,
+              athleteName: athleteName,
+              parentName: parentName,
+              amount: excelRow.amount,
+              status: 'Bekliyor',
+              sport: storedAthlete.selectedSports ? storedAthlete.selectedSports[0] : (storedAthlete.sportsBranches ? storedAthlete.sportsBranches[0] : 'Genel')
+            };
+            bestConfidence = 100; // Historical match gets highest confidence
           }
-          
-          // Check athlete name word matches
-          for (const word of athleteWords) {
-            if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
-              wordMatches++;
+        }
+        
+        // If no historical match, try to match with existing payments
+        if (!bestMatch) {
+          for (const payment of payments) {
+            if (payment.status === "Ödendi") continue; // Skip already paid
+            
+            let confidence = 0;
+            
+            // Enhanced name matching with Turkish character normalization
+            const normalizedDescription = normalizeTurkishText(excelRow.description);
+            const normalizedParentName = normalizeTurkishText(payment.parentName);
+            const normalizedAthleteName = normalizeTurkishText(payment.athleteName);
+            
+            // Calculate similarity scores using Levenshtein distance
+            const parentSimilarity = calculateSimilarity(excelRow.description, payment.parentName);
+            const athleteSimilarity = calculateSimilarity(excelRow.description, payment.athleteName);
+            
+            // Use the higher similarity score
+            const nameSimilarity = Math.max(parentSimilarity, athleteSimilarity);
+            
+            // Word-based matching for partial matches
+            const parentWords = normalizedParentName.split(' ').filter(w => w.length > 2);
+            const athleteWords = normalizedAthleteName.split(' ').filter(w => w.length > 2);
+            const descWords = normalizedDescription.split(' ').filter(w => w.length > 2);
+            
+            let wordMatches = 0;
+            let totalWords = parentWords.length + athleteWords.length;
+            
+            // Check parent name word matches
+            for (const word of parentWords) {
+              if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
+                wordMatches++;
+              }
             }
-          }
-          
-          // Calculate word-based confidence
-          const wordConfidence = totalWords > 0 ? (wordMatches / totalWords) * 50 : 0;
-          
-          // Use the higher of similarity-based or word-based confidence
-          const nameConfidence = Math.max(nameSimilarity * 0.6, wordConfidence);
-          
-          // Amount matching with ±30 TL tolerance (increased for better flexibility)
-          const amountDiff = Math.abs(excelRow.amount - payment.amount);
-          const amountConfidence = amountDiff <= 30 ? 40 - (amountDiff * 1.3) : 0;
-          
-          confidence = nameConfidence + amountConfidence;
-          
-          // Lower minimum confidence threshold to 25% for better matching
-          if (confidence > 25 && confidence > bestConfidence) {
-            bestMatch = payment;
-            bestConfidence = confidence;
+            
+            // Check athlete name word matches
+            for (const word of athleteWords) {
+              if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
+                wordMatches++;
+              }
+            }
+            
+            // Calculate word-based confidence
+            const wordConfidence = totalWords > 0 ? (wordMatches / totalWords) * 50 : 0;
+            
+            // Use the higher of similarity-based or word-based confidence
+            const nameConfidence = Math.max(nameSimilarity * 0.6, wordConfidence);
+            
+            // Amount matching with ±30 TL tolerance (increased for better flexibility)
+            const amountDiff = Math.abs(excelRow.amount - payment.amount);
+            const amountConfidence = amountDiff <= 30 ? 40 - (amountDiff * 1.3) : 0;
+            
+            confidence = nameConfidence + amountConfidence;
+            
+            // Lower minimum confidence threshold to 25% for better matching
+            if (confidence > 25 && confidence > bestConfidence) {
+              bestMatch = payment;
+              bestConfidence = confidence;
+            }
           }
         }
         
@@ -580,11 +612,12 @@ export default function Payments() {
             excelData: excelRow,
             payment: bestMatch,
             confidence: Math.round(bestConfidence),
-            status: 'matched'
+            status: 'matched',
+            isHistorical: storedMatch ? true : false
           });
         } else {
           // For unmatched payments, find closest suggestions
-          const suggestions = findClosestMatches(excelRow.description, athletes, 3);
+          const suggestions = findClosestMatches(excelRow.description, athletes, 5);
           
           matches.push({
             excelData: excelRow,
@@ -664,6 +697,19 @@ export default function Payments() {
 
   const confirmMatches = () => {
     const confirmedMatches = matchedPayments.filter(match => match.status === 'matched');
+    
+    // Save manual matches to history for future use
+    const updatedMatchHistory = { ...paymentMatchHistory };
+    confirmedMatches.forEach(match => {
+      if (match.isManual && match.payment) {
+        const normalizedDesc = normalizeTurkishText(match.excelData.description);
+        updatedMatchHistory[normalizedDesc] = match.payment.id.toString();
+      }
+    });
+    
+    // Save updated match history to localStorage
+    setPaymentMatchHistory(updatedMatchHistory);
+    localStorage.setItem('paymentMatchHistory', JSON.stringify(updatedMatchHistory));
     
     // Ödemeleri güncelle
     const updatedPayments = payments.map(payment => {
@@ -746,8 +792,19 @@ export default function Payments() {
     
     const manualMatchCount = confirmedMatches.filter(m => m.isManual).length;
     const autoMatchCount = confirmedMatches.length - manualMatchCount;
+    const historicalMatchCount = confirmedMatches.filter(m => m.isHistorical).length;
     
-    toast.success(`${confirmedMatches.length} ödeme başarıyla güncellendi! (${autoMatchCount} otomatik, ${manualMatchCount} manuel eşleştirme)`);
+    let successMessage = `${confirmedMatches.length} ödeme başarıyla güncellendi! (${autoMatchCount} otomatik, ${manualMatchCount} manuel eşleştirme`;
+    if (historicalMatchCount > 0) {
+      successMessage += `, ${historicalMatchCount} geçmiş eşleştirme`;
+    }
+    successMessage += ')';
+    
+    if (manualMatchCount > 0) {
+      successMessage += ` Manuel eşleştirmeler gelecek kullanım için hafızaya kaydedildi.`;
+    }
+    
+    toast.success(successMessage);
     setIsUploadDialogOpen(false);
     setMatchedPayments([]);
     setManualMatches({});
@@ -767,16 +824,20 @@ export default function Payments() {
       .filter(m => m.status === 'matched' && m.payment)
       .map(m => m.payment.id);
     
-    // Return all athletes that haven't been matched yet
-    return athletes.filter(athlete => 
-      !alreadyMatchedAthleteIds.includes(athlete.id)
-    ).map(athlete => ({
-      id: athlete.id,
-      athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
-      parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-      sport: athlete.selectedSports ? athlete.selectedSports[0] : 'Genel',
-      amount: 0 // Will be set from Excel data
-    }));
+    // Return all active athletes that haven't been matched yet, sorted alphabetically
+    return athletes
+      .filter(athlete => 
+        (athlete.status === 'Aktif' || !athlete.status) && // Only active athletes
+        !alreadyMatchedAthleteIds.includes(athlete.id)
+      )
+      .map(athlete => ({
+        id: athlete.id,
+        athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+        parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+        sport: athlete.selectedSports ? athlete.selectedSports[0] : (athlete.sportsBranches ? athlete.sportsBranches[0] : 'Genel'),
+        amount: 0 // Will be set from Excel data
+      }))
+      .sort((a, b) => a.athleteName.localeCompare(b.athleteName, 'tr-TR')); // Alphabetical sort with Turkish locale
   };
 
   // Get available payments for manual matching (unpaid payments only)
