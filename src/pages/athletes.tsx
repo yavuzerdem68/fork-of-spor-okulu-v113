@@ -39,7 +39,10 @@ import {
   UserX,
   Key,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -624,6 +627,8 @@ export default function Athletes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [sortField, setSortField] = useState<'athlete' | 'parent' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
   const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
@@ -710,24 +715,38 @@ export default function Athletes() {
       return matchesSearch && matchesSport && matchesStatus;
     });
     
-    // Sort alphabetically by athlete name, then by parent name
+    // Apply sorting based on selected field and direction
     filtered.sort((a, b) => {
-      const athleteNameA = `${a.studentName || ''} ${a.studentSurname || ''}`.trim().toLowerCase();
-      const athleteNameB = `${b.studentName || ''} ${b.studentSurname || ''}`.trim().toLowerCase();
+      let comparison = 0;
       
-      if (athleteNameA !== athleteNameB) {
-        return athleteNameA.localeCompare(athleteNameB, 'tr');
+      if (sortField === 'athlete') {
+        const athleteNameA = `${a.studentName || ''} ${a.studentSurname || ''}`.trim().toLowerCase();
+        const athleteNameB = `${b.studentName || ''} ${b.studentSurname || ''}`.trim().toLowerCase();
+        comparison = athleteNameA.localeCompare(athleteNameB, 'tr');
+      } else if (sortField === 'parent') {
+        const parentNameA = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
+        const parentNameB = `${b.parentName || ''} ${b.parentSurname || ''}`.trim().toLowerCase();
+        comparison = parentNameA.localeCompare(parentNameB, 'tr');
+      } else {
+        // Default sorting: athlete name first, then parent name
+        const athleteNameA = `${a.studentName || ''} ${a.studentSurname || ''}`.trim().toLowerCase();
+        const athleteNameB = `${b.studentName || ''} ${b.studentSurname || ''}`.trim().toLowerCase();
+        
+        if (athleteNameA !== athleteNameB) {
+          comparison = athleteNameA.localeCompare(athleteNameB, 'tr');
+        } else {
+          // If athlete names are the same, sort by parent name
+          const parentNameA = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
+          const parentNameB = `${b.parentName || ''} ${b.parentSurname || ''}`.trim().toLowerCase();
+          comparison = parentNameA.localeCompare(parentNameB, 'tr');
+        }
       }
       
-      // If athlete names are the same, sort by parent name
-      const parentNameA = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
-      const parentNameB = `${b.parentName || ''} ${b.parentSurname || ''}`.trim().toLowerCase();
-      
-      return parentNameA.localeCompare(parentNameB, 'tr');
+      return sortDirection === 'desc' ? -comparison : comparison;
     });
     
     setFilteredAthletes(filtered);
-  }, [searchTerm, selectedSport, selectedStatus, athletes]);
+  }, [searchTerm, selectedSport, selectedStatus, athletes, sortField, sortDirection]);
 
   const getInitials = (name: string, surname: string) => {
     return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
@@ -1505,6 +1524,26 @@ export default function Athletes() {
     alert(`${selectedAthleteForDelete.studentName} ${selectedAthleteForDelete.studentSurname} adlı sporcu başarıyla silindi.`);
   };
 
+  // Sorting function
+  const handleSort = (field: 'athlete' | 'parent') => {
+    if (sortField === field) {
+      // If clicking the same field, toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If clicking a different field, set new field and default to ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Get sort icon for table headers
+  const getSortIcon = (field: 'athlete' | 'parent') => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4" />;
+    }
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+  };
+
   return (
     <>
       <Head>
@@ -2110,10 +2149,28 @@ export default function Athletes() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Sporcu</TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort('athlete')}
+                            className="h-auto p-0 font-medium hover:bg-transparent flex items-center space-x-1"
+                          >
+                            <span>Sporcu</span>
+                            {getSortIcon('athlete')}
+                          </Button>
+                        </TableHead>
                         <TableHead>Yaş</TableHead>
                         <TableHead>Branş</TableHead>
-                        <TableHead>Veli</TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort('parent')}
+                            className="h-auto p-0 font-medium hover:bg-transparent flex items-center space-x-1"
+                          >
+                            <span>Veli</span>
+                            {getSortIcon('parent')}
+                          </Button>
+                        </TableHead>
                         <TableHead>İletişim</TableHead>
                         <TableHead>Durum</TableHead>
                         {userRole === 'admin' && <TableHead>Ödeme</TableHead>}
