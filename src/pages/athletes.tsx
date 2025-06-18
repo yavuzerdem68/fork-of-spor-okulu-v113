@@ -70,66 +70,66 @@ function EditAthleteForm({ athlete, onSave, onCancel }: {
 }) {
   const [formData, setFormData] = useState({
     // Sporcu Bilgileri
-    studentName: athlete.studentName || '',
-    studentSurname: athlete.studentSurname || '',
-    studentTcNo: athlete.studentTcNo || '',
-    studentBirthDate: athlete.studentBirthDate || '',
-    studentAge: athlete.studentAge || '',
-    studentGender: athlete.studentGender || '',
-    studentSchool: athlete.studentSchool || '',
-    studentClass: athlete.studentClass || '',
+    studentName: (athlete.studentName || '').toString(),
+    studentSurname: (athlete.studentSurname || '').toString(),
+    studentTcNo: (athlete.studentTcNo || '').toString(),
+    studentBirthDate: (athlete.studentBirthDate || '').toString(),
+    studentAge: (athlete.studentAge || '').toString(),
+    studentGender: (athlete.studentGender || '').toString(),
+    studentSchool: (athlete.studentSchool || '').toString(),
+    studentClass: (athlete.studentClass || '').toString(),
     sportsBranches: athlete.sportsBranches || [],
     
     // Fiziksel Bilgiler
-    studentHeight: athlete.studentHeight || '',
-    studentWeight: athlete.studentWeight || '',
-    bloodType: athlete.bloodType || '',
-    dominantHand: athlete.dominantHand || '',
-    dominantFoot: athlete.dominantFoot || '',
-    sportsPosition: athlete.sportsPosition || '',
+    studentHeight: (athlete.studentHeight || '').toString(),
+    studentWeight: (athlete.studentWeight || '').toString(),
+    bloodType: (athlete.bloodType || '').toString(),
+    dominantHand: (athlete.dominantHand || '').toString(),
+    dominantFoot: (athlete.dominantFoot || '').toString(),
+    sportsPosition: (athlete.sportsPosition || '').toString(),
     
     // Veli Bilgileri
-    parentName: athlete.parentName || '',
-    parentSurname: athlete.parentSurname || '',
-    parentTcNo: athlete.parentTcNo || '',
-    parentPhone: athlete.parentPhone || '',
-    parentEmail: athlete.parentEmail || '',
-    parentRelation: athlete.parentRelation || '',
-    parentOccupation: athlete.parentOccupation || '',
+    parentName: (athlete.parentName || '').toString(),
+    parentSurname: (athlete.parentSurname || '').toString(),
+    parentTcNo: (athlete.parentTcNo || '').toString(),
+    parentPhone: (athlete.parentPhone || '').toString(),
+    parentEmail: (athlete.parentEmail || '').toString(),
+    parentRelation: (athlete.parentRelation || '').toString(),
+    parentOccupation: (athlete.parentOccupation || '').toString(),
     
     // İkinci Veli Bilgileri
-    secondParentName: athlete.secondParentName || '',
-    secondParentSurname: athlete.secondParentSurname || '',
-    secondParentPhone: athlete.secondParentPhone || '',
-    secondParentEmail: athlete.secondParentEmail || '',
-    secondParentRelation: athlete.secondParentRelation || '',
+    secondParentName: (athlete.secondParentName || '').toString(),
+    secondParentSurname: (athlete.secondParentSurname || '').toString(),
+    secondParentPhone: (athlete.secondParentPhone || '').toString(),
+    secondParentEmail: (athlete.secondParentEmail || '').toString(),
+    secondParentRelation: (athlete.secondParentRelation || '').toString(),
     
     // İletişim Bilgileri
-    address: athlete.address || '',
-    city: athlete.city || '',
-    district: athlete.district || '',
-    postalCode: athlete.postalCode || '',
+    address: (athlete.address || '').toString(),
+    city: (athlete.city || '').toString(),
+    district: (athlete.district || '').toString(),
+    postalCode: (athlete.postalCode || '').toString(),
     
     // Sağlık Bilgileri
-    hasHealthIssues: athlete.hasHealthIssues || 'Hayır',
-    healthIssuesDetail: athlete.healthIssuesDetail || '',
-    medications: athlete.medications || '',
-    allergies: athlete.allergies || '',
-    emergencyContactName: athlete.emergencyContactName || '',
-    emergencyContactPhone: athlete.emergencyContactPhone || '',
-    emergencyContactRelation: athlete.emergencyContactRelation || '',
-    specialDiet: athlete.specialDiet || '',
+    hasHealthIssues: (athlete.hasHealthIssues || 'Hayır').toString(),
+    healthIssuesDetail: (athlete.healthIssuesDetail || '').toString(),
+    medications: (athlete.medications || '').toString(),
+    allergies: (athlete.allergies || '').toString(),
+    emergencyContactName: (athlete.emergencyContactName || '').toString(),
+    emergencyContactPhone: (athlete.emergencyContactPhone || '').toString(),
+    emergencyContactRelation: (athlete.emergencyContactRelation || '').toString(),
+    specialDiet: (athlete.specialDiet || '').toString(),
     
     // Sporcu Geçmişi
-    previousClubs: athlete.previousClubs || '',
-    achievements: athlete.achievements || '',
-    sportsGoals: athlete.sportsGoals || '',
-    motivation: athlete.motivation || '',
+    previousClubs: (athlete.previousClubs || '').toString(),
+    achievements: (athlete.achievements || '').toString(),
+    sportsGoals: (athlete.sportsGoals || '').toString(),
+    motivation: (athlete.motivation || '').toString(),
     
     // Diğer Bilgiler
-    howDidYouHear: athlete.howDidYouHear || '',
-    previousSportsExperience: athlete.previousSportsExperience || '',
-    expectations: athlete.expectations || '',
+    howDidYouHear: (athlete.howDidYouHear || '').toString(),
+    previousSportsExperience: (athlete.previousSportsExperience || '').toString(),
+    expectations: (athlete.expectations || '').toString(),
     
     // Onaylar
     agreementAccepted: athlete.agreementAccepted || false,
@@ -168,29 +168,29 @@ function EditAthleteForm({ athlete, onSave, onCancel }: {
   const validateForm = () => {
     const newErrors: any = {};
 
-    // Required fields validation
-    if (!formData.studentName.trim()) newErrors.studentName = 'Öğrenci adı zorunludur';
-    if (!formData.studentSurname.trim()) newErrors.studentSurname = 'Öğrenci soyadı zorunludur';
-    if (!formData.studentTcNo.trim()) newErrors.studentTcNo = 'TC Kimlik No zorunludur';
-    if (!formData.parentName.trim()) newErrors.parentName = 'Veli adı zorunludur';
-    if (!formData.parentSurname.trim()) newErrors.parentSurname = 'Veli soyadı zorunludur';
-    if (!formData.parentPhone.trim()) newErrors.parentPhone = 'Veli telefonu zorunludur';
-    if (!formData.parentEmail.trim()) newErrors.parentEmail = 'Veli email zorunludur';
+    // Required fields validation - ensure values are strings before calling trim()
+    if (!formData.studentName || !formData.studentName.toString().trim()) newErrors.studentName = 'Öğrenci adı zorunludur';
+    if (!formData.studentSurname || !formData.studentSurname.toString().trim()) newErrors.studentSurname = 'Öğrenci soyadı zorunludur';
+    if (!formData.studentTcNo || !formData.studentTcNo.toString().trim()) newErrors.studentTcNo = 'TC Kimlik No zorunludur';
+    if (!formData.parentName || !formData.parentName.toString().trim()) newErrors.parentName = 'Veli adı zorunludur';
+    if (!formData.parentSurname || !formData.parentSurname.toString().trim()) newErrors.parentSurname = 'Veli soyadı zorunludur';
+    if (!formData.parentPhone || !formData.parentPhone.toString().trim()) newErrors.parentPhone = 'Veli telefonu zorunludur';
+    if (!formData.parentEmail || !formData.parentEmail.toString().trim()) newErrors.parentEmail = 'Veli email zorunludur';
 
     // TC No validation
-    if (formData.studentTcNo && formData.studentTcNo.replace(/\D/g, '').length !== 11) {
+    if (formData.studentTcNo && formData.studentTcNo.toString().replace(/\D/g, '').length !== 11) {
       newErrors.studentTcNo = 'TC Kimlik No 11 haneli olmalıdır';
     }
-    if (formData.parentTcNo && formData.parentTcNo.replace(/\D/g, '').length !== 11) {
+    if (formData.parentTcNo && formData.parentTcNo.toString().replace(/\D/g, '').length !== 11) {
       newErrors.parentTcNo = 'Veli TC Kimlik No 11 haneli olmalıdır';
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (formData.parentEmail && !emailRegex.test(formData.parentEmail)) {
+    if (formData.parentEmail && !emailRegex.test(formData.parentEmail.toString())) {
       newErrors.parentEmail = 'Geçerli bir email adresi girin';
     }
-    if (formData.secondParentEmail && !emailRegex.test(formData.secondParentEmail)) {
+    if (formData.secondParentEmail && !emailRegex.test(formData.secondParentEmail.toString())) {
       newErrors.secondParentEmail = 'Geçerli bir email adresi girin';
     }
 
