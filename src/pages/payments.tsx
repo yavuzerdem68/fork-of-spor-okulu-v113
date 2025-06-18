@@ -45,8 +45,8 @@ import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 
 // Comprehensive Turkish text normalization with advanced character mapping
-const normalizeTurkishText = (text: string): string => {
-  if (!text) return '';
+const normalizeTurkishText = (text: string): string[] => {
+  if (!text) return [''];
   
   // First normalize to lowercase and handle Turkish characters
   let normalized = text.toLowerCase();
@@ -73,7 +73,7 @@ const normalizeTurkishText = (text: string): string => {
   });
   versions.push(asciiVersion);
   
-  // Clean up punctuation and extra spaces
+  // Clean up punctuation and extra spaces - return array of normalized versions
   return versions.map(v => 
     v.replace(/[^\wğüşıöçâîû]/g, ' ')
      .replace(/\s+/g, ' ')
@@ -143,8 +143,14 @@ const calculateSimilarity = (str1: string, str2: string): number => {
   // Test all combinations of normalized versions
   for (const v1 of versions1) {
     for (const v2 of versions2) {
-      // Exact match
+      // Exact match gets 100% similarity
       if (v1 === v2) return 100;
+      
+      // Check if one contains the other (high similarity for substring matches)
+      if (v1.includes(v2) || v2.includes(v1)) {
+        const containmentScore = Math.min(v1.length, v2.length) / Math.max(v1.length, v2.length) * 95;
+        maxSimilarity = Math.max(maxSimilarity, containmentScore);
+      }
       
       // Levenshtein distance
       const levenshtein = calculateLevenshteinSimilarity(v1, v2);
@@ -783,7 +789,7 @@ export default function Payments() {
         let bestConfidence = 0;
         
         // Check if we have a stored match for this description
-        const normalizedDesc = normalizeTurkishText(excelRow.description);
+        const normalizedDesc = normalizeTurkishText(excelRow.description)[0]; // Use first normalized version
         const storedMatch = paymentMatchHistory[normalizedDesc];
         
         if (storedMatch) {
@@ -813,9 +819,9 @@ export default function Payments() {
             let confidence = 0;
             
             // Enhanced name matching with Turkish character normalization
-            const normalizedDescription = normalizeTurkishText(excelRow.description);
-            const normalizedParentName = normalizeTurkishText(payment.parentName);
-            const normalizedAthleteName = normalizeTurkishText(payment.athleteName);
+            const normalizedDescription = normalizeTurkishText(excelRow.description)[0]; // Use first normalized version
+            const normalizedParentName = normalizeTurkishText(payment.parentName)[0];
+            const normalizedAthleteName = normalizeTurkishText(payment.athleteName)[0];
             
             // Calculate similarity scores using Levenshtein distance
             const parentSimilarity = calculateSimilarity(excelRow.description, payment.parentName);
@@ -961,7 +967,7 @@ export default function Payments() {
     const updatedMatchHistory = { ...paymentMatchHistory };
     confirmedMatches.forEach(match => {
       if (match.isManual && match.payment) {
-        const normalizedDesc = normalizeTurkishText(match.excelData.description);
+        const normalizedDesc = normalizeTurkishText(match.excelData.description)[0]; // Use first normalized version
         updatedMatchHistory[normalizedDesc] = match.payment.id.toString();
       }
     });
@@ -970,26 +976,8 @@ export default function Payments() {
     setPaymentMatchHistory(updatedMatchHistory);
     localStorage.setItem('paymentMatchHistory', JSON.stringify(updatedMatchHistory));
     
-    // Ödemeleri güncelle
-    const updatedPayments = payments.map(payment => {
-      const match = confirmedMatches.find(m => m.payment?.id === payment.id);
-      if (match) {
-        // Parse Turkish date correctly for payment date
-        const parsedDate = parseTurkishDate(match.excelData.date);
-        const paymentDate = parsedDate ? parsedDate.toISOString().split('T')[0] : match.excelData.date;
-        
-        return {
-          ...payment,
-          status: "Ödendi",
-          paymentDate: paymentDate,
-          method: "Havale/EFT",
-          reference: match.excelData.reference
-        };
-      }
-      return payment;
-    });
-
-    // Sporcu cari hesaplarına ödeme girişi yap
+    // Handle multi-athlete payments and regular payments
+    const updatedPayments = [...payments];
     const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
     let athletes = [];
     if (storedAthletes) {
@@ -997,52 +985,132 @@ export default function Payments() {
     }
 
     confirmedMatches.forEach(match => {
-      // Sporcu ID'sini bul - daha güvenli eşleştirme
-      let athlete = null;
-      
-      // First try to find by exact ID match
-      if (match.payment.id) {
-        athlete = athletes.find(a => a.id === match.payment.id);
-      }
-      
-      // If not found, try name matching
-      if (!athlete) {
-        const nameParts = match.payment.athleteName.split(' ');
-        const firstName = nameParts[0];
-        const lastName = nameParts.slice(1).join(' ');
-        
-        athlete = athletes.find(a => {
-          const athleteFirstName = a.studentName || a.firstName || '';
-          const athleteLastName = a.studentSurname || a.lastName || '';
-          return athleteFirstName === firstName && athleteLastName === lastName;
+      // Parse Turkish date correctly for payment date
+      const parsedDate = parseTurkishDate(match.excelData.date);
+      const paymentDate = parsedDate ? parsedDate.toISOString().split('T')[0] : match.excelData.date;
+      const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
+      const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelData.date;
+
+      if (match.isMultiple && match.multiplePayments) {
+        // Handle multi-athlete payments - split between multiple athletes
+        match.multiplePayments.forEach((athletePayment: any) => {
+          // Find the athlete
+          let athlete = athletes.find((a: any) => a.id.toString() === athletePayment.id.toString());
+          
+          if (!athlete) {
+            // Try name matching if ID not found
+            const nameParts = athletePayment.athleteName.split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(' ');
+            
+            athlete = athletes.find((a: any) => {
+              const athleteFirstName = a.studentName || a.firstName || '';
+              const athleteLastName = a.studentSurname || a.lastName || '';
+              return athleteFirstName === firstName && athleteLastName === lastName;
+            });
+          }
+          
+          if (athlete) {
+            // Update or create payment record for this athlete
+            const existingPaymentIndex = updatedPayments.findIndex(p => 
+              p.athleteId === athlete.id && p.status !== "Ödendi"
+            );
+            
+            if (existingPaymentIndex >= 0) {
+              // Update existing payment
+              updatedPayments[existingPaymentIndex] = {
+                ...updatedPayments[existingPaymentIndex],
+                status: "Ödendi",
+                paymentDate: paymentDate,
+                method: "Havale/EFT",
+                reference: match.excelData.reference,
+                amount: athletePayment.amount
+              };
+            } else {
+              // Create new payment record
+              updatedPayments.push({
+                id: `multi_${athlete.id}_${Date.now()}_${Math.random()}`,
+                athleteId: athlete.id,
+                athleteName: athletePayment.athleteName,
+                parentName: athletePayment.parentName,
+                amount: athletePayment.amount,
+                status: "Ödendi",
+                paymentDate: paymentDate,
+                method: "Havale/EFT",
+                reference: match.excelData.reference,
+                sport: athletePayment.sport,
+                invoiceNumber: `INV-${Date.now()}-${athlete.id}`,
+                dueDate: paymentDate,
+                description: `Çoklu ödeme - ${match.excelData.description}`,
+                isGenerated: false
+              });
+            }
+
+            // Add to athlete's account as credit (payment received)
+            const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+            const paymentEntry = {
+              id: Date.now() + Math.random(),
+              date: entryDate,
+              month: entryDate.slice(0, 7),
+              description: `EFT/Havale Tahsilatı (Çoklu) - ${displayDate} - ₺${athletePayment.amount} - Ref: ${match.excelData.reference}`,
+              amountExcludingVat: athletePayment.amount,
+              vatRate: 0,
+              vatAmount: 0,
+              amountIncludingVat: athletePayment.amount,
+              unitCode: 'Adet',
+              type: 'credit'
+            };
+            
+            existingEntries.push(paymentEntry);
+            localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+          }
         });
-      }
-      
-      if (athlete) {
-        // Mevcut cari hesap kayıtlarını al
-        const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      } else {
+        // Handle single athlete payments
+        const singleMatch = updatedPayments.find(payment => payment.id === match.payment?.id);
+        if (singleMatch) {
+          singleMatch.status = "Ödendi";
+          singleMatch.paymentDate = paymentDate;
+          singleMatch.method = "Havale/EFT";
+          singleMatch.reference = match.excelData.reference;
+        }
+
+        // Find athlete for account entry
+        let athlete = null;
+        if (match.payment.id) {
+          athlete = athletes.find((a: any) => a.id === match.payment.id);
+        }
         
-        // Parse Turkish date correctly for account entry
-        const parsedDate = parseTurkishDate(match.excelData.date);
-        const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
-        const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelData.date;
+        if (!athlete) {
+          const nameParts = match.payment.athleteName.split(' ');
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(' ');
+          
+          athlete = athletes.find((a: any) => {
+            const athleteFirstName = a.studentName || a.firstName || '';
+            const athleteLastName = a.studentSurname || a.lastName || '';
+            return athleteFirstName === firstName && athleteLastName === lastName;
+          });
+        }
         
-        // Ödeme girişi oluştur (tahsil edildi) - net açıklama ile
-        const paymentEntry = {
-          id: Date.now() + Math.random(),
-          date: entryDate,
-          month: entryDate.slice(0, 7),
-          description: `EFT/Havale Tahsilatı - ${displayDate} - ₺${match.excelData.amount} - Ref: ${match.excelData.reference}`,
-          amountExcludingVat: match.excelData.amount,
-          vatRate: 0, // Tahsilat için KDV yok
-          vatAmount: 0,
-          amountIncludingVat: match.excelData.amount,
-          unitCode: 'Adet',
-          type: 'credit' // Tahsilat (alacak)
-        };
-        
-        existingEntries.push(paymentEntry);
-        localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+        if (athlete) {
+          const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+          const paymentEntry = {
+            id: Date.now() + Math.random(),
+            date: entryDate,
+            month: entryDate.slice(0, 7),
+            description: `EFT/Havale Tahsilatı - ${displayDate} - ₺${match.excelData.amount} - Ref: ${match.excelData.reference}`,
+            amountExcludingVat: match.excelData.amount,
+            vatRate: 0,
+            vatAmount: 0,
+            amountIncludingVat: match.excelData.amount,
+            unitCode: 'Adet',
+            type: 'credit'
+          };
+          
+          existingEntries.push(paymentEntry);
+          localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+        }
       }
     });
 
@@ -1052,8 +1120,13 @@ export default function Payments() {
     const manualMatchCount = confirmedMatches.filter(m => m.isManual).length;
     const autoMatchCount = confirmedMatches.length - manualMatchCount;
     const historicalMatchCount = confirmedMatches.filter(m => m.isHistorical).length;
+    const multipleMatchCount = confirmedMatches.filter(m => m.isMultiple).length;
     
-    let successMessage = `${confirmedMatches.length} ödeme başarıyla güncellendi! (${autoMatchCount} otomatik, ${manualMatchCount} manuel eşleştirme`;
+    let successMessage = `${confirmedMatches.length} ödeme başarıyla güncellendi! (${autoMatchCount} otomatik, ${manualMatchCount} manuel`;
+    if (multipleMatchCount > 0) {
+      successMessage += `, ${multipleMatchCount} çoklu`;
+    }
+    successMessage += ' eşleştirme';
     if (historicalMatchCount > 0) {
       successMessage += `, ${historicalMatchCount} geçmiş eşleştirme`;
     }
@@ -1067,6 +1140,7 @@ export default function Payments() {
     setIsUploadDialogOpen(false);
     setMatchedPayments([]);
     setManualMatches({});
+    setSelectedMultipleAthletes({});
     setUploadedFile(null);
     setUploadProgress(0);
   };
@@ -1638,7 +1712,7 @@ export default function Payments() {
 
     // Create multiple payment records
     const multiplePayments = selectedAthletes.map(athlete => ({
-      id: `multi_${athlete.id}_${Date.now()}`,
+      id: athlete.id,
       athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
       parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
       amount: amountPerAthlete,
