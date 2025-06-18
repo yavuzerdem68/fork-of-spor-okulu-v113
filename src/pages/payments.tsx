@@ -131,91 +131,6 @@ const parseTurkishDate = (dateStr: string): Date | null => {
   return null;
 };
 
-// RESTORED: Simple and effective similarity calculation that guarantees 100% exact matches
-const calculateSimilarity = (str1: string, str2: string): number => {
-  if (!str1 || !str2) return 0;
-  
-  // Get normalized versions for comparison
-  const versions1 = normalizeTurkishText(str1);
-  const versions2 = normalizeTurkishText(str2);
-  
-  // PRIORITY 1: EXACT MATCH DETECTION - This must work 100% of the time
-  for (const v1 of versions1) {
-    for (const v2 of versions2) {
-      // Direct string comparison after normalization
-      if (v1 === v2 && v1.length > 0) {
-        console.log(`EXACT MATCH FOUND: "${v1}" === "${v2}"`);
-        return 100;
-      }
-      
-      // Clean comparison (remove all punctuation and spaces)
-      const clean1 = v1.replace(/[^\wğüşıöçâîû]/g, '');
-      const clean2 = v2.replace(/[^\wğüşıöçâîû]/g, '');
-      if (clean1 === clean2 && clean1.length > 2) {
-        console.log(`CLEAN EXACT MATCH: "${clean1}" === "${clean2}"`);
-        return 100;
-      }
-    }
-  }
-  
-  // PRIORITY 2: WORD-BY-WORD EXACT MATCHING
-  for (const v1 of versions1) {
-    for (const v2 of versions2) {
-      const words1 = v1.split(/\s+/).filter(w => w.length > 1);
-      const words2 = v2.split(/\s+/).filter(w => w.length > 1);
-      
-      if (words1.length >= 2 && words2.length >= 2) {
-        // Check if all words from one name exist in the other
-        const shorterWords = words1.length <= words2.length ? words1 : words2;
-        const longerWords = words1.length > words2.length ? words1 : words2;
-        
-        let exactMatches = 0;
-        for (const word of shorterWords) {
-          if (longerWords.includes(word)) {
-            exactMatches++;
-          }
-        }
-        
-        // If all words match exactly, it's 100%
-        if (exactMatches === shorterWords.length && shorterWords.length >= 2) {
-          console.log(`WORD-BY-WORD EXACT MATCH: ${exactMatches}/${shorterWords.length} words matched`);
-          return 100;
-        }
-        
-        // High score for most words matching
-        if (exactMatches >= 2) {
-          const wordScore = (exactMatches / Math.max(words1.length, words2.length)) * 95;
-          if (wordScore > 80) return wordScore;
-        }
-      }
-    }
-  }
-  
-  // PRIORITY 3: CONTAINMENT AND SIMILARITY
-  let maxSimilarity = 0;
-  
-  for (const v1 of versions1) {
-    for (const v2 of versions2) {
-      // Containment check
-      if (v1.includes(v2) || v2.includes(v1)) {
-        const containmentScore = Math.min(v1.length, v2.length) / Math.max(v1.length, v2.length) * 90;
-        maxSimilarity = Math.max(maxSimilarity, containmentScore);
-      }
-      
-      // Levenshtein similarity
-      const levenshtein = calculateLevenshteinSimilarity(v1, v2);
-      maxSimilarity = Math.max(maxSimilarity, levenshtein);
-      
-      // Jaccard similarity for word-based matching
-      const jaccard = calculateJaccardSimilarity(v1, v2);
-      maxSimilarity = Math.max(maxSimilarity, jaccard);
-    }
-  }
-  
-  return Math.round(maxSimilarity);
-};
-=======
-
 // Levenshtein distance similarity
 const calculateLevenshteinSimilarity = (str1: string, str2: string): number => {
   const len1 = str1.length;
@@ -258,21 +173,101 @@ const calculateJaccardSimilarity = (str1: string, str2: string): number => {
   return (intersection.size / union.size) * 100;
 };
 
-// Substring similarity
-const calculateSubstringSimilarity = (str1: string, str2: string): number => {
-  if (str1.includes(str2) || str2.includes(str1)) return 85;
+// BULLETPROOF: Simplified similarity calculation that GUARANTEES 100% exact matches
+const calculateSimilarity = (str1: string, str2: string): number => {
+  if (!str1 || !str2) return 0;
   
-  let maxSubstring = 0;
-  for (let i = 0; i < str1.length; i++) {
-    for (let j = i + 2; j <= str1.length; j++) {
-      const substring = str1.slice(i, j);
-      if (str2.includes(substring)) {
-        maxSubstring = Math.max(maxSubstring, substring.length);
+  // Convert to lowercase for comparison
+  const lower1 = str1.toLowerCase().trim();
+  const lower2 = str2.toLowerCase().trim();
+  
+  // ABSOLUTE PRIORITY: Direct exact match
+  if (lower1 === lower2) {
+    console.log(`🎯 DIRECT EXACT MATCH: "${lower1}" === "${lower2}"`);
+    return 100;
+  }
+  
+  // Turkish character normalization
+  const normalize = (text: string): string => {
+    return text
+      .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+      .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+  
+  const norm1 = normalize(lower1);
+  const norm2 = normalize(lower2);
+  
+  // EXACT MATCH after normalization
+  if (norm1 === norm2 && norm1.length > 0) {
+    console.log(`🎯 NORMALIZED EXACT MATCH: "${norm1}" === "${norm2}"`);
+    return 100;
+  }
+  
+  // Clean version (letters only)
+  const clean1 = norm1.replace(/\s/g, '');
+  const clean2 = norm2.replace(/\s/g, '');
+  
+  if (clean1 === clean2 && clean1.length > 2) {
+    console.log(`🎯 CLEAN EXACT MATCH: "${clean1}" === "${clean2}"`);
+    return 100;
+  }
+  
+  // Word-by-word exact matching
+  const words1 = norm1.split(' ').filter(w => w.length > 1);
+  const words2 = norm2.split(' ').filter(w => w.length > 1);
+  
+  if (words1.length >= 2 && words2.length >= 2) {
+    const shorterWords = words1.length <= words2.length ? words1 : words2;
+    const longerWords = words1.length > words2.length ? words1 : words2;
+    
+    let exactWordMatches = 0;
+    for (const word of shorterWords) {
+      if (longerWords.includes(word)) {
+        exactWordMatches++;
+      }
+    }
+    
+    // If ALL words match exactly, it's 100%
+    if (exactWordMatches === shorterWords.length && shorterWords.length >= 2) {
+      console.log(`🎯 ALL WORDS EXACT MATCH: ${exactWordMatches}/${shorterWords.length} words`);
+      return 100;
+    }
+    
+    // High score for most words matching exactly
+    if (exactWordMatches >= 2) {
+      const wordScore = (exactWordMatches / Math.max(words1.length, words2.length)) * 95;
+      if (wordScore >= 85) {
+        console.log(`🔥 HIGH WORD MATCH: ${exactWordMatches} words, score: ${wordScore}`);
+        return Math.round(wordScore);
       }
     }
   }
   
-  return (maxSubstring / Math.max(str1.length, str2.length)) * 100;
+  // Containment check
+  if (norm1.includes(norm2) || norm2.includes(norm1)) {
+    const containmentScore = Math.min(norm1.length, norm2.length) / Math.max(norm1.length, norm2.length) * 85;
+    if (containmentScore >= 70) {
+      console.log(`📦 CONTAINMENT MATCH: ${containmentScore}`);
+      return Math.round(containmentScore);
+    }
+  }
+  
+  // Levenshtein similarity as fallback
+  const levenshtein = calculateLevenshteinSimilarity(norm1, norm2);
+  
+  // Jaccard similarity for word-based matching
+  const jaccard = calculateJaccardSimilarity(norm1, norm2);
+  
+  const finalScore = Math.max(levenshtein, jaccard);
+  
+  if (finalScore >= 60) {
+    console.log(`⚡ SIMILARITY MATCH: Levenshtein: ${levenshtein}, Jaccard: ${jaccard}, Final: ${finalScore}`);
+  }
+  
+  return Math.round(finalScore);
 };
 
 // Detect if payment amount suggests multiple athletes
@@ -2652,7 +2647,7 @@ export default function Payments() {
                   <CardContent className="p-6">
                     <div className="space-y-4">
                       <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                        <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foregroun" />
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Excel dosyasını seçin</p>
                           <p className="text-xs text-muted-foreground">
