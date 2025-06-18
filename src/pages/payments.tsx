@@ -143,13 +143,43 @@ const calculateSimilarity = (str1: string, str2: string): number => {
   // Test all combinations of normalized versions
   for (const v1 of versions1) {
     for (const v2 of versions2) {
-      // Exact match gets 100% similarity
+      // Exact match gets 100% similarity (case-insensitive after normalization)
       if (v1 === v2) return 100;
+      
+      // Check for exact match after removing all spaces and punctuation
+      const clean1 = v1.replace(/\s+/g, '').replace(/[^\wğüşıöçâîû]/g, '');
+      const clean2 = v2.replace(/\s+/g, '').replace(/[^\wğüşıöçâîû]/g, '');
+      if (clean1 === clean2 && clean1.length > 0) return 100;
       
       // Check if one contains the other (high similarity for substring matches)
       if (v1.includes(v2) || v2.includes(v1)) {
         const containmentScore = Math.min(v1.length, v2.length) / Math.max(v1.length, v2.length) * 95;
         maxSimilarity = Math.max(maxSimilarity, containmentScore);
+      }
+      
+      // Word-by-word exact matching for names
+      const words1 = v1.split(/\s+/).filter(w => w.length > 1);
+      const words2 = v2.split(/\s+/).filter(w => w.length > 1);
+      
+      if (words1.length > 0 && words2.length > 0) {
+        let exactWordMatches = 0;
+        let totalWords = Math.max(words1.length, words2.length);
+        
+        for (const word1 of words1) {
+          for (const word2 of words2) {
+            if (word1 === word2) {
+              exactWordMatches++;
+              break;
+            }
+          }
+        }
+        
+        if (exactWordMatches === totalWords && totalWords >= 2) {
+          return 100; // All words match exactly
+        }
+        
+        const wordMatchScore = (exactWordMatches / totalWords) * 100;
+        maxSimilarity = Math.max(maxSimilarity, wordMatchScore);
       }
       
       // Levenshtein distance
@@ -993,11 +1023,14 @@ export default function Payments() {
 
       if (match.isMultiple && match.multiplePayments) {
         // Handle multi-athlete payments - split between multiple athletes
+        console.log('Processing multi-athlete payment:', match.multiplePayments);
+        
         match.multiplePayments.forEach((athletePayment: any) => {
-          // Find the athlete
+          // Find the athlete by ID first
           let athlete = athletes.find((a: any) => a.id.toString() === athletePayment.id.toString());
           
           if (!athlete) {
+            console.warn('Athlete not found by ID:', athletePayment.id, 'trying name matching...');
             // Try name matching if ID not found
             const nameParts = athletePayment.athleteName.split(' ');
             const firstName = nameParts[0];
@@ -1011,6 +1044,8 @@ export default function Payments() {
           }
           
           if (athlete) {
+            console.log(`Creating payment record for athlete: ${athlete.studentName} ${athlete.studentSurname} - Amount: ₺${athletePayment.amount}`);
+            
             // Update or create payment record for this athlete
             const existingPaymentIndex = updatedPayments.findIndex(p => 
               p.athleteId === athlete.id && p.status !== "Ödendi"
@@ -1026,24 +1061,27 @@ export default function Payments() {
                 reference: match.excelData.reference,
                 amount: athletePayment.amount
               };
+              console.log('Updated existing payment for:', athlete.studentName);
             } else {
               // Create new payment record
-              updatedPayments.push({
+              const newPayment = {
                 id: `multi_${athlete.id}_${Date.now()}_${Math.random()}`,
                 athleteId: athlete.id,
-                athleteName: athletePayment.athleteName,
-                parentName: athletePayment.parentName,
+                athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+                parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
                 amount: athletePayment.amount,
                 status: "Ödendi",
                 paymentDate: paymentDate,
                 method: "Havale/EFT",
                 reference: match.excelData.reference,
-                sport: athletePayment.sport,
+                sport: athlete.selectedSports ? athlete.selectedSports[0] : (athlete.sportsBranches ? athlete.sportsBranches[0] : 'Genel'),
                 invoiceNumber: `INV-${Date.now()}-${athlete.id}`,
                 dueDate: paymentDate,
                 description: `Çoklu ödeme - ${match.excelData.description}`,
                 isGenerated: false
-              });
+              };
+              updatedPayments.push(newPayment);
+              console.log('Created new payment for:', athlete.studentName, newPayment);
             }
 
             // Add to athlete's account as credit (payment received)
@@ -1063,6 +1101,9 @@ export default function Payments() {
             
             existingEntries.push(paymentEntry);
             localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+            console.log('Added account entry for:', athlete.studentName, paymentEntry);
+          } else {
+            console.error('Could not find athlete for payment:', athletePayment);
           }
         });
       } else {
