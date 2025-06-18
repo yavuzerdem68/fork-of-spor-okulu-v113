@@ -660,6 +660,8 @@ export default function Athletes() {
   const [invoiceServiceDescription, setInvoiceServiceDescription] = useState('');
   const [invoiceUnitCode, setInvoiceUnitCode] = useState('Ay');
   const [invoiceVatRate, setInvoiceVatRate] = useState('20');
+  const [invoicedPeriods, setInvoicedPeriods] = useState<any[]>([]);
+  const [availablePeriods, setAvailablePeriods] = useState<any[]>([]);
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
@@ -685,7 +687,75 @@ export default function Athletes() {
     }
 
     loadAthletes(role, user ? JSON.parse(user) : null);
+    loadInvoicedPeriods();
   }, [router]);
+
+  // Load invoiced periods from localStorage
+  const loadInvoicedPeriods = () => {
+    const periods = JSON.parse(localStorage.getItem('invoicedPeriods') || '[]');
+    setInvoicedPeriods(periods);
+  };
+
+  // Load available periods for invoicing
+  const loadAvailablePeriods = () => {
+    const activeAthletesList = athletes.filter(athlete => athlete.status === 'Aktif' || !athlete.status);
+    const periodsMap = new Map();
+
+    activeAthletesList.forEach(athlete => {
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      
+      accountEntries.forEach((entry: any) => {
+        if (entry.type === 'debit' && entry.month) {
+          const key = `${entry.month}_${entry.description}`;
+          if (!periodsMap.has(key)) {
+            periodsMap.set(key, {
+              month: entry.month,
+              description: entry.description,
+              athleteCount: 0,
+              totalAmount: 0,
+              isInvoiced: invoicedPeriods.some((ip: any) => 
+                ip.month === entry.month && ip.description === entry.description
+              )
+            });
+          }
+          const period = periodsMap.get(key);
+          period.athleteCount++;
+          period.totalAmount += entry.amountIncludingVat;
+        }
+      });
+    });
+
+    const periods = Array.from(periodsMap.values()).sort((a, b) => {
+      if (a.month !== b.month) return b.month.localeCompare(a.month);
+      return a.description.localeCompare(b.description);
+    });
+
+    setAvailablePeriods(periods);
+  };
+
+  // Check if a period is already invoiced
+  const isPeriodInvoiced = (month: string, description: string) => {
+    return invoicedPeriods.some((period: any) => 
+      period.month === month && period.description === description
+    );
+  };
+
+  // Mark period as invoiced
+  const markPeriodAsInvoiced = (month: string, description: string, athleteCount: number, totalAmount: number) => {
+    const newInvoicedPeriod = {
+      id: Date.now(),
+      month,
+      description,
+      athleteCount,
+      totalAmount,
+      invoicedAt: new Date().toISOString(),
+      invoicedBy: currentUser?.username || 'admin'
+    };
+
+    const updatedPeriods = [...invoicedPeriods, newInvoicedPeriod];
+    setInvoicedPeriods(updatedPeriods);
+    localStorage.setItem('invoicedPeriods', JSON.stringify(updatedPeriods));
+  };
 
   const loadAthletes = (role: string, user: any) => {
     // Load students from localStorage
@@ -2203,21 +2273,26 @@ export default function Athletes() {
                         <Key className="h-4 w-4 mr-2" />
                         Veli Giriş Bilgileri İndir
                       </Button>
-                      <Dialog open={isInvoiceExportDialogOpen} onOpenChange={setIsInvoiceExportDialogOpen}>
+                      <Dialog open={isInvoiceExportDialogOpen} onOpenChange={(open) => {
+                        setIsInvoiceExportDialogOpen(open);
+                        if (open) {
+                          loadAvailablePeriods();
+                        }
+                      }}>
                         <DialogTrigger asChild>
                           <Button variant="outline">
                             <FileSpreadsheet className="h-4 w-4 mr-2" />
                             E-Fatura Dışa Aktar
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
                             <DialogTitle className="flex items-center space-x-2">
                               <FileSpreadsheet className="h-5 w-5" />
                               <span>E-Fatura Dışa Aktarma</span>
                             </DialogTitle>
                             <DialogDescription>
-                              Toplu aidat girişi yapılan tarih için e-fatura formatında Excel dosyası oluşturun
+                              Toplu aidat girişi yapılan dönemler için e-fatura formatında Excel dosyası oluşturun
                             </DialogDescription>
                           </DialogHeader>
 
@@ -2225,16 +2300,130 @@ export default function Athletes() {
                             <Alert>
                               <AlertTriangle className="h-4 w-4" />
                               <AlertDescription>
-                                Bu işlem aktif sporcuların veli bilgilerini kullanarak e-arşiv fatura formatında Excel dosyası oluşturacaktır.
+                                <strong>ÖNEMLİ:</strong> Daha önce fatura kesilmiş dönemler için tekrar fatura oluşturmayın! Aşağıdaki listeden henüz faturalanmamış dönemleri seçin.
                               </AlertDescription>
                             </Alert>
 
-                            {/* Date Selection */}
+                            {/* Available Periods */}
                             <Card>
                               <CardHeader>
-                                <CardTitle className="text-lg">Fatura Dönemi Seçimi</CardTitle>
+                                <CardTitle className="text-lg">Mevcut Aidat Dönemleri</CardTitle>
                                 <CardDescription>
-                                  Hangi tarihte girilen toplu aidat için fatura oluşturmak istiyorsunuz?
+                                  Sistemde bulunan toplu aidat girişleri ve faturalama durumları
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {availablePeriods.length > 0 ? (
+                                  <div className="space-y-4">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Dönem</TableHead>
+                                          <TableHead>Hizmet Açıklaması</TableHead>
+                                          <TableHead>Sporcu Sayısı</TableHead>
+                                          <TableHead>Toplam Tutar</TableHead>
+                                          <TableHead>Durum</TableHead>
+                                          <TableHead>İşlem</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {availablePeriods.map((period, index) => (
+                                          <TableRow key={index}>
+                                            <TableCell className="font-medium">
+                                              {new Date(period.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}
+                                            </TableCell>
+                                            <TableCell>{period.description}</TableCell>
+                                            <TableCell>{period.athleteCount}</TableCell>
+                                            <TableCell>₺{period.totalAmount.toFixed(2)}</TableCell>
+                                            <TableCell>
+                                              {period.isInvoiced ? (
+                                                <Badge variant="secondary">
+                                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                                  Faturalandı
+                                                </Badge>
+                                              ) : (
+                                                <Badge variant="default">
+                                                  <Calendar className="h-3 w-3 mr-1" />
+                                                  Bekliyor
+                                                </Badge>
+                                              )}
+                                            </TableCell>
+                                            <TableCell>
+                                              {!period.isInvoiced && (
+                                                <Button
+                                                  size="sm"
+                                                  onClick={() => {
+                                                    setSelectedInvoiceMonth(period.month);
+                                                    setInvoiceServiceDescription(period.description);
+                                                  }}
+                                                >
+                                                  Seç
+                                                </Button>
+                                              )}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8">
+                                    <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                    <p className="text-muted-foreground">Henüz toplu aidat girişi yapılmamış</p>
+                                    <p className="text-sm text-muted-foreground mt-2">
+                                      Önce "Toplu Aidat Girişi" ile aidat kayıtları oluşturun
+                                    </p>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            {/* Previously Invoiced Periods */}
+                            {invoicedPeriods.length > 0 && (
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-lg">Daha Önce Faturalanan Dönemler</CardTitle>
+                                  <CardDescription>
+                                    Bu dönemler için zaten e-fatura oluşturulmuş
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Dönem</TableHead>
+                                        <TableHead>Hizmet Açıklaması</TableHead>
+                                        <TableHead>Sporcu Sayısı</TableHead>
+                                        <TableHead>Toplam Tutar</TableHead>
+                                        <TableHead>Fatura Tarihi</TableHead>
+                                        <TableHead>Faturalayan</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {invoicedPeriods.map((period) => (
+                                        <TableRow key={period.id} className="bg-muted/50">
+                                          <TableCell className="font-medium">
+                                            {new Date(period.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}
+                                          </TableCell>
+                                          <TableCell>{period.description}</TableCell>
+                                          <TableCell>{period.athleteCount}</TableCell>
+                                          <TableCell>₺{period.totalAmount.toFixed(2)}</TableCell>
+                                          <TableCell>{new Date(period.invoicedAt).toLocaleDateString('tr-TR')}</TableCell>
+                                          <TableCell>{period.invoicedBy}</TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </CardContent>
+                              </Card>
+                            )}
+
+                            {/* Manual Selection */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Manuel Dönem Seçimi</CardTitle>
+                                <CardDescription>
+                                  Yukarıdaki listeden seçim yapmadıysanız, manuel olarak dönem belirleyebilirsiniz
                                 </CardDescription>
                               </CardHeader>
                               <CardContent>
@@ -2286,87 +2475,60 @@ export default function Athletes() {
                                       </Select>
                                     </div>
                                   </div>
+
+                                  {/* Duplicate Warning */}
+                                  {selectedInvoiceMonth && invoiceServiceDescription && isPeriodInvoiced(selectedInvoiceMonth, invoiceServiceDescription) && (
+                                    <Alert>
+                                      <AlertTriangle className="h-4 w-4" />
+                                      <AlertDescription>
+                                        <strong>UYARI:</strong> Bu dönem ve hizmet için daha önce fatura oluşturulmuş! Tekrar fatura oluşturmak duplicate fatura riskine neden olabilir.
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
                                 </div>
                               </CardContent>
                             </Card>
 
                             {/* Preview */}
-                            <Card>
-                              <CardHeader>
-                                <CardTitle className="text-lg">Önizleme</CardTitle>
-                                <CardDescription>
-                                  Oluşturulacak fatura verilerinin önizlemesi
-                                </CardDescription>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="space-y-4">
-                                  <div className="p-4 bg-blue-50 rounded-lg">
-                                    <h4 className="font-medium text-blue-900 mb-2">Fatura Bilgileri:</h4>
-                                    <ul className="text-sm text-blue-800 space-y-1">
-                                      <li>• <strong>Dönem:</strong> {selectedInvoiceMonth || 'Seçilmedi'}</li>
-                                      <li>• <strong>Hizmet:</strong> {invoiceServiceDescription || 'Belirtilmedi'}</li>
-                                      <li>• <strong>Birim:</strong> {invoiceUnitCode}</li>
-                                      <li>• <strong>KDV Oranı:</strong> %{invoiceVatRate}</li>
-                                      <li>• <strong>Aktif Sporcu Sayısı:</strong> {activeAthletes}</li>
-                                    </ul>
-                                  </div>
+                            {selectedInvoiceMonth && invoiceServiceDescription && (
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-lg">Fatura Önizlemesi</CardTitle>
+                                  <CardDescription>
+                                    Oluşturulacak fatura verilerinin önizlemesi
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="space-y-4">
+                                    <div className="p-4 bg-blue-50 rounded-lg">
+                                      <h4 className="font-medium text-blue-900 mb-2">Fatura Bilgileri:</h4>
+                                      <ul className="text-sm text-blue-800 space-y-1">
+                                        <li>• <strong>Dönem:</strong> {new Date(selectedInvoiceMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</li>
+                                        <li>• <strong>Hizmet:</strong> {invoiceServiceDescription}</li>
+                                        <li>• <strong>Birim:</strong> {invoiceUnitCode}</li>
+                                        <li>• <strong>KDV Oranı:</strong> %{invoiceVatRate}</li>
+                                        <li>• <strong>Aktif Sporcu Sayısı:</strong> {activeAthletes}</li>
+                                      </ul>
+                                    </div>
 
-                                  <div className="p-4 bg-green-50 rounded-lg">
-                                    <h4 className="font-medium text-green-900 mb-2">Dışa Aktarılacak Alanlar:</h4>
-                                    <ul className="text-sm text-green-800 space-y-1">
-                                      <li>• Alıcı VKN/TCKN (Veli TC Kimlik Numarası)</li>
-                                      <li>• Alıcı Ünvan/Adı (Veli Adı)</li>
-                                      <li>• Alıcı Soyadı (Veli Soyadı)</li>
-                                      <li>• Alıcı Ülke (Türkiye)</li>
-                                      <li>• Alıcı Şehir (Kırklareli)</li>
-                                      <li>• Alıcı İlçe (Lüleburgaz)</li>
-                                      <li>• Alıcı Eposta (Veli Eposta)</li>
-                                      <li>• Mal/Hizmet Adı</li>
-                                      <li>• Miktar, Birim Kodu, Birim Fiyat (KDV Hariç), KDV Oranı</li>
-                                    </ul>
+                                    <div className="p-4 bg-green-50 rounded-lg">
+                                      <h4 className="font-medium text-green-900 mb-2">Dışa Aktarılacak Alanlar:</h4>
+                                      <ul className="text-sm text-green-800 space-y-1">
+                                        <li>• Alıcı VKN/TCKN (Veli TC Kimlik Numarası)</li>
+                                        <li>• Alıcı Ünvan/Adı (Veli Adı)</li>
+                                        <li>• Alıcı Soyadı (Veli Soyadı)</li>
+                                        <li>• Alıcı Ülke (Türkiye)</li>
+                                        <li>• Alıcı Şehir (Kırklareli)</li>
+                                        <li>• Alıcı İlçe (Lüleburgaz)</li>
+                                        <li>• Alıcı Eposta (Veli Eposta)</li>
+                                        <li>• Mal/Hizmet Adı</li>
+                                        <li>• Miktar, Birim Kodu, Birim Fiyat (KDV Hariç), KDV Oranı</li>
+                                      </ul>
+                                    </div>
                                   </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-
-                            {/* Sample Data */}
-                            <Card>
-                              <CardHeader>
-                                <CardTitle className="text-lg">Örnek Veri</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Alıcı VKN/TCKN</TableHead>
-                                      <TableHead>Alıcı Adı</TableHead>
-                                      <TableHead>Alıcı Soyadı</TableHead>
-                                      <TableHead>Alıcı Eposta</TableHead>
-                                      <TableHead>Mal/Hizmet Adı</TableHead>
-                                      <TableHead>Birim Fiyat</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    <TableRow>
-                                      <TableCell>12345678901</TableCell>
-                                      <TableCell>Mehmet</TableCell>
-                                      <TableCell>Yılmaz</TableCell>
-                                      <TableCell>mehmet@email.com</TableCell>
-                                      <TableCell>{invoiceServiceDescription || 'Spor Okulu Aidatı'}</TableCell>
-                                      <TableCell>350.00</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                      <TableCell>23456789012</TableCell>
-                                      <TableCell>Fatma</TableCell>
-                                      <TableCell>Demir</TableCell>
-                                      <TableCell>fatma@email.com</TableCell>
-                                      <TableCell>{invoiceServiceDescription || 'Spor Okulu Aidatı'}</TableCell>
-                                      <TableCell>350.00</TableCell>
-                                    </TableRow>
-                                  </TableBody>
-                                </Table>
-                              </CardContent>
-                            </Card>
+                                </CardContent>
+                              </Card>
+                            )}
                           </div>
 
                           <div className="flex justify-end space-x-2 mt-6">
@@ -2377,7 +2539,25 @@ export default function Athletes() {
                               İptal
                             </Button>
                             <Button 
-                              onClick={generateEInvoiceExport}
+                              onClick={() => {
+                                // Check for duplicate before proceeding
+                                if (isPeriodInvoiced(selectedInvoiceMonth, invoiceServiceDescription)) {
+                                  const confirmDuplicate = confirm(
+                                    `UYARI: ${selectedInvoiceMonth} dönemi için "${invoiceServiceDescription}" hizmeti daha önce faturalandı!\n\nTekrar fatura oluşturmak istediğinizden emin misiniz? Bu duplicate fatura oluşturabilir.`
+                                  );
+                                  if (!confirmDuplicate) {
+                                    return;
+                                  }
+                                }
+                                
+                                // Generate invoice
+                                generateEInvoiceExport();
+                                
+                                // Mark period as invoiced
+                                const athleteCount = athletes.filter(athlete => athlete.status === 'Aktif' || !athlete.status).length;
+                                const totalAmount = athleteCount * 350; // This should be calculated from actual data
+                                markPeriodAsInvoiced(selectedInvoiceMonth, invoiceServiceDescription, athleteCount, totalAmount);
+                              }}
                               disabled={!selectedInvoiceMonth || !invoiceServiceDescription}
                             >
                               <FileSpreadsheet className="h-4 w-4 mr-2" />
