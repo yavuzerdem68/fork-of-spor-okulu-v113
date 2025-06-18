@@ -235,18 +235,18 @@ const detectMultipleAthletes = (amount: number, athletes: any[]): boolean => {
   // Common monthly fees to check against
   const commonFees = [300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000];
   
-  // Check if amount is a multiple of common fees (±100 TL tolerance for better detection)
+  // Check if amount is a multiple of common fees (±150 TL tolerance for better detection)
   for (const fee of commonFees) {
     for (let multiplier = 2; multiplier <= 5; multiplier++) {
       const expectedAmount = fee * multiplier;
-      if (Math.abs(amount - expectedAmount) <= 100) {
+      if (Math.abs(amount - expectedAmount) <= 150) {
         return true;
       }
     }
   }
   
-  // Additional check: if amount is greater than 600 TL, likely multiple payments
-  if (amount >= 600) {
+  // Additional check: if amount is greater than 500 TL, likely multiple payments
+  if (amount >= 500) {
     return true;
   }
   
@@ -441,8 +441,8 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
       }
     }
     
-    // Use higher threshold for better quality suggestions (restore ~90% accuracy)
-    if (finalSimilarity > 25) { // Increased from 15 to 25 for better quality
+    // Use lower threshold for better coverage but still maintain quality
+    if (finalSimilarity > 15) { // Lowered back to 15 for better coverage
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
@@ -2727,8 +2727,8 @@ export default function Payments() {
                                         hasRelevantSiblings
                                       });
                                       
-                                      // Show multi-athlete section only if amount suggests multiple payments AND there are relevant sibling matches
-                                      if (isMultipleAmount && hasRelevantSiblings) {
+                                      // Show multi-athlete section if amount suggests multiple payments OR there are relevant sibling matches
+                                      if (isMultipleAmount || hasRelevantSiblings) {
                                         return (
                                           <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
                                             <div className="flex items-center space-x-2 mb-3">
