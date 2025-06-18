@@ -44,20 +44,41 @@ import Header from "@/components/Header";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 
-// Turkish character normalization for better matching
+// Comprehensive Turkish text normalization with advanced character mapping
 const normalizeTurkishText = (text: string): string => {
   if (!text) return '';
   
-  return text
-    .toLowerCase()
-    .replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u')
-    .replace(/ş/g, 's')
-    .replace(/ı/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c')
-    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-    .trim();
+  // First normalize to lowercase and handle Turkish characters
+  let normalized = text.toLowerCase();
+  
+  // Turkish character mappings - both directions for better matching
+  const turkishMappings = {
+    'ğ': 'g', 'g': 'ğ',
+    'ü': 'u', 'u': 'ü', 
+    'ş': 's', 's': 'ş',
+    'ı': 'i', 'i': 'ı',
+    'ö': 'o', 'o': 'ö',
+    'ç': 'c', 'c': 'ç'
+  };
+  
+  // Create multiple normalized versions for better matching
+  const versions = [normalized];
+  
+  // Version with Turkish chars converted to ASCII
+  let asciiVersion = normalized;
+  Object.keys(turkishMappings).forEach(char => {
+    if (['ğ', 'ü', 'ş', 'ı', 'ö', 'ç'].includes(char)) {
+      asciiVersion = asciiVersion.replace(new RegExp(char, 'g'), turkishMappings[char]);
+    }
+  });
+  versions.push(asciiVersion);
+  
+  // Clean up punctuation and extra spaces
+  return versions.map(v => 
+    v.replace(/[^\wğüşıöçâîû]/g, ' ')
+     .replace(/\s+/g, ' ')
+     .trim()
+  );
 };
 
 // Parse Turkish date formats (DD/MM/YYYY, DD.MM.YYYY)
@@ -110,103 +131,272 @@ const parseTurkishDate = (dateStr: string): Date | null => {
   return null;
 };
 
-// Calculate similarity between two strings using Levenshtein distance
+// Advanced similarity calculation with multiple algorithms
 const calculateSimilarity = (str1: string, str2: string): number => {
-  const norm1 = normalizeTurkishText(str1);
-  const norm2 = normalizeTurkishText(str2);
+  if (!str1 || !str2) return 0;
   
-  if (norm1 === norm2) return 100;
-  if (!norm1 || !norm2) return 0;
+  const versions1 = normalizeTurkishText(str1);
+  const versions2 = normalizeTurkishText(str2);
   
-  const matrix = [];
-  const len1 = norm1.length;
-  const len2 = norm2.length;
+  let maxSimilarity = 0;
   
-  // Initialize matrix
-  for (let i = 0; i <= len1; i++) {
-    matrix[i] = [i];
+  // Test all combinations of normalized versions
+  for (const v1 of versions1) {
+    for (const v2 of versions2) {
+      // Exact match
+      if (v1 === v2) return 100;
+      
+      // Levenshtein distance
+      const levenshtein = calculateLevenshteinSimilarity(v1, v2);
+      
+      // Jaccard similarity (word-based)
+      const jaccard = calculateJaccardSimilarity(v1, v2);
+      
+      // Substring matching
+      const substring = calculateSubstringSimilarity(v1, v2);
+      
+      // Combined score with weights
+      const combined = (levenshtein * 0.4) + (jaccard * 0.4) + (substring * 0.2);
+      
+      maxSimilarity = Math.max(maxSimilarity, combined);
+    }
   }
-  for (let j = 0; j <= len2; j++) {
-    matrix[0][j] = j;
-  }
   
-  // Calculate Levenshtein distance
-  for (let i = 1; i <= len1; i++) {
-    for (let j = 1; j <= len2; j++) {
-      const cost = norm1[i - 1] === norm2[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,     // deletion
-        matrix[i][j - 1] + 1,     // insertion
-        matrix[i - 1][j - 1] + cost // substitution
+  return maxSimilarity;
+};
+
+// Levenshtein distance similarity
+const calculateLevenshteinSimilarity = (str1: string, str2: string): number => {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  
+  if (len1 === 0) return len2 === 0 ? 100 : 0;
+  if (len2 === 0) return 0;
+  
+  const matrix = Array(len2 + 1).fill(null).map(() => Array(len1 + 1).fill(null));
+  
+  for (let i = 0; i <= len1; i++) matrix[0][i] = i;
+  for (let j = 0; j <= len2; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= len2; j++) {
+    for (let i = 1; i <= len1; i++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j - 1][i] + 1,
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i - 1] + cost
       );
     }
   }
   
-  const distance = matrix[len1][len2];
-  const maxLength = Math.max(len1, len2);
-  
-  return maxLength === 0 ? 100 : Math.round((1 - distance / maxLength) * 100);
+  const maxLen = Math.max(len1, len2);
+  return ((maxLen - matrix[len2][len1]) / maxLen) * 100;
 };
 
-// Find closest matching athletes for a given description
-const findClosestMatches = (description: string, athletes: any[], limit: number = 5): SuggestedMatch[] => {
+// Jaccard similarity for word-based matching
+const calculateJaccardSimilarity = (str1: string, str2: string): number => {
+  const words1 = new Set(str1.split(' ').filter(w => w.length > 1));
+  const words2 = new Set(str2.split(' ').filter(w => w.length > 1));
+  
+  if (words1.size === 0 && words2.size === 0) return 100;
+  if (words1.size === 0 || words2.size === 0) return 0;
+  
+  const intersection = new Set([...words1].filter(w => words2.has(w)));
+  const union = new Set([...words1, ...words2]);
+  
+  return (intersection.size / union.size) * 100;
+};
+
+// Substring similarity
+const calculateSubstringSimilarity = (str1: string, str2: string): number => {
+  if (str1.includes(str2) || str2.includes(str1)) return 85;
+  
+  let maxSubstring = 0;
+  for (let i = 0; i < str1.length; i++) {
+    for (let j = i + 2; j <= str1.length; j++) {
+      const substring = str1.slice(i, j);
+      if (str2.includes(substring)) {
+        maxSubstring = Math.max(maxSubstring, substring.length);
+      }
+    }
+  }
+  
+  return (maxSubstring / Math.max(str1.length, str2.length)) * 100;
+};
+
+// Detect if payment amount suggests multiple athletes
+const detectMultipleAthletes = (amount: number, athletes: any[]): boolean => {
+  // Common monthly fees to check against
+  const commonFees = [350, 400, 450, 500, 600, 700, 800, 1000];
+  
+  // Check if amount is a multiple of common fees (±50 TL tolerance)
+  for (const fee of commonFees) {
+    for (let multiplier = 2; multiplier <= 4; multiplier++) {
+      const expectedAmount = fee * multiplier;
+      if (Math.abs(amount - expectedAmount) <= 50) {
+        return true;
+      }
+    }
+  }
+  
+  // Check against average athlete fees (±100 TL tolerance)
+  if (athletes.length > 0) {
+    const avgFee = 400; // Approximate average
+    for (let multiplier = 2; multiplier <= 4; multiplier++) {
+      const expectedAmount = avgFee * multiplier;
+      if (Math.abs(amount - expectedAmount) <= 100) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+};
+
+// Find siblings (athletes with same parent)
+const findSiblings = (athletes: any[]): { [key: string]: any[] } => {
+  const siblingGroups: { [key: string]: any[] } = {};
+  
+  athletes.forEach(athlete => {
+    const parentKey = normalizeTurkishText(`${athlete.parentName || ''} ${athlete.parentSurname || ''}`)[0];
+    if (parentKey && parentKey.length > 3) {
+      if (!siblingGroups[parentKey]) {
+        siblingGroups[parentKey] = [];
+      }
+      siblingGroups[parentKey].push(athlete);
+    }
+  });
+  
+  // Only return groups with more than one athlete
+  const result: { [key: string]: any[] } = {};
+  Object.keys(siblingGroups).forEach(key => {
+    if (siblingGroups[key].length > 1) {
+      result[key] = siblingGroups[key];
+    }
+  });
+  
+  return result;
+};
+
+// Find closest matching athletes for a given description with enhanced algorithm
+const findClosestMatches = (description: string, athletes: any[], limit: number = 8): SuggestedMatch[] => {
   const suggestions: SuggestedMatch[] = [];
+  const isMultipleAmount = detectMultipleAthletes(parseFloat(description.match(/\d+/)?.[0] || '0'), athletes);
+  const siblingGroups = findSiblings(athletes);
   
   for (const athlete of athletes) {
     const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
     const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
     
-    // Calculate similarity with athlete name
-    const athleteSimilarity = calculateSimilarity(description, athleteName);
+    // Enhanced similarity calculation
+    let maxSimilarity = 0;
     
-    // Calculate similarity with parent name
-    const parentSimilarity = calculateSimilarity(description, parentName);
+    // 1. Direct name matching with all normalized versions
+    const athleteVersions = normalizeTurkishText(athleteName);
+    const parentVersions = normalizeTurkishText(parentName);
+    const descVersions = normalizeTurkishText(description);
     
-    // Use the higher similarity score
-    const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
-    
-    // Also check for partial word matches
-    const descWords = normalizeTurkishText(description).split(' ');
-    const athleteWords = normalizeTurkishText(athleteName).split(' ');
-    const parentWords = normalizeTurkishText(parentName).split(' ');
-    
-    let wordMatchScore = 0;
-    for (const descWord of descWords) {
-      if (descWord.length > 2) { // Only consider words longer than 2 characters
-        for (const athleteWord of athleteWords) {
-          if (athleteWord.includes(descWord) || descWord.includes(athleteWord)) {
-            wordMatchScore += 20;
-          }
-        }
-        for (const parentWord of parentWords) {
-          if (parentWord.includes(descWord) || descWord.includes(parentWord)) {
-            wordMatchScore += 20;
-          }
-        }
+    // Test all combinations
+    for (const descVersion of descVersions) {
+      for (const athleteVersion of athleteVersions) {
+        const sim = calculateSimilarity(descVersion, athleteVersion);
+        maxSimilarity = Math.max(maxSimilarity, sim);
+      }
+      for (const parentVersion of parentVersions) {
+        const sim = calculateSimilarity(descVersion, parentVersion);
+        maxSimilarity = Math.max(maxSimilarity, sim * 1.1); // Slight boost for parent matches
       }
     }
     
-    const finalSimilarity = Math.max(maxSimilarity, Math.min(wordMatchScore, 100));
+    // 2. Word-by-word matching with fuzzy logic
+    const descWords = descVersions[0].split(' ').filter(w => w.length > 2);
+    const athleteWords = athleteVersions[0].split(' ').filter(w => w.length > 2);
+    const parentWords = parentVersions[0].split(' ').filter(w => w.length > 2);
     
-    if (finalSimilarity > 20) { // Only include if similarity is above 20%
+    let wordMatchScore = 0;
+    let totalPossibleMatches = descWords.length;
+    
+    for (const descWord of descWords) {
+      let bestWordMatch = 0;
+      
+      // Check athlete name words
+      for (const athleteWord of athleteWords) {
+        if (descWord === athleteWord) {
+          bestWordMatch = Math.max(bestWordMatch, 100);
+        } else if (descWord.includes(athleteWord) || athleteWord.includes(descWord)) {
+          bestWordMatch = Math.max(bestWordMatch, 80);
+        } else {
+          // Fuzzy matching for similar words
+          const wordSim = calculateLevenshteinSimilarity(descWord, athleteWord);
+          if (wordSim > 70) {
+            bestWordMatch = Math.max(bestWordMatch, wordSim * 0.8);
+          }
+        }
+      }
+      
+      // Check parent name words (with slight boost)
+      for (const parentWord of parentWords) {
+        if (descWord === parentWord) {
+          bestWordMatch = Math.max(bestWordMatch, 105);
+        } else if (descWord.includes(parentWord) || parentWord.includes(descWord)) {
+          bestWordMatch = Math.max(bestWordMatch, 85);
+        } else {
+          const wordSim = calculateLevenshteinSimilarity(descWord, parentWord);
+          if (wordSim > 70) {
+            bestWordMatch = Math.max(bestWordMatch, wordSim * 0.85);
+          }
+        }
+      }
+      
+      wordMatchScore += bestWordMatch;
+    }
+    
+    const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
+    
+    // 3. Combine scores
+    const finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
+    
+    // 4. Boost for siblings if multiple amount detected
+    let siblingBoost = 0;
+    if (isMultipleAmount) {
+      const parentKey = normalizeTurkishText(`${athlete.parentName || ''} ${athlete.parentSurname || ''}`)[0];
+      if (siblingGroups[parentKey]) {
+        siblingBoost = 10; // Small boost for potential siblings
+      }
+    }
+    
+    const adjustedSimilarity = Math.min(100, finalSimilarity + siblingBoost);
+    
+    // Lower threshold for better coverage
+    if (adjustedSimilarity > 15) {
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
-        similarity: finalSimilarity
+        parentName: parentName,
+        similarity: Math.round(adjustedSimilarity),
+        isSibling: siblingBoost > 0
       });
     }
   }
   
   // Sort by similarity (highest first) and return top matches
   return suggestions
-    .sort((a, b) => b.similarity - a.similarity)
+    .sort((a, b) => {
+      // Prioritize siblings if multiple amount detected
+      if (isMultipleAmount && a.isSibling !== b.isSibling) {
+        return a.isSibling ? -1 : 1;
+      }
+      return b.similarity - a.similarity;
+    })
     .slice(0, limit);
 };
 
 interface SuggestedMatch {
   athleteId: string;
   athleteName: string;
+  parentName?: string;
   similarity: number;
+  isSibling?: boolean;
 }
 
 const fadeInUp = {
@@ -235,6 +425,7 @@ export default function Payments() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
   const [manualMatches, setManualMatches] = useState<{[key: number]: string}>({});
+  const [selectedMultipleAthletes, setSelectedMultipleAthletes] = useState<{[key: number]: string[]}>({});
   const [paymentMatchHistory, setPaymentMatchHistory] = useState<{[key: string]: string}>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newPayment, setNewPayment] = useState({
@@ -1352,6 +1543,62 @@ export default function Payments() {
     toast.success(`${selectedAthlete.studentName} ${selectedAthlete.studentSurname} için ödeme kaydı oluşturuldu`);
   };
 
+  // Handle multiple athlete matching
+  const handleMultipleAthleteMatch = (matchIndex: number, athleteIds: string[]) => {
+    if (athleteIds.length === 0) {
+      toast.error("Lütfen en az bir sporcu seçin");
+      return;
+    }
+
+    const storedAthletes = localStorage.getItem('athletes') || localStorage.getItem('students');
+    let athletes = [];
+    if (storedAthletes) {
+      athletes = JSON.parse(storedAthletes);
+    }
+
+    const selectedAthletes = athleteIds.map(id => 
+      athletes.find((a: any) => a.id.toString() === id)
+    ).filter(Boolean);
+
+    if (selectedAthletes.length === 0) {
+      toast.error("Seçilen sporcular bulunamadı");
+      return;
+    }
+
+    const totalAmount = matchedPayments[matchIndex].excelData.amount;
+    const amountPerAthlete = totalAmount / selectedAthletes.length;
+
+    // Create multiple payment records
+    const multiplePayments = selectedAthletes.map(athlete => ({
+      id: `multi_${athlete.id}_${Date.now()}`,
+      athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+      parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+      amount: amountPerAthlete,
+      status: 'Bekliyor',
+      sport: athlete.selectedSports ? athlete.selectedSports[0] : 'Genel'
+    }));
+
+    const updatedMatches = [...matchedPayments];
+    updatedMatches[matchIndex] = {
+      ...updatedMatches[matchIndex],
+      payment: multiplePayments[0], // Use first athlete as primary
+      multiplePayments: multiplePayments,
+      status: 'matched',
+      confidence: 100,
+      isMultiple: true
+    };
+    
+    setMatchedPayments(updatedMatches);
+    
+    // Clear selection
+    setSelectedMultipleAthletes(prev => ({
+      ...prev,
+      [matchIndex]: []
+    }));
+    
+    toast.success(`Ödeme ${selectedAthletes.length} sporcu arasında bölüştürüldü (${amountPerAthlete.toFixed(2)} ₺ / sporcu)`);
+  };
+
   // Clear all filled fields function
   const clearAllFields = () => {
     // Clear search and filters
@@ -1372,6 +1619,7 @@ export default function Payments() {
     setUploadProgress(0);
     setMatchedPayments([]);
     setManualMatches({});
+    setSelectedMultipleAthletes({});
     setBulkImportFile(null);
     
     // Close all dialogs
