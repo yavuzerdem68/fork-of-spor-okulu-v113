@@ -1352,6 +1352,111 @@ export default function Payments() {
     toast.success(`${selectedAthlete.studentName} ${selectedAthlete.studentSurname} için ödeme kaydı oluşturuldu`);
   };
 
+  // Clear all filled fields function
+  const clearAllFields = () => {
+    // Clear search and filters
+    setSearchTerm("");
+    setSelectedStatus("all");
+    
+    // Clear new payment form
+    setNewPayment({
+      athleteId: '',
+      amount: '',
+      method: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      description: ''
+    });
+    
+    // Clear upload states
+    setUploadedFile(null);
+    setUploadProgress(0);
+    setMatchedPayments([]);
+    setManualMatches({});
+    setBulkImportFile(null);
+    
+    // Close all dialogs
+    setIsAddDialogOpen(false);
+    setIsUploadDialogOpen(false);
+    setIsInvoiceDialogOpen(false);
+    setIsBulkImportDialogOpen(false);
+    
+    // Clear file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    
+    toast.success("Tüm alanlar temizlendi");
+  };
+
+  // Export payments to Excel
+  const exportPaymentsToExcel = () => {
+    try {
+      // Prepare data for export
+      const exportData = filteredPayments.map(payment => ({
+        'Sporcu Adı Soyadı': payment.athleteName,
+        'Veli Adı Soyadı': payment.parentName,
+        'Spor Branşı': payment.sport,
+        'Tutar (₺)': payment.amount,
+        'Ödeme Durumu': payment.status,
+        'Vade Tarihi': new Date(payment.dueDate).toLocaleDateString('tr-TR'),
+        'Ödeme Tarihi': payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('tr-TR') : 'Ödenmedi',
+        'Ödeme Yöntemi': payment.method || 'Belirtilmemiş',
+        'Fatura Numarası': payment.invoiceNumber,
+        'Açıklama': payment.description || ''
+      }));
+
+      if (exportData.length === 0) {
+        toast.error("Dışa aktarılacak ödeme kaydı bulunamadı");
+        return;
+      }
+
+      // Create CSV content
+      const headers = Object.keys(exportData[0]);
+      const csvRows = [];
+      
+      // Add header row
+      csvRows.push(headers.join(';'));
+      
+      // Add data rows
+      exportData.forEach(row => {
+        const rowValues = headers.map(header => {
+          const value = row[header as keyof typeof row];
+          const stringValue = String(value || '');
+          // Escape semicolons and quotes for proper CSV format
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        });
+        csvRows.push(rowValues.join(';'));
+      });
+      
+      const csvContent = csvRows.join('\r\n');
+
+      // Add UTF-8 BOM for proper Turkish character display
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().slice(0, 10);
+      const fileName = `Odemeler_${currentDate}.csv`;
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      URL.revokeObjectURL(url);
+
+      toast.success(`${exportData.length} ödeme kaydı Excel'e aktarıldı! (${fileName})`);
+      
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error("Excel dışa aktarma sırasında hata oluştu");
+    }
+  };
+
   return (
     <>
       <Head>
@@ -1379,6 +1484,13 @@ export default function Payments() {
                 <h1 className="text-3xl font-bold">Ödemeler</h1>
               </div>
               <p className="text-muted-foreground">Aidat ve ödeme takibi</p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={clearAllFields}>
+                <X className="h-4 w-4 mr-2" />
+                Alanları Temizle
+              </Button>
             </div>
           </motion.div>
 
@@ -1495,7 +1607,7 @@ export default function Payments() {
                           </DialogTrigger>
                         </Dialog>
 
-                        <Button variant="outline">
+                        <Button variant="outline" onClick={exportPaymentsToExcel}>
                           <Download className="h-4 w-4 mr-2" />
                           Excel Dışa Aktar
                         </Button>
