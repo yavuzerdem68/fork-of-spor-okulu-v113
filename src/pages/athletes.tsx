@@ -56,7 +56,7 @@ const fadeInUp = {
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
   "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
-  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim"
+  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim", "Hareket Eğitimi"
 ];
 
 // Edit Athlete Form Component
@@ -709,6 +709,23 @@ export default function Athletes() {
       
       return matchesSearch && matchesSport && matchesStatus;
     });
+    
+    // Sort alphabetically by athlete name, then by parent name
+    filtered.sort((a, b) => {
+      const athleteNameA = `${a.studentName || ''} ${a.studentSurname || ''}`.trim().toLowerCase();
+      const athleteNameB = `${b.studentName || ''} ${b.studentSurname || ''}`.trim().toLowerCase();
+      
+      if (athleteNameA !== athleteNameB) {
+        return athleteNameA.localeCompare(athleteNameB, 'tr');
+      }
+      
+      // If athlete names are the same, sort by parent name
+      const parentNameA = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
+      const parentNameB = `${b.parentName || ''} ${b.parentSurname || ''}`.trim().toLowerCase();
+      
+      return parentNameA.localeCompare(parentNameB, 'tr');
+    });
+    
     setFilteredAthletes(filtered);
   }, [searchTerm, selectedSport, selectedStatus, athletes]);
 
@@ -1110,15 +1127,27 @@ export default function Athletes() {
             // Try different date formats
             let parsedDate = null;
             
+            // Handle Excel date serial numbers
+            if (!isNaN(Number(dateStr)) && Number(dateStr) > 25000) {
+              // Excel date serial number (days since 1900-01-01)
+              const excelEpoch = new Date(1900, 0, 1);
+              parsedDate = new Date(excelEpoch.getTime() + (Number(dateStr) - 2) * 24 * 60 * 60 * 1000);
+              const year = parsedDate.getFullYear();
+              const month = (parsedDate.getMonth() + 1).toString().padStart(2, '0');
+              const day = parsedDate.getDate().toString().padStart(2, '0');
+              birthDate = `${year}-${month}-${day}`;
+            }
             // Format: DD/MM/YYYY
-            if (dateStr.includes('/')) {
+            else if (dateStr.includes('/')) {
               const dateParts = dateStr.split('/');
               if (dateParts.length === 3) {
                 const day = dateParts[0].padStart(2, '0');
                 const month = dateParts[1].padStart(2, '0');
                 const year = dateParts[2];
-                birthDate = `${year}-${month}-${day}`;
-                parsedDate = new Date(year, parseInt(month) - 1, parseInt(day));
+                if (year.length === 4) {
+                  birthDate = `${year}-${month}-${day}`;
+                  parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                }
               }
             }
             // Format: DD.MM.YYYY
@@ -1128,23 +1157,25 @@ export default function Athletes() {
                 const day = dateParts[0].padStart(2, '0');
                 const month = dateParts[1].padStart(2, '0');
                 const year = dateParts[2];
-                birthDate = `${year}-${month}-${day}`;
-                parsedDate = new Date(year, parseInt(month) - 1, parseInt(day));
+                if (year.length === 4) {
+                  birthDate = `${year}-${month}-${day}`;
+                  parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                }
               }
             }
             // Format: DD-MM-YYYY
-            else if (dateStr.includes('-') && dateStr.length === 10) {
+            else if (dateStr.includes('-') && dateStr.split('-')[0].length <= 2) {
               const dateParts = dateStr.split('-');
-              if (dateParts.length === 3 && dateParts[0].length === 2) {
+              if (dateParts.length === 3 && dateParts[2].length === 4) {
                 const day = dateParts[0].padStart(2, '0');
                 const month = dateParts[1].padStart(2, '0');
                 const year = dateParts[2];
                 birthDate = `${year}-${month}-${day}`;
-                parsedDate = new Date(year, parseInt(month) - 1, parseInt(day));
+                parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
               }
             }
             // Format: YYYY-MM-DD (already correct)
-            else if (dateStr.includes('-') && dateStr.length === 10) {
+            else if (dateStr.includes('-') && dateStr.split('-')[0].length === 4) {
               birthDate = dateStr;
               parsedDate = new Date(dateStr);
             }

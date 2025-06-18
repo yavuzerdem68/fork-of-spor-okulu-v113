@@ -50,7 +50,7 @@ const loadTrainings = () => {
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
   "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
-  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim"
+  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim", "Hareket Eğitimi"
 ];
 
 // Load coaches from localStorage
@@ -65,7 +65,15 @@ const loadAthletes = () => {
   return storedAthletes ? JSON.parse(storedAthletes).filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status) : [];
 };
 
-const locations = ["Spor Salonu A", "Spor Salonu B", "Futbol Sahası", "Yüzme Havuzu", "Satranç Odası"];
+// Load training locations from system settings
+const loadTrainingLocations = () => {
+  const settings = localStorage.getItem('systemSettings');
+  if (settings) {
+    const parsedSettings = JSON.parse(settings);
+    return parsedSettings.trainingLocations || ['Ana Salon', 'Yan Salon', 'Dış Saha'];
+  }
+  return ['Ana Salon', 'Yan Salon', 'Dış Saha'];
+};
 const ageGroups = ["U8", "U10", "U12", "U14", "U16", "U18", "Yetişkin"];
 const levels = ["Başlangıç", "Orta", "İleri"];
 
@@ -82,6 +90,7 @@ export default function Trainings() {
   const [trainings, setTrainings] = useState<any[]>([]);
   const [coaches, setCoaches] = useState<any[]>([]);
   const [athletes, setAthletes] = useState<any[]>([]);
+  const [trainingLocations, setTrainingLocations] = useState<string[]>([]);
   const [selectedTraining, setSelectedTraining] = useState<any>(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -115,6 +124,7 @@ export default function Trainings() {
     setTrainings(loadTrainings());
     setCoaches(loadCoaches());
     setAthletes(loadAthletes());
+    setTrainingLocations(loadTrainingLocations());
   }, [router]);
 
   const filteredTrainings = trainings.filter(training => {
@@ -577,7 +587,7 @@ export default function Trainings() {
                                         <SelectValue placeholder="Lokasyon seçin" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {locations.map(location => (
+                                        {trainingLocations.map(location => (
                                           <SelectItem key={location} value={location}>{location}</SelectItem>
                                         ))}
                                       </SelectContent>
@@ -1190,7 +1200,7 @@ export default function Trainings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {locations.map(location => (
+                        {trainingLocations.map(location => (
                           <SelectItem key={location} value={location}>{location}</SelectItem>
                         ))}
                       </SelectContent>
