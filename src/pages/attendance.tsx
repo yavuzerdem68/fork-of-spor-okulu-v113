@@ -72,14 +72,74 @@ export default function Attendance() {
     const storedTrainings = localStorage.getItem('trainings');
     let allTrainings = storedTrainings ? JSON.parse(storedTrainings) : [];
     
-    // Filter trainings for the selected date
-    allTrainings = allTrainings.filter((training: any) => training.date === date);
+    // Load athletes to get assigned athletes for each training
+    const storedAthletes = localStorage.getItem('students');
+    const athletes = storedAthletes ? JSON.parse(storedAthletes) : [];
     
-    // Add students array if not present (for attendance tracking)
-    allTrainings = allTrainings.map((training: any) => ({
-      ...training,
-      students: training.students || []
-    }));
+    // Filter trainings for the selected date
+    const selectedDateObj = new Date(date);
+    const dayOfWeek = selectedDateObj.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const selectedDayName = dayNames[dayOfWeek];
+    
+    allTrainings = allTrainings.filter((training: any) => {
+      // Check single-day trainings (backward compatibility)
+      if (training.date === date) {
+        return true;
+      }
+      
+      // Check multi-day trainings (startDate to endDate range)
+      if (training.startDate && training.endDate) {
+        const startDate = new Date(training.startDate);
+        const endDate = new Date(training.endDate);
+        const checkDate = new Date(date);
+        
+        // If it's a recurring training, check if the selected day is in recurringDays
+        if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
+          return checkDate >= startDate && checkDate <= endDate && 
+                 training.recurringDays.includes(selectedDayName);
+        }
+        
+        // If it's not recurring, check if it's within the date range
+        if (!training.isRecurring) {
+          return checkDate >= startDate && checkDate <= endDate;
+        }
+      }
+      
+      // Check single-day trainings with startDate only
+      if (training.startDate && !training.endDate) {
+        return training.startDate === date;
+      }
+      
+      return false;
+    });
+    
+    // Add students array based on assigned athletes
+    allTrainings = allTrainings.map((training: any) => {
+      let students = training.students || [];
+      
+      // If no students but has assignedAthletes, create students from assigned athletes
+      if (students.length === 0 && training.assignedAthletes && training.assignedAthletes.length > 0) {
+        students = training.assignedAthletes.map((athleteId: string) => {
+          const athlete = athletes.find((a: any) => a.id.toString() === athleteId);
+          if (athlete) {
+            return {
+              id: athlete.id,
+              name: athlete.studentName || '',
+              surname: athlete.studentSurname || '',
+              parentPhone: athlete.parentPhone || '',
+              present: null // null = not taken, true = present, false = absent
+            };
+          }
+          return null;
+        }).filter(Boolean);
+      }
+      
+      return {
+        ...training,
+        students: students
+      };
+    });
 
     let trainingsToShow = allTrainings;
 
