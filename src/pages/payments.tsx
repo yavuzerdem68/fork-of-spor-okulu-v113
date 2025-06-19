@@ -384,11 +384,12 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
   const isMultipleAmount = detectMultipleAthletes(extractedAmount, athletes);
   const siblingGroups = findSiblings(athletes);
   
-  console.log('Multi-athlete detection:', {
+  console.log('🔍 SUGGESTION ANALYSIS:', {
     description,
     extractedAmount,
     isMultipleAmount,
-    siblingGroupsCount: Object.keys(siblingGroups).length
+    siblingGroupsCount: Object.keys(siblingGroups).length,
+    totalAthletes: athletes.length
   });
   
   // Create a map to identify which athletes are siblings
@@ -468,21 +469,20 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
     let finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
     
-    // COMPLETELY FIXED: Proper sibling detection that only shows relevant siblings
+    // FIXED: More inclusive sibling detection
     const isSibling = siblingMap.has(athlete.id.toString());
     let shouldIncludeAsSibling = false;
     
     if (isSibling) {
-      // CRITICAL FIX: Only mark as sibling if THIS specific athlete has good similarity
-      // This prevents showing all siblings when only one matches
-      if (finalSimilarity > 30) { // Reasonable threshold for individual match quality
+      // FIXED: Lower threshold for sibling inclusion - if there's ANY reasonable match, show as sibling
+      if (finalSimilarity > 15) { // Lowered from 30 to 15 for better sibling visibility
         shouldIncludeAsSibling = true;
-        finalSimilarity = Math.min(100, finalSimilarity + 5); // Very small boost to maintain accuracy
+        finalSimilarity = Math.min(100, finalSimilarity + 3); // Small boost for siblings
       }
     }
     
-    // RESTORED: Use lower threshold for better coverage while maintaining quality
-    if (finalSimilarity > 20) { // Lowered from 25 to 20 for better coverage
+    // FIXED: Much lower threshold to ensure suggestions are always shown
+    if (finalSimilarity > 10) { // Lowered from 20 to 10 to ensure suggestions appear
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
@@ -493,11 +493,35 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     }
   }
   
-  // Sort by similarity (highest first), with slight preference for siblings when they have good individual matches
+  console.log('🎯 SUGGESTIONS GENERATED:', {
+    totalSuggestions: suggestions.length,
+    siblingCount: suggestions.filter(s => s.isSibling).length,
+    topSimilarities: suggestions.slice(0, 5).map(s => ({ name: s.athleteName, similarity: s.similarity, isSibling: s.isSibling }))
+  });
+  
+  // FIXED: Ensure we always return at least some suggestions if athletes exist
+  if (suggestions.length === 0 && athletes.length > 0) {
+    console.log('⚠️ NO SUGGESTIONS FOUND - Adding top athletes as fallback');
+    // Add top 5 athletes as fallback suggestions with low similarity
+    athletes.slice(0, 5).forEach(athlete => {
+      const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
+      const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+      
+      suggestions.push({
+        athleteId: athlete.id.toString(),
+        athleteName: athleteName,
+        parentName: parentName,
+        similarity: 5, // Very low similarity as fallback
+        isSibling: siblingMap.has(athlete.id.toString())
+      });
+    });
+  }
+  
+  // Sort by similarity (highest first), with preference for siblings when they have similar scores
   return suggestions
     .sort((a, b) => {
-      // If both have similar similarity scores, prefer siblings slightly
-      if (Math.abs(a.similarity - b.similarity) <= 5 && a.isSibling !== b.isSibling) {
+      // If both have similar similarity scores (within 10 points), prefer siblings
+      if (Math.abs(a.similarity - b.similarity) <= 10 && a.isSibling !== b.isSibling) {
         return a.isSibling ? -1 : 1;
       }
       return b.similarity - a.similarity;
