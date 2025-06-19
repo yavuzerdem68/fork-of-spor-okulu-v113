@@ -455,6 +455,9 @@ export default function Payments() {
   const findMatches = () => {
     const results: MatchResult[] = [];
     
+    // Load payment matching history
+    const matchingHistory = JSON.parse(localStorage.getItem('paymentMatchingHistory') || '{}');
+    
     excelData.forEach(row => {
       let bestMatch: MatchResult = {
         excelRow: row,
@@ -465,29 +468,51 @@ export default function Payments() {
         isManual: false
       };
       
-      // Try to match with athletes
-      athletes.forEach(athlete => {
-        const athleteName = `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim();
-        const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-        
-        if (!athleteName && !parentName) return;
-        
-        // Calculate similarity
-        const athleteSimilarity = calculateSimilarity(row.description, athleteName);
-        const parentSimilarity = calculateSimilarity(row.description, parentName);
-        const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
-        
-        if (maxSimilarity > bestMatch.similarity) {
+      // First, check if we have a historical match for this description
+      const normalizedDescription = normalizeTurkish(row.description);
+      const historicalMatch = matchingHistory[normalizedDescription];
+      
+      if (historicalMatch) {
+        // Find the athlete from historical match
+        const athlete = athletes.find(a => a.id.toString() === historicalMatch.athleteId);
+        if (athlete) {
           bestMatch = {
             excelRow: row,
             athleteId: athlete.id.toString(),
-            athleteName: athleteName,
-            parentName: parentName,
-            similarity: maxSimilarity,
-            isManual: false
+            athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
+            parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+            similarity: 100, // Historical matches get 100% similarity
+            isManual: false,
+            multipleAthletes: historicalMatch.multipleAthletes
           };
+          
+          console.log(`Historical match found: ${bestMatch.athleteName} for "${row.description}"`);
         }
-      });
+      } else {
+        // Try to match with athletes using similarity
+        athletes.forEach(athlete => {
+          const athleteName = `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim();
+          const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+          
+          if (!athleteName && !parentName) return;
+          
+          // Calculate similarity
+          const athleteSimilarity = calculateSimilarity(row.description, athleteName);
+          const parentSimilarity = calculateSimilarity(row.description, parentName);
+          const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
+          
+          if (maxSimilarity > bestMatch.similarity) {
+            bestMatch = {
+              excelRow: row,
+              athleteId: athlete.id.toString(),
+              athleteName: athleteName,
+              parentName: parentName,
+              similarity: maxSimilarity,
+              isManual: false
+            };
+          }
+        });
+      }
       
       results.push(bestMatch);
     });
@@ -495,11 +520,16 @@ export default function Payments() {
     setMatchResults(results);
     setStep('confirm');
     
-    const highConfidenceMatches = results.filter(r => r.similarity >= 80).length;
+    const historicalMatches = results.filter(r => r.similarity === 100 && !r.isManual).length;
+    const highConfidenceMatches = results.filter(r => r.similarity >= 80 && r.similarity < 100).length;
     const mediumConfidenceMatches = results.filter(r => r.similarity >= 50 && r.similarity < 80).length;
     const lowConfidenceMatches = results.filter(r => r.similarity < 50).length;
     
-    toast.success(`Eşleştirme tamamlandı! Yüksek güven: ${highConfidenceMatches}, Orta güven: ${mediumConfidenceMatches}, Düşük güven: ${lowConfidenceMatches}`);
+    if (historicalMatches > 0) {
+      toast.success(`Eşleştirme tamamlandı! ${historicalMatches} geçmiş eşleştirme otomatik uygulandı.`);
+    }
+    
+    console.log(`Matching completed: Historical: ${historicalMatches}, High: ${highConfidenceMatches}, Medium: ${mediumConfidenceMatches}, Low: ${lowConfidenceMatches}`);
   };
 
   // Manual match update
@@ -561,6 +591,9 @@ export default function Payments() {
       const updatedPayments = [...payments];
       let processedCount = 0;
       
+      // Load and update payment matching history
+      const matchingHistory = JSON.parse(localStorage.getItem('paymentMatchingHistory') || '{}');
+      
       // Check for existing payments to prevent duplicates
       const existingPaymentKeys = new Set();
       payments.forEach(payment => {
@@ -574,6 +607,17 @@ export default function Payments() {
         const paymentDate = parsedDate ? parsedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
         const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
         const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelRow.date;
+        
+        // Save this match to history for future use
+        const normalizedDescription = normalizeTurkish(match.excelRow.description);
+        matchingHistory[normalizedDescription] = {
+          athleteId: match.athleteId,
+          athleteName: match.athleteName,
+          parentName: match.parentName,
+          multipleAthletes: match.multipleAthletes,
+          lastUsed: new Date().toISOString(),
+          usageCount: (matchingHistory[normalizedDescription]?.usageCount || 0) + 1
+        };
         
         if (match.multipleAthletes && match.multipleAthletes.length > 1) {
           // Handle multi-athlete payments
@@ -700,6 +744,9 @@ export default function Payments() {
         }
       }
       
+      // Save updated matching history
+      localStorage.setItem('paymentMatchingHistory', JSON.stringify(matchingHistory));
+      
       // Save updated payments
       setPayments(updatedPayments);
       localStorage.setItem('payments', JSON.stringify(updatedPayments));
@@ -712,7 +759,7 @@ export default function Payments() {
       setMatchResults([]);
       setStep('upload');
       
-      toast.success(`${processedCount} ödeme başarıyla kaydedildi! Mükerrer kayıtlar atlandı.`);
+      toast.success(`${processedCount} ödeme başarıyla kaydedildi! Eşleştirmeler gelecek aylar için hatırlandı.`);
       
       // Reload payments to reflect changes
       loadPayments();

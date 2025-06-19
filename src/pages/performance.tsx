@@ -4,8 +4,16 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   TrendingUp, 
   Target, 
@@ -13,21 +21,30 @@ import {
   BarChart3,
   Calendar,
   Trophy,
-  Home,
-  Users,
-  CreditCard,
-  FileText,
-  MessageCircle,
-  Camera,
-  UserCheck,
-  Settings,
-  LogOut,
   Plus,
   Eye,
-  Download
+  Download,
+  ArrowLeft,
+  Edit,
+  Trash2,
+  Users,
+  Activity,
+  Timer,
+  Zap,
+  Heart,
+  Ruler,
+  Weight,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  LineChart,
+  Save,
+  X
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/router";
+import Link from "next/link";
+import Header from "@/components/Header";
+import { toast } from "sonner";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -35,229 +52,487 @@ const fadeInUp = {
   transition: { duration: 0.4 }
 };
 
-// Mock performance data
-const athletes = [
-  {
-    id: 1,
-    name: "Ahmet Yılmaz",
-    sport: "Basketbol",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face",
-    performance: {
-      overall: 85,
-      technical: 88,
-      physical: 82,
-      mental: 87,
-      teamwork: 90
-    },
-    goals: [
-      { title: "Serbest atış %80", current: 75, target: 80, status: "progress" },
-      { title: "Kondisyon testi", current: 85, target: 90, status: "progress" },
-      { title: "Takım oyunu", current: 90, target: 85, status: "completed" }
-    ],
-    achievements: [
-      { title: "En İyi Oyuncu", date: "2024-11-15", type: "monthly" },
-      { title: "Serbest Atış Rekoru", date: "2024-10-20", type: "skill" }
+// Athletic performance measurement categories
+const performanceCategories = {
+  physical: {
+    name: "Fiziksel Performans",
+    icon: Activity,
+    color: "text-blue-600",
+    measurements: [
+      { key: "height", name: "Boy (cm)", unit: "cm", type: "number" },
+      { key: "weight", name: "Kilo (kg)", unit: "kg", type: "number" },
+      { key: "bodyFat", name: "Vücut Yağ Oranı (%)", unit: "%", type: "number" },
+      { key: "muscleMass", name: "Kas Kütlesi (kg)", unit: "kg", type: "number" },
+      { key: "flexibility", name: "Esneklik (cm)", unit: "cm", type: "number" },
+      { key: "balance", name: "Denge (saniye)", unit: "sn", type: "number" }
     ]
   },
-  {
-    id: 2,
-    name: "Elif Demir",
-    sport: "Yüzme",
-    avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face",
-    performance: {
-      overall: 92,
-      technical: 95,
-      physical: 88,
-      mental: 90,
-      teamwork: 85
-    },
-    goals: [
-      { title: "50m Serbest 30sn", current: 32, target: 30, status: "progress" },
-      { title: "Teknik mükemmellik", current: 95, target: 90, status: "completed" }
-    ],
-    achievements: [
-      { title: "Bölge Şampiyonu", date: "2024-12-01", type: "competition" },
-      { title: "Teknik Gelişim", date: "2024-11-10", type: "skill" }
+  cardiovascular: {
+    name: "Kardiyovasküler",
+    icon: Heart,
+    color: "text-red-600",
+    measurements: [
+      { key: "restingHeartRate", name: "Dinlenim Nabzı (bpm)", unit: "bpm", type: "number" },
+      { key: "maxHeartRate", name: "Maksimum Nabız (bpm)", unit: "bpm", type: "number" },
+      { key: "vo2Max", name: "VO2 Max (ml/kg/min)", unit: "ml/kg/min", type: "number" },
+      { key: "recoveryTime", name: "Toparlanma Süresi (dk)", unit: "dk", type: "number" },
+      { key: "endurance", name: "Dayanıklılık Skoru (1-10)", unit: "/10", type: "number" }
+    ]
+  },
+  strength: {
+    name: "Kuvvet ve Güç",
+    icon: Zap,
+    color: "text-yellow-600",
+    measurements: [
+      { key: "benchPress", name: "Bench Press (kg)", unit: "kg", type: "number" },
+      { key: "squat", name: "Squat (kg)", unit: "kg", type: "number" },
+      { key: "deadlift", name: "Deadlift (kg)", unit: "kg", type: "number" },
+      { key: "verticalJump", name: "Dikey Sıçrama (cm)", unit: "cm", type: "number" },
+      { key: "gripStrength", name: "Kavrama Kuvveti (kg)", unit: "kg", type: "number" },
+      { key: "pushUps", name: "Şınav (adet)", unit: "adet", type: "number" }
+    ]
+  },
+  speed: {
+    name: "Hız ve Çeviklik",
+    icon: Timer,
+    color: "text-green-600",
+    measurements: [
+      { key: "sprint100m", name: "100m Koşu (sn)", unit: "sn", type: "number" },
+      { key: "sprint50m", name: "50m Koşu (sn)", unit: "sn", type: "number" },
+      { key: "agilityTest", name: "Çeviklik Testi (sn)", unit: "sn", type: "number" },
+      { key: "reactionTime", name: "Reaksiyon Süresi (ms)", unit: "ms", type: "number" },
+      { key: "shuttleRun", name: "Mekik Koşusu (sn)", unit: "sn", type: "number" }
+    ]
+  },
+  technical: {
+    name: "Teknik Beceriler",
+    icon: Target,
+    color: "text-purple-600",
+    measurements: [
+      { key: "accuracy", name: "İsabet Oranı (%)", unit: "%", type: "number" },
+      { key: "technique", name: "Teknik Skoru (1-10)", unit: "/10", type: "number" },
+      { key: "coordination", name: "Koordinasyon (1-10)", unit: "/10", type: "number" },
+      { key: "ballControl", name: "Top Kontrolü (1-10)", unit: "/10", type: "number" },
+      { key: "gameUnderstanding", name: "Oyun Anlayışı (1-10)", unit: "/10", type: "number" }
+    ]
+  },
+  mental: {
+    name: "Mental Performans",
+    icon: Trophy,
+    color: "text-indigo-600",
+    measurements: [
+      { key: "concentration", name: "Konsantrasyon (1-10)", unit: "/10", type: "number" },
+      { key: "motivation", name: "Motivasyon (1-10)", unit: "/10", type: "number" },
+      { key: "confidence", name: "Özgüven (1-10)", unit: "/10", type: "number" },
+      { key: "stressManagement", name: "Stres Yönetimi (1-10)", unit: "/10", type: "number" },
+      { key: "teamwork", name: "Takım Çalışması (1-10)", unit: "/10", type: "number" }
     ]
   }
-];
-
-const sidebarItems = [
-  { icon: Home, label: "Dashboard", href: "/dashboard" },
-  { icon: Users, label: "Sporcular", href: "/athletes" },
-  { icon: CreditCard, label: "Ödemeler", href: "/payments" },
-  { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
-  { icon: UserCheck, label: "Yoklama", href: "/attendance" },
-  { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
-  { icon: Camera, label: "Medya", href: "/media" },
-  { icon: TrendingUp, label: "Performans", href: "/performance", active: true },
-  { icon: FileText, label: "Raporlar", href: "/reports" },
-  { icon: Settings, label: "Ayarlar", href: "/settings" }
-];
+};
 
 export default function Performance() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedAthlete, setSelectedAthlete] = useState(athletes[0]);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [athletes, setAthletes] = useState<any[]>([]);
+  const [selectedAthlete, setSelectedAthlete] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSport, setSelectedSport] = useState("all");
+  const [isAddMeasurementDialogOpen, setIsAddMeasurementDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [measurementData, setMeasurementData] = useState<any>({});
+  const [performanceHistory, setPerformanceHistory] = useState<any[]>([]);
+  const [isViewHistoryDialogOpen, setIsViewHistoryDialogOpen] = useState(false);
+  const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
-    if (role !== "admin") {
+    const user = localStorage.getItem("currentUser");
+    
+    if (!role || (role !== "admin" && role !== "coach")) {
       router.push("/login");
       return;
     }
+
+    setUserRole(role);
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    }
+
+    loadAthletes(role, user ? JSON.parse(user) : null);
   }, [router]);
 
-  const getPerformanceColor = (score: number) => {
-    if (score >= 90) return "text-green-600";
-    if (score >= 75) return "text-blue-600";
-    if (score >= 60) return "text-yellow-600";
-    return "text-red-600";
+  const loadAthletes = (role: string, user: any) => {
+    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    
+    let studentsToShow = allStudents.filter((student: any) => student.status === 'Aktif' || !student.status);
+    
+    // If user is a coach, filter students based on their training groups and sports branches
+    if (role === 'coach' && user) {
+      studentsToShow = studentsToShow.filter((student: any) => {
+        const isInTrainingGroup = user.trainingGroups?.some((group: string) => 
+          student.trainingGroups?.includes(group)
+        );
+        const isInSportsBranch = user.sportsBranches?.some((branch: string) => 
+          student.sportsBranches?.includes(branch)
+        );
+        return isInTrainingGroup || isInSportsBranch;
+      });
+    }
+    
+    setAthletes(studentsToShow);
+    if (studentsToShow.length > 0 && !selectedAthlete) {
+      setSelectedAthlete(studentsToShow[0]);
+      loadPerformanceHistory(studentsToShow[0].id);
+    }
   };
 
-  const getGoalStatus = (goal: any) => {
-    if (goal.status === "completed") return "text-green-600";
-    if (goal.current >= goal.target * 0.8) return "text-blue-600";
-    return "text-yellow-600";
+  const loadPerformanceHistory = (athleteId: string) => {
+    const history = JSON.parse(localStorage.getItem(`performance_${athleteId}`) || '[]');
+    setPerformanceHistory(history.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+  };
+
+  const filteredAthletes = athletes.filter(athlete => {
+    const matchesSearch = athlete.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         athlete.studentSurname?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSport = selectedSport === "all" || athlete.sportsBranches?.includes(selectedSport);
+    
+    return matchesSearch && matchesSport;
+  });
+
+  const getInitials = (name: string, surname: string) => {
+    return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
+  };
+
+  const getPerformanceColor = (score: number, isReverse: boolean = false) => {
+    if (isReverse) {
+      // For measurements where lower is better (like sprint times)
+      if (score <= 25) return "text-green-600";
+      if (score <= 50) return "text-blue-600";
+      if (score <= 75) return "text-yellow-600";
+      return "text-red-600";
+    } else {
+      // For measurements where higher is better
+      if (score >= 90) return "text-green-600";
+      if (score >= 75) return "text-blue-600";
+      if (score >= 60) return "text-yellow-600";
+      return "text-red-600";
+    }
+  };
+
+  const calculateOverallPerformance = (athleteId: string) => {
+    const history = JSON.parse(localStorage.getItem(`performance_${athleteId}`) || '[]');
+    if (history.length === 0) return 0;
+
+    const latestMeasurements = history[0];
+    const scores: number[] = [];
+
+    Object.keys(performanceCategories).forEach(categoryKey => {
+      const category = performanceCategories[categoryKey as keyof typeof performanceCategories];
+      category.measurements.forEach(measurement => {
+        const value = latestMeasurements.measurements?.[measurement.key];
+        if (value !== undefined && value !== null && value !== '') {
+          // Normalize score to 0-100 scale (simplified)
+          let normalizedScore = 50; // Default middle score
+          
+          if (measurement.unit === '/10') {
+            normalizedScore = (parseFloat(value) / 10) * 100;
+          } else if (measurement.unit === '%') {
+            normalizedScore = parseFloat(value);
+          } else {
+            // For other measurements, use a simplified scoring system
+            normalizedScore = Math.min(100, Math.max(0, parseFloat(value) * 2));
+          }
+          
+          scores.push(normalizedScore);
+        }
+      });
+    });
+
+    return scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  };
+
+  const saveMeasurement = () => {
+    if (!selectedAthlete || !selectedCategory || Object.keys(measurementData).length === 0) {
+      toast.error("Lütfen tüm gerekli alanları doldurun");
+      return;
+    }
+
+    const newMeasurement = {
+      id: Date.now(),
+      athleteId: selectedAthlete.id,
+      date: new Date().toISOString(),
+      category: selectedCategory,
+      measurements: { ...measurementData },
+      notes: measurementData.notes || '',
+      measuredBy: currentUser?.username || 'admin',
+      createdAt: new Date().toISOString()
+    };
+
+    const existingHistory = JSON.parse(localStorage.getItem(`performance_${selectedAthlete.id}`) || '[]');
+    const updatedHistory = [newMeasurement, ...existingHistory];
+    
+    localStorage.setItem(`performance_${selectedAthlete.id}`, JSON.stringify(updatedHistory));
+    
+    // Update performance history state
+    loadPerformanceHistory(selectedAthlete.id);
+    
+    // Reset form
+    setMeasurementData({});
+    setSelectedCategory("");
+    setIsAddMeasurementDialogOpen(false);
+    
+    toast.success(`${selectedAthlete.studentName} ${selectedAthlete.studentSurname} için performans ölçümü kaydedildi`);
+  };
+
+  const deleteMeasurement = (measurementId: number) => {
+    if (!selectedAthlete) return;
+    
+    const existingHistory = JSON.parse(localStorage.getItem(`performance_${selectedAthlete.id}`) || '[]');
+    const updatedHistory = existingHistory.filter((m: any) => m.id !== measurementId);
+    
+    localStorage.setItem(`performance_${selectedAthlete.id}`, JSON.stringify(updatedHistory));
+    loadPerformanceHistory(selectedAthlete.id);
+    
+    toast.success("Performans ölçümü silindi");
+  };
+
+  const exportPerformanceData = () => {
+    if (!selectedAthlete) return;
+
+    const history = JSON.parse(localStorage.getItem(`performance_${selectedAthlete.id}`) || '[]');
+    
+    if (history.length === 0) {
+      toast.error("Dışa aktarılacak performans verisi bulunamadı");
+      return;
+    }
+
+    const exportData = history.map((measurement: any) => {
+      const row: any = {
+        'Tarih': new Date(measurement.date).toLocaleDateString('tr-TR'),
+        'Kategori': performanceCategories[measurement.category as keyof typeof performanceCategories]?.name || measurement.category,
+        'Ölçen': measurement.measuredBy,
+        'Notlar': measurement.notes || ''
+      };
+
+      // Add all measurements
+      Object.entries(measurement.measurements || {}).forEach(([key, value]) => {
+        if (key !== 'notes') {
+          // Find the measurement definition
+          let measurementDef: any = null;
+          Object.values(performanceCategories).forEach(category => {
+            const found = category.measurements.find(m => m.key === key);
+            if (found) measurementDef = found;
+          });
+          
+          if (measurementDef) {
+            row[`${measurementDef.name}`] = `${value} ${measurementDef.unit}`;
+          }
+        }
+      });
+
+      return row;
+    });
+
+    // Create CSV content
+    const headers = Object.keys(exportData[0]);
+    const csvRows = [];
+    csvRows.push(headers.join(';'));
+    
+    exportData.forEach(row => {
+      const rowValues = headers.map(header => {
+        const value = row[header];
+        const stringValue = String(value || '');
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      });
+      csvRows.push(rowValues.join(';'));
+    });
+    
+    const csvContent = csvRows.join('\r\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    
+    const fileName = `${selectedAthlete.studentName}_${selectedAthlete.studentSurname}_Performans_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`Performans verileri dışa aktarıldı! (${fileName})`);
+  };
+
+  const getLatestMeasurement = (athleteId: string, measurementKey: string) => {
+    const history = JSON.parse(localStorage.getItem(`performance_${athleteId}`) || '[]');
+    for (const measurement of history) {
+      if (measurement.measurements?.[measurementKey] !== undefined) {
+        return measurement.measurements[measurementKey];
+      }
+    }
+    return null;
+  };
+
+  const getMeasurementTrend = (athleteId: string, measurementKey: string) => {
+    const history = JSON.parse(localStorage.getItem(`performance_${athleteId}`) || '[]');
+    const values = history
+      .map((m: any) => m.measurements?.[measurementKey])
+      .filter((v: any) => v !== undefined && v !== null && v !== '')
+      .map((v: any) => parseFloat(v))
+      .slice(0, 2); // Get last 2 measurements
+
+    if (values.length < 2) return 'stable';
+    
+    const latest = values[0];
+    const previous = values[1];
+    
+    if (latest > previous) return 'up';
+    if (latest < previous) return 'down';
+    return 'stable';
+  };
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'up': return <TrendingUp className="h-4 w-4 text-green-600" />;
+      case 'down': return <TrendingUp className="h-4 w-4 text-red-600 rotate-180" />;
+      default: return <div className="h-4 w-4 bg-gray-400 rounded-full" />;
+    }
   };
 
   return (
     <>
       <Head>
-        <title>Performans Takibi - SportsCRM</title>
-        <meta name="description" content="Sporcu performans analizi ve takibi" />
+        <title>Atletik Performans Takibi - SportsCRM</title>
+        <meta name="description" content="Sporcu performans ölçümü ve gelişim takibi" />
       </Head>
 
-      <div className="min-h-screen bg-background flex">
-        {/* Sidebar */}
-        <motion.aside 
-          className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-card border-r border-border transition-all duration-300 flex flex-col`}
-          initial={{ x: -100 }}
-          animate={{ x: 0 }}
-        >
-          {/* Logo */}
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center space-x-2">
-              <Trophy className="h-8 w-8 text-primary" />
-              {sidebarOpen && (
-                <span className="text-xl font-bold text-primary">SportsCRM</span>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <motion.li 
-                  key={item.label}
-                  variants={fadeInUp}
-                  initial="initial"
-                  animate="animate"
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <a
-                    href={item.href}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                      item.active 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {sidebarOpen && <span>{item.label}</span>}
-                  </a>
-                </motion.li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* User Profile */}
-          <div className="p-4 border-t border-border">
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face" />
-                <AvatarFallback>AY</AvatarFallback>
-              </Avatar>
-              {sidebarOpen && (
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Ahmet Yönetici</p>
-                  <p className="text-xs text-muted-foreground">Yönetici</p>
-                </div>
-              )}
-              <Button variant="ghost" size="sm">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </motion.aside>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        <Header />
+        
+        <div className="container mx-auto px-4 py-8">
           {/* Header */}
-          <header className="bg-card border-b border-border p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Performans Takibi</h1>
-                <p className="text-muted-foreground">Sporcu gelişimini analiz edin ve takip edin</p>
+          <motion.div 
+            className="flex items-center justify-between mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div>
+              <div className="flex items-center space-x-2 mb-2">
+                <Link href={userRole === 'coach' ? '/coach-dashboard' : '/dashboard'} className="text-muted-foreground hover:text-primary">
+                  <ArrowLeft className="w-4 h-4" />
+                </Link>
+                <Activity className="w-6 h-6 text-primary" />
+                <h1 className="text-3xl font-bold">Atletik Performans Takibi</h1>
               </div>
-              
-              <div className="flex items-center space-x-4">
-                <Button variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Rapor İndir
-                </Button>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Yeni Değerlendirme
-                </Button>
-              </div>
+              <p className="text-muted-foreground">Sporcu gelişimini ölçün ve takip edin</p>
             </div>
-          </header>
+            
+            <div className="flex gap-2">
+              {selectedAthlete && (
+                <>
+                  <Button variant="outline" onClick={exportPerformanceData}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Verileri Dışa Aktar
+                  </Button>
+                  <Dialog open={isAddMeasurementDialogOpen} onOpenChange={setIsAddMeasurementDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Yeni Ölçüm
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                </>
+              )}
+            </div>
+          </motion.div>
 
-          {/* Main Content */}
-          <main className="flex-1 p-6">
-            <div className="grid lg:grid-cols-4 gap-6">
-              {/* Athletes List */}
-              <div className="lg:col-span-1">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sporcular</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {athletes.map((athlete) => (
-                        <div
-                          key={athlete.id}
-                          onClick={() => setSelectedAthlete(athlete)}
-                          className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                            selectedAthlete.id === athlete.id 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'hover:bg-accent'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <Avatar className="w-8 h-8">
-                              <AvatarImage src={athlete.avatar} />
-                              <AvatarFallback>{athlete.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{athlete.name}</p>
-                              <p className="text-xs opacity-70">{athlete.sport}</p>
-                            </div>
-                            <div className={`text-sm font-bold ${getPerformanceColor(athlete.performance.overall)}`}>
-                              {athlete.performance.overall}%
+          <div className="grid lg:grid-cols-4 gap-6">
+            {/* Athletes List */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sporcular</CardTitle>
+                  <CardDescription>
+                    {userRole === 'coach' ? 'Antrenman gruplarınızdaki sporcular' : 'Tüm aktif sporcular'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Search and Filter */}
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Sporcu ara..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <Select value={selectedSport} onValueChange={setSelectedSport}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Spor branşı" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Branşlar</SelectItem>
+                          <SelectItem value="Basketbol">Basketbol</SelectItem>
+                          <SelectItem value="Futbol">Futbol</SelectItem>
+                          <SelectItem value="Yüzme">Yüzme</SelectItem>
+                          <SelectItem value="Atletizm">Atletizm</SelectItem>
+                          <SelectItem value="Voleybol">Voleybol</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Athletes List */}
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {filteredAthletes.map((athlete) => {
+                        const overallScore = calculateOverallPerformance(athlete.id);
+                        return (
+                          <div
+                            key={athlete.id}
+                            onClick={() => {
+                              setSelectedAthlete(athlete);
+                              loadPerformanceHistory(athlete.id);
+                            }}
+                            className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                              selectedAthlete?.id === athlete.id 
+                                ? 'bg-primary text-primary-foreground' 
+                                : 'hover:bg-accent'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <Avatar className="w-8 h-8">
+                                <AvatarImage src={athlete.photo} />
+                                <AvatarFallback>
+                                  {getInitials(athlete.studentName, athlete.studentSurname)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">
+                                  {athlete.studentName} {athlete.studentSurname}
+                                </p>
+                                <p className="text-xs opacity-70">
+                                  {athlete.sportsBranches?.[0] || 'Genel'}
+                                </p>
+                              </div>
+                              <div className={`text-sm font-bold ${getPerformanceColor(overallScore)}`}>
+                                {overallScore}%
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-              {/* Performance Details */}
-              <div className="lg:col-span-3">
+            {/* Performance Details */}
+            <div className="lg:col-span-3">
+              {selectedAthlete ? (
                 <motion.div 
                   key={selectedAthlete.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -269,149 +544,428 @@ export default function Performance() {
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-4">
                         <Avatar className="w-16 h-16">
-                          <AvatarImage src={selectedAthlete.avatar} />
-                          <AvatarFallback>{selectedAthlete.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          <AvatarImage src={selectedAthlete.photo} />
+                          <AvatarFallback>
+                            {getInitials(selectedAthlete.studentName, selectedAthlete.studentSurname)}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
-                          <h2 className="text-2xl font-bold">{selectedAthlete.name}</h2>
-                          <p className="text-muted-foreground">{selectedAthlete.sport}</p>
-                          <div className="flex items-center space-x-2 mt-2">
-                            <Badge variant="outline">Genel Performans</Badge>
-                            <span className={`text-2xl font-bold ${getPerformanceColor(selectedAthlete.performance.overall)}`}>
-                              {selectedAthlete.performance.overall}%
-                            </span>
+                          <h2 className="text-2xl font-bold">
+                            {selectedAthlete.studentName} {selectedAthlete.studentSurname}
+                          </h2>
+                          <p className="text-muted-foreground">
+                            {selectedAthlete.sportsBranches?.join(', ') || 'Genel'}
+                          </p>
+                          <div className="flex items-center space-x-4 mt-2">
+                            <Badge variant="outline">
+                              Yaş: {selectedAthlete.studentAge}
+                            </Badge>
+                            <Badge variant="outline">
+                              Genel Performans: {calculateOverallPerformance(selectedAthlete.id)}%
+                            </Badge>
+                            <Badge variant="outline">
+                              Ölçüm Sayısı: {performanceHistory.length}
+                            </Badge>
                           </div>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Tabs defaultValue="performance" className="space-y-6">
+                  <Tabs defaultValue="overview" className="space-y-6">
                     <TabsList>
-                      <TabsTrigger value="performance">Performans Analizi</TabsTrigger>
-                      <TabsTrigger value="goals">Hedefler</TabsTrigger>
-                      <TabsTrigger value="achievements">Başarılar</TabsTrigger>
+                      <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
+                      <TabsTrigger value="measurements">Ölçümler</TabsTrigger>
+                      <TabsTrigger value="history">Geçmiş</TabsTrigger>
+                      <TabsTrigger value="progress">Gelişim</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="performance">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        {/* Performance Metrics */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Performans Metrikleri</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {Object.entries(selectedAthlete.performance).map(([key, value]) => {
-                              const labels = {
-                                overall: "Genel",
-                                technical: "Teknik",
-                                physical: "Fiziksel",
-                                mental: "Mental",
-                                teamwork: "Takım Oyunu"
-                              };
-                              return (
-                                <div key={key} className="space-y-2">
-                                  <div className="flex justify-between">
-                                    <span className="text-sm font-medium">{labels[key as keyof typeof labels]}</span>
-                                    <span className={`text-sm font-bold ${getPerformanceColor(value as number)}`}>
-                                      {value}%
-                                    </span>
-                                  </div>
-                                  <Progress value={value as number} className="h-2" />
+                    <TabsContent value="overview">
+                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Object.entries(performanceCategories).map(([categoryKey, category]) => {
+                          const IconComponent = category.icon;
+                          return (
+                            <Card key={categoryKey}>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center space-x-2 text-lg">
+                                  <IconComponent className={`h-5 w-5 ${category.color}`} />
+                                  <span>{category.name}</span>
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-3">
+                                  {category.measurements.slice(0, 3).map((measurement) => {
+                                    const latestValue = getLatestMeasurement(selectedAthlete.id, measurement.key);
+                                    const trend = getMeasurementTrend(selectedAthlete.id, measurement.key);
+                                    
+                                    return (
+                                      <div key={measurement.key} className="flex items-center justify-between">
+                                        <span className="text-sm text-muted-foreground">
+                                          {measurement.name}
+                                        </span>
+                                        <div className="flex items-center space-x-2">
+                                          {latestValue !== null ? (
+                                            <>
+                                              <span className="font-medium">
+                                                {latestValue} {measurement.unit}
+                                              </span>
+                                              {getTrendIcon(trend)}
+                                            </>
+                                          ) : (
+                                            <span className="text-xs text-muted-foreground">
+                                              Veri yok
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                              );
-                            })}
-                          </CardContent>
-                        </Card>
-
-                        {/* Performance Chart Placeholder */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Gelişim Grafiği</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-                              <div className="text-center">
-                                <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-                                <p className="text-muted-foreground">Performans grafiği burada görüntülenecek</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="goals">
+                    <TabsContent value="measurements">
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {Object.entries(performanceCategories).map(([categoryKey, category]) => {
+                          const IconComponent = category.icon;
+                          return (
+                            <Card key={categoryKey}>
+                              <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                  <IconComponent className={`h-5 w-5 ${category.color}`} />
+                                  <span>{category.name}</span>
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-3">
+                                  {category.measurements.map((measurement) => {
+                                    const latestValue = getLatestMeasurement(selectedAthlete.id, measurement.key);
+                                    const trend = getMeasurementTrend(selectedAthlete.id, measurement.key);
+                                    
+                                    return (
+                                      <div key={measurement.key} className="flex items-center justify-between p-2 rounded border">
+                                        <div>
+                                          <p className="font-medium text-sm">{measurement.name}</p>
+                                          <p className="text-xs text-muted-foreground">{measurement.unit}</p>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                          {latestValue !== null ? (
+                                            <>
+                                              <span className="font-bold">
+                                                {latestValue}
+                                              </span>
+                                              {getTrendIcon(trend)}
+                                            </>
+                                          ) : (
+                                            <span className="text-xs text-muted-foreground">
+                                              Henüz ölçüm yok
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="history">
                       <Card>
                         <CardHeader>
-                          <CardTitle>Hedefler ve İlerleme</CardTitle>
+                          <CardTitle>Performans Geçmişi</CardTitle>
+                          <CardDescription>
+                            Tüm performans ölçümlerinin kronolojik listesi
+                          </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="space-y-4">
-                            {selectedAthlete.goals.map((goal, index) => (
-                              <div key={index} className="p-4 border rounded-lg">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h4 className="font-medium">{goal.title}</h4>
-                                  <Badge variant={goal.status === "completed" ? "default" : "secondary"}>
-                                    {goal.status === "completed" ? "Tamamlandı" : "Devam Ediyor"}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex-1">
-                                    <div className="flex justify-between text-sm mb-1">
-                                      <span>Mevcut: {goal.current}</span>
-                                      <span>Hedef: {goal.target}</span>
+                          {performanceHistory.length > 0 ? (
+                            <div className="space-y-4">
+                              {performanceHistory.map((measurement) => (
+                                <Card key={measurement.id} className="border-l-4 border-l-primary">
+                                  <CardContent className="p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center space-x-2">
+                                        <Badge variant="outline">
+                                          {performanceCategories[measurement.category as keyof typeof performanceCategories]?.name || measurement.category}
+                                        </Badge>
+                                        <span className="text-sm text-muted-foreground">
+                                          {new Date(measurement.date).toLocaleDateString('tr-TR')}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setSelectedMeasurement(measurement);
+                                            setIsViewHistoryDialogOpen(true);
+                                          }}
+                                        >
+                                          <Eye className="h-4 w-4" />
+                                        </Button>
+                                        {userRole === 'admin' && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => deleteMeasurement(measurement.id)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        )}
+                                      </div>
                                     </div>
-                                    <Progress 
-                                      value={(goal.current / goal.target) * 100} 
-                                      className="h-2" 
-                                    />
-                                  </div>
-                                  <div className={`text-sm font-bold ${getGoalStatus(goal)}`}>
-                                    {Math.round((goal.current / goal.target) * 100)}%
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                      {Object.entries(measurement.measurements || {}).slice(0, 4).map(([key, value]) => {
+                                        if (key === 'notes') return null;
+                                        
+                                        // Find measurement definition
+                                        let measurementDef: any = null;
+                                        Object.values(performanceCategories).forEach(category => {
+                                          const found = category.measurements.find(m => m.key === key);
+                                          if (found) measurementDef = found;
+                                        });
+                                        
+                                        return (
+                                          <div key={key}>
+                                            <span className="text-muted-foreground">
+                                              {measurementDef?.name || key}:
+                                            </span>
+                                            <span className="font-medium ml-1">
+                                              {value} {measurementDef?.unit || ''}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    {measurement.notes && (
+                                      <p className="text-sm text-muted-foreground mt-2 italic">
+                                        "{measurement.notes}"
+                                      </p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                      Ölçen: {measurement.measuredBy}
+                                    </p>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                              <p className="text-muted-foreground">
+                                Henüz performans ölçümü bulunmuyor
+                              </p>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </TabsContent>
 
-                    <TabsContent value="achievements">
+                    <TabsContent value="progress">
                       <Card>
                         <CardHeader>
-                          <CardTitle>Başarılar ve Ödüller</CardTitle>
+                          <CardTitle>Gelişim Analizi</CardTitle>
+                          <CardDescription>
+                            Performans gelişiminin görsel analizi
+                          </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="space-y-4">
-                            {selectedAthlete.achievements.map((achievement, index) => (
-                              <div key={index} className="flex items-center space-x-4 p-4 border rounded-lg">
-                                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                                  <Award className="w-6 h-6 text-yellow-600" />
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="font-medium">{achievement.title}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {new Date(achievement.date).toLocaleDateString('tr-TR')}
-                                  </p>
-                                </div>
-                                <Badge variant="outline">
-                                  {achievement.type === "monthly" && "Aylık"}
-                                  {achievement.type === "skill" && "Beceri"}
-                                  {achievement.type === "competition" && "Yarışma"}
-                                </Badge>
-                              </div>
-                            ))}
+                          <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
+                            <div className="text-center">
+                              <LineChart className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+                              <p className="text-muted-foreground">
+                                Gelişim grafikleri burada görüntülenecek
+                              </p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                En az 3 ölçüm gereklidir
+                              </p>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
                     </TabsContent>
                   </Tabs>
                 </motion.div>
-              </div>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      Performans verilerini görüntülemek için bir sporcu seçin
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          </main>
+          </div>
+
+          {/* Add Measurement Dialog */}
+          <Dialog open={isAddMeasurementDialogOpen} onOpenChange={setIsAddMeasurementDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Yeni Performans Ölçümü</DialogTitle>
+                <DialogDescription>
+                  {selectedAthlete?.studentName} {selectedAthlete?.studentSurname} için performans ölçümü ekleyin
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Category Selection */}
+                <div className="space-y-2">
+                  <Label>Ölçüm Kategorisi</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Kategori seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(performanceCategories).map(([key, category]) => (
+                        <SelectItem key={key} value={key}>
+                          <div className="flex items-center space-x-2">
+                            <category.icon className={`h-4 w-4 ${category.color}`} />
+                            <span>{category.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Measurements */}
+                {selectedCategory && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        {React.createElement(performanceCategories[selectedCategory as keyof typeof performanceCategories].icon, {
+                          className: `h-5 w-5 ${performanceCategories[selectedCategory as keyof typeof performanceCategories].color}`
+                        })}
+                        <span>{performanceCategories[selectedCategory as keyof typeof performanceCategories].name}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {performanceCategories[selectedCategory as keyof typeof performanceCategories].measurements.map((measurement) => (
+                          <div key={measurement.key} className="space-y-2">
+                            <Label htmlFor={measurement.key}>
+                              {measurement.name} ({measurement.unit})
+                            </Label>
+                            <Input
+                              id={measurement.key}
+                              type={measurement.type}
+                              placeholder={`Örn: 75`}
+                              value={measurementData[measurement.key] || ''}
+                              onChange={(e) => setMeasurementData(prev => ({
+                                ...prev,
+                                [measurement.key]: e.target.value
+                              }))}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notlar (Opsiyonel)</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Ölçüm hakkında notlar, gözlemler..."
+                    value={measurementData.notes || ''}
+                    onChange={(e) => setMeasurementData(prev => ({
+                      ...prev,
+                      notes: e.target.value
+                    }))}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsAddMeasurementDialogOpen(false)}>
+                    <X className="h-4 w-4 mr-2" />
+                    İptal
+                  </Button>
+                  <Button onClick={saveMeasurement}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Ölçümü Kaydet
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* View History Dialog */}
+          <Dialog open={isViewHistoryDialogOpen} onOpenChange={setIsViewHistoryDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Ölçüm Detayları</DialogTitle>
+                <DialogDescription>
+                  {selectedMeasurement && new Date(selectedMeasurement.date).toLocaleDateString('tr-TR')} tarihli ölçüm
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedMeasurement && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Kategori:</span>
+                      <p className="font-medium">
+                        {performanceCategories[selectedMeasurement.category as keyof typeof performanceCategories]?.name || selectedMeasurement.category}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Ölçen:</span>
+                      <p className="font-medium">{selectedMeasurement.measuredBy}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Ölçüm Değerleri:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {Object.entries(selectedMeasurement.measurements || {}).map(([key, value]) => {
+                        if (key === 'notes') return null;
+                        
+                        // Find measurement definition
+                        let measurementDef: any = null;
+                        Object.values(performanceCategories).forEach(category => {
+                          const found = category.measurements.find(m => m.key === key);
+                          if (found) measurementDef = found;
+                        });
+                        
+                        return (
+                          <div key={key} className="p-3 border rounded">
+                            <p className="text-sm text-muted-foreground">
+                              {measurementDef?.name || key}
+                            </p>
+                            <p className="font-bold">
+                              {value} {measurementDef?.unit || ''}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {selectedMeasurement.notes && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Notlar:</h4>
+                      <p className="text-sm text-muted-foreground italic p-3 bg-muted rounded">
+                        "{selectedMeasurement.notes}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>

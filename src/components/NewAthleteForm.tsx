@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const sports = [
@@ -40,6 +41,8 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
     studentTcNo: "",
     parentTcNo: ""
   });
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     // Öğrenci Bilgileri
@@ -106,7 +109,10 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
     // Onaylar
     agreementAccepted: false,
     dataProcessingAccepted: false,
-    photoVideoPermission: false
+    photoVideoPermission: false,
+    
+    // Photo
+    photo: ""
   });
 
   // TC Kimlik numarası validation function
@@ -170,6 +176,43 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
       age--;
     }
     return age.toString();
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Fotoğraf boyutu 5MB'dan küçük olmalıdır");
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast.error("Lütfen geçerli bir resim dosyası seçin");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setSelectedPhoto(result);
+        handleInputChange("photo", result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removePhoto = () => {
+    setSelectedPhoto(null);
+    handleInputChange("photo", "");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const getInitials = (name: string, surname: string) => {
+    return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -275,6 +318,9 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
         // Permissions
         photoVideoPermission: formData.photoVideoPermission,
         
+        // Photo
+        photo: formData.photo,
+        
         // System fields
         status: 'Aktif',
         paymentStatus: 'Güncel',
@@ -315,6 +361,64 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Photo Upload Section */}
+          <div className="flex flex-col items-center space-y-4 p-4 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+            <div className="flex flex-col items-center space-y-3">
+              <Avatar className="w-24 h-24">
+                <AvatarImage src={selectedPhoto || ""} />
+                <AvatarFallback className="text-lg">
+                  {formData.studentName && formData.studentSurname 
+                    ? getInitials(formData.studentName, formData.studentSurname)
+                    : <Camera className="w-8 h-8" />
+                  }
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="text-center">
+                <Label className="text-sm font-medium">Sporcu Fotoğrafı</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Kayıt sırasında sporcu fotoğrafı ekleyebilirsiniz (Opsiyonel)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Fotoğraf Seç
+              </Button>
+              
+              {selectedPhoto && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={removePhoto}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Kaldır
+                </Button>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+            
+            <p className="text-xs text-muted-foreground text-center">
+              Desteklenen formatlar: JPG, PNG, GIF (Maksimum 5MB)
+            </p>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="studentName">Ad *</Label>
