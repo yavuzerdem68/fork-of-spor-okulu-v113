@@ -468,7 +468,7 @@ export default function Payments() {
       clearInterval(interval);
       setUploadProgress(100);
 
-      // Process Excel data with improved logic
+      // Process Excel data with completely improved logic for better description detection
       const parsedData: ExcelRow[] = [];
       
       console.log(`Processing ${jsonData.length} rows from Excel...`);
@@ -482,13 +482,14 @@ export default function Payments() {
           continue;
         }
         
-        // Extract data from row with improved logic
+        // Extract data from row with completely improved logic
         let date = '';
         let amount = 0;
         let description = '';
         let reference = '';
+        let allDescriptions: string[] = []; // Collect all potential descriptions
         
-        // Process each cell in the row
+        // First pass: collect all data types
         for (let j = 0; j < row.length; j++) {
           const cell = row[j];
           
@@ -501,19 +502,30 @@ export default function Payments() {
               date = cell.toLocaleDateString('tr-TR');
             }
           } else if (typeof cell === 'string') {
+            const cellTrimmed = cell.trim();
+            
             // Try to parse date from string
-            const parsedDate = parseTurkishDate(cell);
+            const parsedDate = parseTurkishDate(cellTrimmed);
             if (parsedDate && !date) {
-              date = cell;
+              date = cellTrimmed;
             }
             
-            // Look for description (text longer than 10 characters, not a date or amount)
-            const cellTrimmed = cell.trim();
-            if (cellTrimmed.length > 10 && 
+            // Collect all potential descriptions (text that's not a date or amount)
+            if (cellTrimmed.length >= 3 && 
                 !parseTurkishDate(cellTrimmed) && 
-                parseAmount(cellTrimmed) === 0 &&
-                cellTrimmed.length > description.length) {
-              description = cellTrimmed;
+                parseAmount(cellTrimmed) === 0) {
+              
+              // Additional checks to filter out non-description content
+              const isNotDescription = 
+                /^[A-Z0-9]{6,}$/i.test(cellTrimmed) || // Reference numbers
+                /^\d+$/.test(cellTrimmed) || // Pure numbers
+                cellTrimmed.length < 5 || // Too short
+                /^(TL|₺|\$|EUR|USD)$/i.test(cellTrimmed) || // Currency symbols
+                /^(DEBIT|CREDIT|DR|CR)$/i.test(cellTrimmed); // Banking terms
+              
+              if (!isNotDescription) {
+                allDescriptions.push(cellTrimmed);
+              }
             }
             
             // Look for reference number (alphanumeric, 6+ characters)
@@ -522,7 +534,7 @@ export default function Payments() {
             }
           }
           
-          // Handle amount cells
+          // Handle amount cells (both string and number)
           if (amount === 0) {
             const parsedAmount = parseAmount(cell);
             if (parsedAmount > 0) {
@@ -531,10 +543,42 @@ export default function Payments() {
           }
         }
         
+        // Second pass: determine the best description
+        if (allDescriptions.length > 0) {
+          // Sort descriptions by length (longer descriptions are usually more informative)
+          allDescriptions.sort((a, b) => b.length - a.length);
+          
+          // Take the longest meaningful description
+          description = allDescriptions[0];
+          
+          // If we have multiple descriptions, combine them intelligently
+          if (allDescriptions.length > 1) {
+            // Look for names in descriptions (Turkish names pattern)
+            const nameDescriptions = allDescriptions.filter(desc => 
+              /[A-ZÇĞIİÖŞÜ][a-zçğıöşü]+\s+[A-ZÇĞIİÖŞÜ][a-zçğıöşü]+/i.test(desc)
+            );
+            
+            if (nameDescriptions.length > 0) {
+              description = nameDescriptions[0]; // Prefer descriptions with names
+            }
+            
+            // If descriptions are very different, combine them
+            const uniqueDescriptions = allDescriptions.filter((desc, index) => {
+              return !allDescriptions.slice(0, index).some(prevDesc => 
+                calculateSimilarity(desc, prevDesc) > 70
+              );
+            });
+            
+            if (uniqueDescriptions.length > 1 && uniqueDescriptions.length <= 3) {
+              description = uniqueDescriptions.join(' | ');
+            }
+          }
+        }
+        
         // Validate and add row if we have essential data
         if (date && amount > 0) {
           // Use a fallback description if none found
-          if (!description || description.length < 5) {
+          if (!description || description.length < 3) {
             description = `Ödeme - Satır ${i + 1}`;
           }
           
@@ -546,9 +590,10 @@ export default function Payments() {
             rowIndex: i + 1
           });
           
-          console.log(`Row ${i + 1}: Date=${date}, Amount=${amount}, Description=${description.substring(0, 50)}...`);
+          console.log(`Row ${i + 1}: Date=${date}, Amount=${amount}, Description=${description.substring(0, 80)}...`);
+          console.log(`  All descriptions found: [${allDescriptions.join(', ')}]`);
         } else {
-          console.log(`Row ${i + 1} skipped: Date=${date}, Amount=${amount}, Description=${description.substring(0, 30)}...`);
+          console.log(`Row ${i + 1} skipped: Date=${date}, Amount=${amount}, Descriptions=[${allDescriptions.join(', ')}]`);
         }
       }
 
