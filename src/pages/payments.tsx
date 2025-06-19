@@ -489,34 +489,98 @@ export default function Payments() {
       console.log('Header row:', headerRow);
 
       // Search for column headers (case-insensitive, Turkish character friendly)
+      // Use separate loops to avoid else-if conflicts and be more specific
       for (let i = 0; i < headerRow.length; i++) {
         const header = headerRow[i];
         if (!header || typeof header !== 'string') continue;
         
         const normalizedHeader = normalizeTurkish(header.toLowerCase());
+        const originalHeader = header.toString().toUpperCase();
         
-        // Date column patterns
-        if (normalizedHeader.includes('tarih') || normalizedHeader.includes('date')) {
+        console.log(`Column ${i}: "${header}" -> normalized: "${normalizedHeader}"`);
+        
+        // Date column patterns - be more specific to avoid conflicts
+        if ((normalizedHeader.includes('tarih') && !normalizedHeader.includes('islem')) || 
+            normalizedHeader.includes('date') ||
+            originalHeader === 'İŞLEM TARİHİ' ||
+            originalHeader === 'ISLEM TARIHI' ||
+            originalHeader === 'TARİH') {
           dateColumnIndex = i;
+          console.log(`Date column found at index ${i}: ${header}`);
         }
+      }
+      
+      for (let i = 0; i < headerRow.length; i++) {
+        const header = headerRow[i];
+        if (!header || typeof header !== 'string') continue;
+        
+        const normalizedHeader = normalizeTurkish(header.toLowerCase());
+        const originalHeader = header.toString().toUpperCase();
+        
         // Amount column patterns
-        else if (normalizedHeader.includes('tutar') || normalizedHeader.includes('miktar') || 
-                 normalizedHeader.includes('amount') || normalizedHeader.includes('para')) {
+        if (normalizedHeader.includes('tutar') || 
+            normalizedHeader.includes('miktar') || 
+            normalizedHeader.includes('amount') || 
+            normalizedHeader.includes('para') ||
+            originalHeader === 'TUTAR' ||
+            originalHeader === 'MİKTAR') {
           amountColumnIndex = i;
+          console.log(`Amount column found at index ${i}: ${header}`);
         }
+      }
+      
+      for (let i = 0; i < headerRow.length; i++) {
+        const header = headerRow[i];
+        if (!header || typeof header !== 'string') continue;
+        
+        const normalizedHeader = normalizeTurkish(header.toLowerCase());
+        const originalHeader = header.toString().toUpperCase();
+        
         // Description column - specifically look for "Açıklama"
-        else if (normalizedHeader.includes('aciklama') || normalizedHeader.includes('description')) {
+        if (normalizedHeader.includes('aciklama') || 
+            normalizedHeader.includes('description') ||
+            originalHeader === 'AÇIKLAMA' ||
+            originalHeader === 'ACIKLAMA') {
           descriptionColumnIndex = i;
+          console.log(`Description column found at index ${i}: ${header}`);
         }
-        // Transaction type column - specifically look for "İşlem"
-        else if (normalizedHeader.includes('islem') || normalizedHeader.includes('transaction') || 
-                 normalizedHeader.includes('type') || normalizedHeader.includes('tip')) {
+      }
+      
+      for (let i = 0; i < headerRow.length; i++) {
+        const header = headerRow[i];
+        if (!header || typeof header !== 'string') continue;
+        
+        const normalizedHeader = normalizeTurkish(header.toLowerCase());
+        const originalHeader = header.toString().toUpperCase();
+        
+        // Transaction type column - specifically look for "İşlem" but not "İşlem Tarihi"
+        if ((normalizedHeader.includes('islem') && !normalizedHeader.includes('tarih')) || 
+            normalizedHeader.includes('transaction') || 
+            normalizedHeader.includes('type') || 
+            normalizedHeader.includes('tip') ||
+            originalHeader === 'İŞLEM' ||
+            originalHeader === 'ISLEM') {
           transactionTypeColumnIndex = i;
+          console.log(`Transaction type column found at index ${i}: ${header}`);
         }
+      }
+      
+      for (let i = 0; i < headerRow.length; i++) {
+        const header = headerRow[i];
+        if (!header || typeof header !== 'string') continue;
+        
+        const normalizedHeader = normalizeTurkish(header.toLowerCase());
+        const originalHeader = header.toString().toUpperCase();
+        
         // Reference column patterns
-        else if (normalizedHeader.includes('referans') || normalizedHeader.includes('ref') || 
-                 normalizedHeader.includes('reference') || normalizedHeader.includes('no')) {
+        if (normalizedHeader.includes('referans') || 
+            normalizedHeader.includes('ref') || 
+            normalizedHeader.includes('reference') || 
+            normalizedHeader.includes('no') ||
+            originalHeader === 'REFERANS' ||
+            originalHeader === 'REF') {
           referenceColumnIndex = i;
+          console.log(`Reference column found at index ${i}: ${header}`);
         }
       }
 
@@ -527,6 +591,22 @@ export default function Payments() {
         transactionType: transactionTypeColumnIndex,
         reference: referenceColumnIndex
       });
+
+      // Validate that we found the essential columns
+      if (dateColumnIndex === -1) {
+        console.warn('Date column not found. Available headers:', headerRow);
+        // Don't throw error, continue with fallback logic
+      }
+      
+      if (amountColumnIndex === -1) {
+        console.warn('Amount column not found. Available headers:', headerRow);
+        // Don't throw error, continue with fallback logic
+      }
+      
+      if (descriptionColumnIndex === -1) {
+        console.warn('Description column not found. Available headers:', headerRow);
+        // Don't throw error, continue with fallback logic
+      }
 
       // Process data rows
       for (let i = 1; i < jsonData.length; i++) {
