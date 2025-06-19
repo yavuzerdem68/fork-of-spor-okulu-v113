@@ -406,12 +406,17 @@ export default function Payments() {
           }
           
           // Look for amount (number or string that can be parsed as amount)
+          // But first check if it's not a date format
           if (typeof cell === 'number' && cell > 0 && amount === 0) {
             amount = cell;
           } else if (typeof cell === 'string') {
-            const parsedAmount = parseAmount(cell);
-            if (parsedAmount > 0 && amount === 0) {
-              amount = parsedAmount;
+            // Check if the string looks like a date (contains / or - with year patterns)
+            const datePattern = /^\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}$|^\d{2,4}[\/\.\-]\d{1,2}[\/\.\-]\d{1,2}$/;
+            if (!datePattern.test(cell.trim())) {
+              const parsedAmount = parseAmount(cell);
+              if (parsedAmount > 0 && amount === 0) {
+                amount = parsedAmount;
+              }
             }
           }
         }
