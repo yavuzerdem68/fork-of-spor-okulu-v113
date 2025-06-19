@@ -2818,16 +2818,16 @@ export default function Athletes() {
                         <TableRow key={athlete.id || index}>
                           <TableCell>
                             <div className="flex items-center space-x-3">
-                              <Avatar>
+                              <Avatar className="h-10 w-10">
                                 <AvatarImage 
-                                  src={athlete.photo || athlete.studentPhoto || athlete.profilePhoto || `https://assets.co.dev/e522a9c1-d37e-4a9b-a7ec-bbeec7aa3e7a/ekran-goruntusu-2025-06-19-154116-6f6a4a3.jpg`} 
+                                  src={athlete.photo || athlete.studentPhoto || athlete.profilePhoto} 
                                   alt={`${athlete.studentName} ${athlete.studentSurname}`}
                                   onError={(e) => {
                                     console.log('Image load error for athlete:', athlete.studentName, athlete.studentSurname);
                                     e.currentTarget.style.display = 'none';
                                   }}
                                 />
-                                <AvatarFallback>
+                                <AvatarFallback className="bg-primary/10 text-primary font-medium">
                                   {getInitials(athlete.studentName, athlete.studentSurname)}
                                 </AvatarFallback>
                               </Avatar>

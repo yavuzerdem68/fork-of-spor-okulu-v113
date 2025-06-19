@@ -127,39 +127,59 @@ const parseTurkishDate = (dateStr: string): Date | null => {
 const parseAmount = (amountStr: string): number => {
   if (!amountStr) return 0;
   
-  let cleanAmount = amountStr.toString().trim().replace(/[₺\s]/g, '');
-  
-  // Skip negative amounts - check for minus sign anywhere in the string
-  if (cleanAmount.includes('-') || cleanAmount.startsWith('-')) {
-    console.log(`Skipping negative amount: ${amountStr}`);
-    return 0;
-  }
-  
-  // Handle Turkish format: 2.100,00 (thousands separator with decimal)
-  if (cleanAmount.includes('.') && cleanAmount.includes(',')) {
-    const parsed = parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.'));
-    return parsed < 0 ? 0 : parsed; // Double check for negative
-  }
-  // Handle format with comma as decimal: 1234,56
-  else if (cleanAmount.includes(',') && !cleanAmount.includes('.')) {
-    const parsed = parseFloat(cleanAmount.replace(',', '.'));
-    return parsed < 0 ? 0 : parsed; // Double check for negative
-  }
-  // Handle format with dot as thousands separator: 2.100
-  else if (cleanAmount.includes('.') && !cleanAmount.includes(',')) {
-    const parts = cleanAmount.split('.');
-    if (parts.length === 2 && parts[1].length <= 2) {
-      const parsed = parseFloat(cleanAmount); // Decimal: 1234.56
-      return parsed < 0 ? 0 : parsed; // Double check for negative
-    } else {
-      const parsed = parseFloat(cleanAmount.replace(/\./g, '')); // Thousands: 2.100
-      return parsed < 0 ? 0 : parsed; // Double check for negative
+  try {
+    let cleanAmount = amountStr.toString().trim();
+    
+    // Remove currency symbols and extra spaces
+    cleanAmount = cleanAmount.replace(/[₺\s]/g, '');
+    
+    // Skip negative amounts - check for minus sign anywhere in the string
+    if (cleanAmount.includes('-') || cleanAmount.startsWith('-')) {
+      console.log(`Skipping negative amount: ${amountStr}`);
+      return 0;
     }
-  }
-  // Handle integer: 1234
-  else {
-    const parsed = parseFloat(cleanAmount);
-    return parsed < 0 ? 0 : parsed; // Double check for negative
+    
+    // Skip if it's clearly a date format (contains / or - with year patterns)
+    const datePattern = /^\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}$|^\d{2,4}[\/\.\-]\d{1,2}[\/\.\-]\d{1,2}$/;
+    if (datePattern.test(cleanAmount)) {
+      console.log(`Skipping date format: ${amountStr}`);
+      return 0;
+    }
+    
+    // Skip if it's empty after cleaning
+    if (!cleanAmount || cleanAmount.length === 0) {
+      return 0;
+    }
+    
+    // Handle Turkish format: 2.100,00 (thousands separator with decimal)
+    if (cleanAmount.includes('.') && cleanAmount.includes(',')) {
+      const parsed = parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.'));
+      return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    }
+    // Handle format with comma as decimal: 1234,56
+    else if (cleanAmount.includes(',') && !cleanAmount.includes('.')) {
+      const parsed = parseFloat(cleanAmount.replace(',', '.'));
+      return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    }
+    // Handle format with dot as thousands separator: 2.100
+    else if (cleanAmount.includes('.') && !cleanAmount.includes(',')) {
+      const parts = cleanAmount.split('.');
+      if (parts.length === 2 && parts[1].length <= 2) {
+        const parsed = parseFloat(cleanAmount); // Decimal: 1234.56
+        return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+      } else {
+        const parsed = parseFloat(cleanAmount.replace(/\./g, '')); // Thousands: 2.100
+        return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+      }
+    }
+    // Handle integer: 1234
+    else {
+      const parsed = parseFloat(cleanAmount);
+      return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    }
+  } catch (error) {
+    console.error(`Error parsing amount "${amountStr}":`, error);
+    return 0;
   }
 };
 
@@ -417,19 +437,19 @@ export default function Payments() {
           // But first check if it's not a date format
           if (typeof cell === 'number' && cell > 0 && amount === 0) {
             amount = cell;
-          } else if (typeof cell === 'string' && cell.trim()) {
-            // Check if the string looks like a date (contains / or - with year patterns)
-            const datePattern = /^\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}$|^\d{2,4}[\/\.\-]\d{1,2}[\/\.\-]\d{1,2}$/;
-            if (!datePattern.test(cell.trim())) {
-              try {
+          } else if (typeof cell === 'string' && cell.trim && cell.trim()) {
+            try {
+              // Check if the string looks like a date (contains / or - with year patterns)
+              const datePattern = /^\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}$|^\d{2,4}[\/\.\-]\d{1,2}[\/\.\-]\d{1,2}$/;
+              if (!datePattern.test(cell.trim())) {
                 const parsedAmount = parseAmount(cell);
                 if (parsedAmount > 0 && amount === 0) {
                   amount = parsedAmount;
                 }
-              } catch (error) {
-                console.log(`Error parsing amount from cell: ${cell}`, error);
-                // Continue processing other cells
               }
+            } catch (error) {
+              console.log(`Error parsing amount from cell: ${cell}`, error);
+              // Continue processing other cells
             }
           }
         }
