@@ -21,7 +21,17 @@ import {
   CheckCircle,
   XCircle,
   LogOut,
-  Bell
+  Bell,
+  Activity,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  ChevronUp,
+  ChevronDown,
+  Minus,
+  Ruler,
+  Weight,
+  Timer
 } from "lucide-react";
 import { useRouter } from "next/router";
 
@@ -48,6 +58,7 @@ export default function ParentDashboard() {
   const [attendance, setAttendance] = useState<any[]>([]);
   const [schedule, setSchedule] = useState<any[]>([]);
   const [media, setMedia] = useState<any[]>([]);
+  const [performanceData, setPerformanceData] = useState<any[]>([]);
 
   useEffect(() => {
     // Check if user is logged in and has parent role
@@ -140,6 +151,7 @@ export default function ParentDashboard() {
     loadAttendanceData(parentChildren);
     loadScheduleData(parentChildren);
     loadMediaData(parentChildren);
+    loadPerformanceData(parentChildren);
   };
 
   const loadPaymentsData = (children: any[]) => {
@@ -209,6 +221,17 @@ export default function ParentDashboard() {
     setMedia(childrenMedia);
   };
 
+  const loadPerformanceData = (children: any[]) => {
+    const allPerformanceData = JSON.parse(localStorage.getItem('performanceData') || '[]');
+    const childrenPerformance = allPerformanceData.filter((entry: any) => 
+      children.some(child => 
+        entry.athleteId.toString() === child.id.toString() ||
+        entry.athleteName === `${child.studentName} ${child.studentSurname}`
+      )
+    );
+    setPerformanceData(childrenPerformance);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
@@ -231,6 +254,81 @@ export default function ParentDashboard() {
 
   const getInitials = (name: string, surname: string) => {
     return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
+  };
+
+  // Performance helper functions
+  const getChildPerformanceData = (childId: string) => {
+    return performanceData
+      .filter(entry => entry.athleteId.toString() === childId.toString())
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const formatMetricValue = (value: any, metricName: string) => {
+    if (!value || value === "") return "-";
+    
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return value;
+
+    // Determine unit based on metric name
+    if (metricName.includes("Sürat") || metricName.includes("Koşu") || metricName.includes("Dayanıklılık")) {
+      return `${numValue.toFixed(2)} sn`;
+    } else if (metricName.includes("Sıçrama") || metricName.includes("Atlama") || metricName.includes("Boy") || metricName.includes("Mesafe")) {
+      return `${numValue.toFixed(1)} cm`;
+    } else if (metricName.includes("Kilo") || metricName.includes("Atma")) {
+      return `${numValue.toFixed(1)} kg`;
+    } else if (metricName.includes("Atış") || metricName.includes("İsabet") || metricName.includes("Yağ") || metricName.includes("Kas")) {
+      return `${numValue.toFixed(1)}%`;
+    } else if (metricName.includes("BMI")) {
+      return `${numValue.toFixed(1)} kg/m²`;
+    } else {
+      return `${numValue.toFixed(1)}`;
+    }
+  };
+
+  const getPerformanceTrend = (childId: string, metricKey: string) => {
+    const childData = getChildPerformanceData(childId);
+    const values = childData
+      .map(entry => entry.metrics[metricKey])
+      .filter(value => value !== undefined && value !== "")
+      .map(value => parseFloat(value))
+      .filter(value => !isNaN(value));
+
+    if (values.length < 2) return "stable";
+
+    const latest = values[0];
+    const previous = values[1];
+    
+    // For time-based metrics (lower is better)
+    const timeMetrics = ["speed_20m", "speed_40m", "agility_test", "freestyle_50m", "freestyle_100m", "backstroke_50m", "breaststroke_50m", "butterfly_50m", "speed_100m", "speed_200m", "endurance_1500m", "endurance_400m", "reaction_time"];
+    const isTimeBased = timeMetrics.includes(metricKey) || metricKey.includes("speed") || metricKey.includes("time");
+    
+    const improvement = isTimeBased ? latest < previous : latest > previous;
+    const change = Math.abs(((latest - previous) / previous) * 100);
+
+    if (change < 2) return "stable";
+    return improvement ? "improving" : "declining";
+  };
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case "improving":
+        return <ChevronUp className="h-4 w-4 text-green-600" />;
+      case "declining":
+        return <ChevronDown className="h-4 w-4 text-red-600" />;
+      default:
+        return <Minus className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const getTrendColor = (trend: string) => {
+    switch (trend) {
+      case "improving":
+        return "text-green-600";
+      case "declining":
+        return "text-red-600";
+      default:
+        return "text-gray-600";
+    }
   };
 
   return (
@@ -394,7 +492,7 @@ export default function ParentDashboard() {
             transition={{ delay: 0.3 }}
           >
             <Tabs defaultValue="payments" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="payments" className="flex items-center space-x-2">
                   <CreditCard className="w-4 h-4" />
                   <span>Ödemeler</span>
@@ -406,6 +504,10 @@ export default function ParentDashboard() {
                 <TabsTrigger value="attendance" className="flex items-center space-x-2">
                   <UserCheck className="w-4 h-4" />
                   <span>Devam</span>
+                </TabsTrigger>
+                <TabsTrigger value="performance" className="flex items-center space-x-2">
+                  <Activity className="w-4 h-4" />
+                  <span>Performans</span>
                 </TabsTrigger>
                 <TabsTrigger value="media" className="flex items-center space-x-2">
                   <Camera className="w-4 h-4" />
@@ -508,6 +610,166 @@ export default function ParentDashboard() {
                         )}
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Performance Tab */}
+              <TabsContent value="performance">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Atletik Performans</CardTitle>
+                    <CardDescription>Çocuklarınızın atletik performans gelişimini takip edin</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {children.length > 0 ? (
+                      <div className="space-y-8">
+                        {children.map((child) => {
+                          const childPerformanceData = getChildPerformanceData(child.id);
+                          const latestEntry = childPerformanceData[0];
+                          
+                          return (
+                            <div key={child.id} className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <span className="text-sm font-bold text-primary">
+                                      {getInitials(child.studentName, child.studentSurname)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <h4 className="font-semibold">{child.studentName} {child.studentSurname}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {child.sportsBranches?.[0] || 'Genel'} • {childPerformanceData.length} ölçüm
+                                    </p>
+                                  </div>
+                                </div>
+                                {latestEntry && (
+                                  <Badge variant="outline">
+                                    Son ölçüm: {new Date(latestEntry.date).toLocaleDateString('tr-TR')}
+                                  </Badge>
+                                )}
+                              </div>
+
+                              {latestEntry ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {Object.entries(latestEntry.metrics)
+                                    .filter(([key, value]) => value && value !== "")
+                                    .slice(0, 6)
+                                    .map(([metricKey, value]) => {
+                                      const trend = getPerformanceTrend(child.id, metricKey);
+                                      
+                                      // Convert metric key to readable name
+                                      const metricNames: { [key: string]: string } = {
+                                        height: "Boy",
+                                        weight: "Kilo", 
+                                        bmi: "BMI",
+                                        speed_20m: "20m Sürat",
+                                        speed_40m: "40m Sürat",
+                                        vertical_jump: "Dikey Sıçrama",
+                                        long_jump: "Uzun Atlama",
+                                        agility_test: "Çeviklik Testi",
+                                        endurance_12min: "12 Dakika Koşu",
+                                        ball_control: "Top Kontrolü",
+                                        shooting_accuracy: "Şut İsabeti",
+                                        free_throw: "Serbest Atış",
+                                        three_point: "3 Sayılık Atış",
+                                        dribbling: "Dribling",
+                                        freestyle_50m: "50m Serbest",
+                                        freestyle_100m: "100m Serbest",
+                                        backstroke_50m: "50m Sırtüstü",
+                                        breaststroke_50m: "50m Kurbağalama",
+                                        butterfly_50m: "50m Kelebek",
+                                        speed_100m: "100m Koşu",
+                                        speed_200m: "200m Koşu",
+                                        high_jump: "Yüksek Atlama",
+                                        shot_put: "Gülle Atma",
+                                        javelin: "Cirit Atma",
+                                        endurance_1500m: "1500m Koşu",
+                                        flexibility: "Esneklik",
+                                        body_fat: "Vücut Yağ Oranı",
+                                        muscle_mass: "Kas Kütlesi",
+                                        balance: "Denge",
+                                        coordination: "Koordinasyon"
+                                      };
+                                      
+                                      const metricName = metricNames[metricKey] || metricKey;
+                                      
+                                      return (
+                                        <Card key={metricKey} className="p-4">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-medium">{metricName}</span>
+                                            {getTrendIcon(trend)}
+                                          </div>
+                                          <div className="text-lg font-bold">
+                                            {formatMetricValue(value, metricName)}
+                                          </div>
+                                          <div className={`text-xs ${getTrendColor(trend)}`}>
+                                            {trend === "improving" ? "Gelişiyor" : 
+                                             trend === "declining" ? "Düşüyor" : "Stabil"}
+                                          </div>
+                                        </Card>
+                                      );
+                                    })}
+                                </div>
+                              ) : (
+                                <div className="text-center py-8 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                                  <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                                  <p className="text-sm text-muted-foreground">Henüz performans verisi yok</p>
+                                </div>
+                              )}
+
+                              {childPerformanceData.length > 1 && (
+                                <div className="mt-4">
+                                  <h5 className="font-medium mb-3">Performans Geçmişi</h5>
+                                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                                    {childPerformanceData.slice(1, 6).map((entry, index) => (
+                                      <div key={entry.id} className="flex items-center justify-between text-sm p-2 bg-muted/50 rounded">
+                                        <span>{new Date(entry.date).toLocaleDateString('tr-TR')}</span>
+                                        <span className="text-muted-foreground">
+                                          {Object.keys(entry.metrics).length} ölçüm
+                                        </span>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          onClick={() => {
+                                            const metricsText = Object.entries(entry.metrics)
+                                              .filter(([key, value]) => value)
+                                              .map(([key, value]) => {
+                                                const metricNames: { [key: string]: string } = {
+                                                  height: "Boy", weight: "Kilo", bmi: "BMI",
+                                                  speed_20m: "20m Sürat", speed_40m: "40m Sürat",
+                                                  vertical_jump: "Dikey Sıçrama", long_jump: "Uzun Atlama"
+                                                };
+                                                const metricName = metricNames[key] || key;
+                                                return `${metricName}: ${formatMetricValue(value, metricName)}`;
+                                              })
+                                              .join('\n');
+                                            
+                                            alert(`${child.studentName} ${child.studentSurname} - ${new Date(entry.date).toLocaleDateString('tr-TR')}\n\n${metricsText}\n\n${entry.notes ? `Not: ${entry.notes}` : ''}`);
+                                          }}
+                                        >
+                                          <Eye className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {child !== children[children.length - 1] && (
+                                <div className="border-b border-muted-foreground/20 mt-6"></div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Henüz kayıtlı çocuk bulunmuyor</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
