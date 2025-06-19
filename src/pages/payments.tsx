@@ -926,8 +926,8 @@ export default function Payments() {
     if (!athlete) return [];
     
     const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-    const parentPhone = athlete.parentPhone?.trim();
-    const parentEmail = athlete.parentEmail?.trim();
+    const parentPhone = athlete.parentPhone && typeof athlete.parentPhone === 'string' ? athlete.parentPhone.trim() : '';
+    const parentEmail = athlete.parentEmail && typeof athlete.parentEmail === 'string' ? athlete.parentEmail.trim() : '';
     
     if (!parentName && !parentPhone && !parentEmail) return [];
     
@@ -935,8 +935,8 @@ export default function Payments() {
       if (a.id === athlete.id) return false;
       
       const aParentName = `${a.parentName || ''} ${a.parentSurname || ''}`.trim();
-      const aParentPhone = a.parentPhone?.trim();
-      const aParentEmail = a.parentEmail?.trim();
+      const aParentPhone = a.parentPhone && typeof a.parentPhone === 'string' ? a.parentPhone.trim() : '';
+      const aParentEmail = a.parentEmail && typeof a.parentEmail === 'string' ? a.parentEmail.trim() : '';
       
       // Match by parent name, phone, or email
       return (parentName && aParentName === parentName) ||
