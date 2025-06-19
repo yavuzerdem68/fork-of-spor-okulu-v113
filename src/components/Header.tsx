@@ -44,6 +44,7 @@ const Header = () => {
         { label: 'Antrenmanlar', path: '/trainings' },
         { label: 'Yoklama', path: '/attendance' },
         { label: 'Ödemeler', path: '/payments' },
+        { label: 'Performans', path: '/performance' },
         { label: 'Raporlar', path: '/reports' },
         { label: 'Ayarlar', path: '/system-settings' }
       ];
@@ -51,6 +52,7 @@ const Header = () => {
       return [
         { label: 'Dashboard', path: '/coach-dashboard' },
         { label: 'Sporcularım', path: '/coach-dashboard' },
+        { label: 'Performans', path: '/performance' },
         { label: 'Yoklama', path: '/coach-dashboard' },
         { label: 'Mesajlar', path: '/coach-dashboard' }
       ];

@@ -811,11 +811,22 @@ export default function Payments() {
     if (!athlete) return [];
     
     const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-    if (!parentName) return [];
+    const parentPhone = athlete.parentPhone?.trim();
+    const parentEmail = athlete.parentEmail?.trim();
+    
+    if (!parentName && !parentPhone && !parentEmail) return [];
     
     return athletes.filter(a => {
+      if (a.id === athlete.id) return false;
+      
       const aParentName = `${a.parentName || ''} ${a.parentSurname || ''}`.trim();
-      return aParentName === parentName && a.id !== athlete.id;
+      const aParentPhone = a.parentPhone?.trim();
+      const aParentEmail = a.parentEmail?.trim();
+      
+      // Match by parent name, phone, or email
+      return (parentName && aParentName === parentName) ||
+             (parentPhone && aParentPhone === parentPhone) ||
+             (parentEmail && aParentEmail === parentEmail);
     });
   };
 
@@ -1536,147 +1547,226 @@ export default function Payments() {
 
                 {/* Step 3: Confirm Matches */}
                 {step === 'confirm' && matchResults.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Eşleştirme Sonuçları</CardTitle>
-                      <CardDescription>
-                        Eşleştirmeleri kontrol edin ve onaylayın. Manuel düzeltme yapabilirsiniz.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {matchResults.map((result, index) => (
-                          <Card key={index} className={`border ${result.similarity >= 80 ? 'border-green-200 bg-green-50' : result.similarity >= 50 ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}`}>
-                            <CardContent className="p-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Excel Data */}
-                                <div>
-                                  <Label className="text-sm font-medium text-muted-foreground">Excel Verisi:</Label>
-                                  <div className="mt-1">
-                                    <p className="font-medium">{result.excelRow.description}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {result.excelRow.date} - ₺{result.excelRow.amount.toLocaleString()}
-                                    </p>
+                  <div className="space-y-6">
+                    {/* Regular Matches */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Eşleştirme Sonuçları</CardTitle>
+                        <CardDescription>
+                          Eşleştirmeleri kontrol edin ve onaylayın. Manuel düzeltme yapabilirsiniz.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {matchResults
+                            .filter(result => !result.multipleAthletes || result.multipleAthletes.length <= 1)
+                            .map((result, index) => (
+                            <Card key={index} className={`border ${result.similarity >= 80 ? 'border-green-200 bg-green-50' : result.similarity >= 50 ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}`}>
+                              <CardContent className="p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Excel Data */}
+                                  <div>
+                                    <Label className="text-sm font-medium text-muted-foreground">Excel Verisi:</Label>
+                                    <div className="mt-1">
+                                      <p className="font-medium">{result.excelRow.description}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {result.excelRow.date} - ₺{result.excelRow.amount.toLocaleString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Match Result */}
+                                  <div>
+                                    <Label className="text-sm font-medium text-muted-foreground">Eşleştirme:</Label>
+                                    <div className="mt-1">
+                                      {result.athleteId ? (
+                                        <div>
+                                          <div className="flex items-center space-x-2">
+                                            <p className="font-medium">{result.athleteName}</p>
+                                            <Badge variant="outline" className="text-xs">
+                                              %{result.similarity} {result.isManual ? '(Manuel)' : '(Otomatik)'}
+                                            </Badge>
+                                          </div>
+                                          <p className="text-sm text-muted-foreground">{result.parentName}</p>
+                                        </div>
+                                      ) : (
+                                        <p className="text-sm text-red-600">Eşleştirilemedi</p>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 
-                                {/* Match Result */}
-                                <div>
-                                  <Label className="text-sm font-medium text-muted-foreground">Eşleştirme:</Label>
-                                  <div className="mt-1">
-                                    {result.athleteId ? (
-                                      <div>
+                                {/* Manual Matching Options */}
+                                <div className="mt-4 pt-4 border-t">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Single Athlete Selection */}
+                                    <div>
+                                      <Label className="text-sm font-medium">Tekil Eşleştirme:</Label>
+                                      <Select 
+                                        value={result.athleteId || ""} 
+                                        onValueChange={(value) => updateManualMatch(index, value)}
+                                      >
+                                        <SelectTrigger className="mt-2">
+                                          <SelectValue placeholder="Sporcu seçin..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {getAvailableAthletes().map(athlete => (
+                                            <SelectItem key={athlete.id} value={athlete.id.toString()}>
+                                              <div className="flex flex-col">
+                                                <span className="font-medium">{athlete.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                  {athlete.parentName} - {athlete.sport}
+                                                </span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    {/* Multi-Athlete Selection */}
+                                    <div>
+                                      <Label className="text-sm font-medium">Çoklu Eşleştirme (Kardeşler):</Label>
+                                      {result.athleteId && (
+                                        <div className="mt-2">
+                                          {(() => {
+                                            const siblings = findSiblings(result.athleteId);
+                                            if (siblings.length > 0) {
+                                              const allSiblings = [
+                                                athletes.find(a => a.id.toString() === result.athleteId),
+                                                ...siblings
+                                              ].filter(Boolean);
+                                              
+                                              return (
+                                                <div className="space-y-2">
+                                                  <p className="text-xs text-muted-foreground">
+                                                    {allSiblings.length} kardeş bulundu (₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} / sporcu)
+                                                  </p>
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => updateMultiAthleteMatch(index, allSiblings.map(a => a.id.toString()))}
+                                                  >
+                                                    <Users className="h-4 w-4 mr-2" />
+                                                    Tüm Kardeşlere Böl
+                                                  </Button>
+                                                </div>
+                                              );
+                                            } else {
+                                              return (
+                                                <p className="text-xs text-muted-foreground mt-2">
+                                                  Kardeş bulunamadı
+                                                </p>
+                                              );
+                                            }
+                                          })()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Sibling Matches Section - Separated and Highlighted */}
+                    {matchResults.filter(result => result.multipleAthletes && result.multipleAthletes.length > 1).length > 0 && (
+                      <Card className="border-purple-200 bg-purple-50">
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2 text-purple-800">
+                            <Users className="h-5 w-5" />
+                            <span>Kardeş Eşleştirmeleri</span>
+                          </CardTitle>
+                          <CardDescription className="text-purple-700">
+                            Bu ödemeler birden fazla kardeş için yapılmış ve tutarlar eşit olarak bölünecek.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {matchResults
+                              .filter(result => result.multipleAthletes && result.multipleAthletes.length > 1)
+                              .map((result, index) => (
+                              <Card key={index} className="border-purple-300 bg-white">
+                                <CardContent className="p-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Excel Data */}
+                                    <div>
+                                      <Label className="text-sm font-medium text-purple-700">Excel Verisi:</Label>
+                                      <div className="mt-1">
+                                        <p className="font-medium">{result.excelRow.description}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                          {result.excelRow.date} - ₺{result.excelRow.amount.toLocaleString()}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Match Result */}
+                                    <div>
+                                      <Label className="text-sm font-medium text-purple-700">Kardeş Eşleştirmesi:</Label>
+                                      <div className="mt-1">
                                         <div className="flex items-center space-x-2">
-                                          <p className="font-medium">{result.athleteName}</p>
-                                          <Badge variant="outline" className="text-xs">
-                                            %{result.similarity} {result.isManual ? '(Manuel)' : '(Otomatik)'}
+                                          <p className="font-medium text-purple-800">{result.athleteName}</p>
+                                          <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                            {result.multipleAthletes?.length} Kardeş
                                           </Badge>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">{result.parentName}</p>
+                                        <p className="text-sm text-purple-600">
+                                          Her sporcu: ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
+                                        </p>
                                       </div>
-                                    ) : (
-                                      <p className="text-sm text-red-600">Eşleştirilemedi</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Manual Matching Options */}
-                              <div className="mt-4 pt-4 border-t">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {/* Single Athlete Selection */}
-                                  <div>
-                                    <Label className="text-sm font-medium">Tekil Eşleştirme:</Label>
-                                    <Select 
-                                      value={result.athleteId || ""} 
-                                      onValueChange={(value) => updateManualMatch(index, value)}
-                                    >
-                                      <SelectTrigger className="mt-2">
-                                        <SelectValue placeholder="Sporcu seçin..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {getAvailableAthletes().map(athlete => (
-                                          <SelectItem key={athlete.id} value={athlete.id.toString()}>
-                                            <div className="flex flex-col">
-                                              <span className="font-medium">{athlete.name}</span>
-                                              <span className="text-xs text-muted-foreground">
-                                                {athlete.parentName} - {athlete.sport}
-                                              </span>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                    </div>
                                   </div>
                                   
-                                  {/* Multi-Athlete Selection */}
-                                  <div>
-                                    <Label className="text-sm font-medium">Çoklu Eşleştirme (Kardeşler):</Label>
-                                    {result.athleteId && (
-                                      <div className="mt-2">
-                                        {(() => {
-                                          const siblings = findSiblings(result.athleteId);
-                                          if (siblings.length > 0) {
-                                            const allSiblings = [
-                                              athletes.find(a => a.id.toString() === result.athleteId),
-                                              ...siblings
-                                            ].filter(Boolean);
-                                            
-                                            return (
-                                              <div className="space-y-2">
-                                                <p className="text-xs text-muted-foreground">
-                                                  {allSiblings.length} kardeş bulundu (₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} / sporcu)
-                                                </p>
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  onClick={() => updateMultiAthleteMatch(index, allSiblings.map(a => a.id.toString()))}
-                                                >
-                                                  <Users className="h-4 w-4 mr-2" />
-                                                  Tüm Kardeşlere Böl
-                                                </Button>
-                                              </div>
-                                            );
-                                          } else {
-                                            return (
-                                              <p className="text-xs text-muted-foreground mt-2">
-                                                Kardeş bulunamadı
-                                              </p>
-                                            );
-                                          }
-                                        })()}
-                                      </div>
-                                    )}
+                                  {/* Sibling Details */}
+                                  <div className="mt-4 pt-4 border-t border-purple-200">
+                                    <Label className="text-sm font-medium text-purple-700">Kardeş Listesi:</Label>
+                                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      {result.multipleAthletes?.map(athleteId => {
+                                        const athlete = athletes.find(a => a.id.toString() === athleteId);
+                                        return athlete ? (
+                                          <div key={athleteId} className="flex items-center space-x-2 p-2 bg-purple-100 rounded">
+                                            <Users className="h-4 w-4 text-purple-600" />
+                                            <span className="text-sm font-medium text-purple-800">
+                                              {athlete.studentName} {athlete.studentSurname}
+                                            </span>
+                                          </div>
+                                        ) : null;
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                        
-                        <div className="flex justify-between pt-4">
-                          <Button variant="outline" onClick={() => setStep('review')}>
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Geri
-                          </Button>
-                          <div className="space-x-2">
-                            <Button variant="outline" onClick={resetUpload}>
-                              <X className="h-4 w-4 mr-2" />
-                              İptal
-                            </Button>
-                            <Button onClick={confirmMatches} disabled={isProcessing}>
-                              {isProcessing ? (
-                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <Check className="h-4 w-4 mr-2" />
-                              )}
-                              Eşleştirmeleri Onayla ({matchResults.filter(r => r.athleteId).length})
-                            </Button>
+                                </CardContent>
+                              </Card>
+                            ))}
                           </div>
-                        </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-between pt-4">
+                      <Button variant="outline" onClick={() => setStep('review')}>
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Geri
+                      </Button>
+                      <div className="space-x-2">
+                        <Button variant="outline" onClick={resetUpload}>
+                          <X className="h-4 w-4 mr-2" />
+                          İptal
+                        </Button>
+                        <Button onClick={confirmMatches} disabled={isProcessing}>
+                          {isProcessing ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4 mr-2" />
+                          )}
+                          Eşleştirmeleri Onayla ({matchResults.filter(r => r.athleteId).length})
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )}
               </div>
             </DialogContent>

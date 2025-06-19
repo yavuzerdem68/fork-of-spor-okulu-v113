@@ -219,6 +219,7 @@ export default function Dashboard() {
     { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
     { icon: UserCheck, label: "Yoklama", href: "/attendance" },
     { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+    { icon: BarChart3, label: "Performans", href: "/performance" },
     { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
     { icon: Camera, label: "Medya", href: "/media" },
     { icon: FileText, label: "Raporlar", href: "/reports" },
