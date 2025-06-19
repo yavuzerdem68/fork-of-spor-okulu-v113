@@ -422,16 +422,14 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     // Check if this athlete is a sibling
     const isSibling = siblingMap.has(athlete.id.toString());
     
-    // ALWAYS include suggestions with ANY similarity > 5, regardless of sibling status
-    if (maxSimilarity > 5) {
-      suggestions.push({
-        athleteId: athlete.id.toString(),
-        athleteName: athleteName,
-        parentName: parentName,
-        similarity: Math.round(maxSimilarity),
-        isSibling: isSibling
-      });
-    }
+    // ALWAYS include suggestions - even with 0% similarity to guarantee suggestions
+    suggestions.push({
+      athleteId: athlete.id.toString(),
+      athleteName: athleteName,
+      parentName: parentName,
+      similarity: Math.round(Math.max(maxSimilarity, 1)), // Minimum 1% to ensure sorting works
+      isSibling: isSibling
+    });
   }
   
   console.log('🎯 SUGGESTIONS GENERATED:', {
@@ -439,25 +437,6 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     siblingCount: suggestions.filter(s => s.isSibling).length,
     topSimilarities: suggestions.slice(0, 5).map(s => ({ name: s.athleteName, similarity: s.similarity, isSibling: s.isSibling }))
   });
-  
-  // GUARANTEED FALLBACK: If no suggestions found, add ALL athletes with low similarity
-  if (suggestions.length === 0 && athletes.length > 0) {
-    console.log('⚠️ NO SUGGESTIONS FOUND - Adding ALL athletes as fallback');
-    athletes.forEach(athlete => {
-      const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
-      const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-      
-      if (athleteName || parentName) {
-        suggestions.push({
-          athleteId: athlete.id.toString(),
-          athleteName: athleteName,
-          parentName: parentName,
-          similarity: 1, // Very low similarity as fallback
-          isSibling: siblingMap.has(athlete.id.toString())
-        });
-      }
-    });
-  }
   
   // Sort by similarity (highest first), with preference for siblings when they have similar scores
   return suggestions
@@ -1153,6 +1132,8 @@ export default function Payments() {
       athletes = JSON.parse(storedAthletes);
     }
 
+    let processedMultiAthleteCount = 0;
+
     confirmedMatches.forEach(match => {
       // Parse Turkish date correctly for payment date
       const parsedDate = parseTurkishDate(match.excelData.date);
@@ -1162,7 +1143,11 @@ export default function Payments() {
 
       if (match.isMultiple && match.multiplePayments) {
         // Handle multi-athlete payments - split between multiple athletes
-        console.log('Processing multi-athlete payment:', match.multiplePayments);
+        console.log('🔄 Processing multi-athlete payment:', {
+          totalAmount: match.excelData.amount,
+          athleteCount: match.multiplePayments.length,
+          athletes: match.multiplePayments.map(p => p.athleteName)
+        });
         
         match.multiplePayments.forEach((athletePayment: any) => {
           // Find the athlete by ID first
@@ -1183,45 +1168,28 @@ export default function Payments() {
           }
           
           if (athlete) {
-            console.log(`Creating payment record for athlete: ${athlete.studentName} ${athlete.studentSurname} - Amount: ₺${athletePayment.amount}`);
+            console.log(`✅ Creating payment record for athlete: ${athlete.studentName} ${athlete.studentSurname} - Amount: ₺${athletePayment.amount}`);
             
-            // Update or create payment record for this athlete
-            const existingPaymentIndex = updatedPayments.findIndex(p => 
-              p.athleteId === athlete.id && p.status !== "Ödendi"
-            );
-            
-            if (existingPaymentIndex >= 0) {
-              // Update existing payment
-              updatedPayments[existingPaymentIndex] = {
-                ...updatedPayments[existingPaymentIndex],
-                status: "Ödendi",
-                paymentDate: paymentDate,
-                method: "Havale/EFT",
-                reference: match.excelData.reference,
-                amount: athletePayment.amount
-              };
-              console.log('Updated existing payment for:', athlete.studentName);
-            } else {
-              // Create new payment record
-              const newPayment = {
-                id: `multi_${athlete.id}_${Date.now()}_${Math.random()}`,
-                athleteId: athlete.id,
-                athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
-                parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-                amount: athletePayment.amount,
-                status: "Ödendi",
-                paymentDate: paymentDate,
-                method: "Havale/EFT",
-                reference: match.excelData.reference,
-                sport: athlete.selectedSports ? athlete.selectedSports[0] : (athlete.sportsBranches ? athlete.sportsBranches[0] : 'Genel'),
-                invoiceNumber: `INV-${Date.now()}-${athlete.id}`,
-                dueDate: paymentDate,
-                description: `Çoklu ödeme - ${match.excelData.description}`,
-                isGenerated: false
-              };
-              updatedPayments.push(newPayment);
-              console.log('Created new payment for:', athlete.studentName, newPayment);
-            }
+            // ALWAYS create a new payment record for multi-athlete payments
+            const newPayment = {
+              id: `multi_${athlete.id}_${Date.now()}_${Math.random()}`,
+              athleteId: athlete.id,
+              athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+              parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+              amount: athletePayment.amount,
+              status: "Ödendi",
+              paymentDate: paymentDate,
+              method: "Havale/EFT",
+              reference: match.excelData.reference,
+              sport: athlete.selectedSports ? athlete.selectedSports[0] : (athlete.sportsBranches ? athlete.sportsBranches[0] : 'Genel'),
+              invoiceNumber: `MULTI-${Date.now()}-${athlete.id}`,
+              dueDate: paymentDate,
+              description: `Çoklu ödeme (${match.multiplePayments.length} sporcu) - ${match.excelData.description}`,
+              isGenerated: false
+            };
+            updatedPayments.push(newPayment);
+            console.log('✅ Created new multi-athlete payment for:', athlete.studentName, newPayment);
+            processedMultiAthleteCount++;
 
             // Add to athlete's account as credit (payment received)
             const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
@@ -1229,7 +1197,7 @@ export default function Payments() {
               id: Date.now() + Math.random(),
               date: entryDate,
               month: entryDate.slice(0, 7),
-              description: `EFT/Havale Tahsilatı (Çoklu) - ${displayDate} - ₺${athletePayment.amount} - Ref: ${match.excelData.reference}`,
+              description: `EFT/Havale Tahsilatı (Çoklu ${match.multiplePayments.length} sporcu) - ${displayDate} - ₺${athletePayment.amount} - Ref: ${match.excelData.reference}`,
               amountExcludingVat: athletePayment.amount,
               vatRate: 0,
               vatAmount: 0,
@@ -1240,9 +1208,9 @@ export default function Payments() {
             
             existingEntries.push(paymentEntry);
             localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
-            console.log('Added account entry for:', athlete.studentName, paymentEntry);
+            console.log('✅ Added account entry for:', athlete.studentName, paymentEntry);
           } else {
-            console.error('Could not find athlete for payment:', athletePayment);
+            console.error('❌ Could not find athlete for payment:', athletePayment);
           }
         });
       } else {
@@ -1253,6 +1221,28 @@ export default function Payments() {
           singleMatch.paymentDate = paymentDate;
           singleMatch.method = "Havale/EFT";
           singleMatch.reference = match.excelData.reference;
+        } else {
+          // Create new payment record if not found
+          const athlete = athletes.find((a: any) => a.id === match.payment?.id);
+          if (athlete) {
+            const newPayment = {
+              id: `single_${athlete.id}_${Date.now()}_${Math.random()}`,
+              athleteId: athlete.id,
+              athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
+              parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+              amount: match.excelData.amount,
+              status: "Ödendi",
+              paymentDate: paymentDate,
+              method: "Havale/EFT",
+              reference: match.excelData.reference,
+              sport: athlete.selectedSports ? athlete.selectedSports[0] : (athlete.sportsBranches ? athlete.sportsBranches[0] : 'Genel'),
+              invoiceNumber: `SINGLE-${Date.now()}-${athlete.id}`,
+              dueDate: paymentDate,
+              description: `Tekil ödeme - ${match.excelData.description}`,
+              isGenerated: false
+            };
+            updatedPayments.push(newPayment);
+          }
         }
 
         // Find athlete for account entry
@@ -1304,7 +1294,7 @@ export default function Payments() {
     
     let successMessage = `${confirmedMatches.length} ödeme başarıyla güncellendi! (${autoMatchCount} otomatik, ${manualMatchCount} manuel`;
     if (multipleMatchCount > 0) {
-      successMessage += `, ${multipleMatchCount} çoklu`;
+      successMessage += `, ${multipleMatchCount} çoklu - ${processedMultiAthleteCount} sporcu`;
     }
     successMessage += ' eşleştirme';
     if (historicalMatchCount > 0) {
@@ -1315,6 +1305,13 @@ export default function Payments() {
     if (manualMatchCount > 0) {
       successMessage += ` Manuel eşleştirmeler gelecek kullanım için hafızaya kaydedildi.`;
     }
+    
+    console.log('🎯 FINAL PROCESSING SUMMARY:', {
+      totalMatches: confirmedMatches.length,
+      multipleMatches: multipleMatchCount,
+      processedMultiAthleteCount,
+      totalPaymentsCreated: updatedPayments.length - payments.length
+    });
     
     toast.success(successMessage);
     setIsUploadDialogOpen(false);
