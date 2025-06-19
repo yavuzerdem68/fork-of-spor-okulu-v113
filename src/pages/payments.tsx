@@ -405,90 +405,31 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
     const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
     
-    // Enhanced similarity calculation
+    // Skip if no name data
+    if (!athleteName && !parentName) continue;
+    
+    // Enhanced similarity calculation using the bulletproof calculateSimilarity function
     let maxSimilarity = 0;
     
-    const athleteVersions = normalizeTurkishText(athleteName);
-    const parentVersions = normalizeTurkishText(parentName);
-    const descVersions = normalizeTurkishText(description);
+    // Direct similarity checks
+    const athleteSimilarity = calculateSimilarity(description, athleteName);
+    const parentSimilarity = calculateSimilarity(description, parentName);
     
-    // Test all combinations
-    for (const descVersion of descVersions) {
-      for (const athleteVersion of athleteVersions) {
-        const sim = calculateSimilarity(descVersion, athleteVersion);
-        maxSimilarity = Math.max(maxSimilarity, sim);
-      }
-      for (const parentVersion of parentVersions) {
-        const sim = calculateSimilarity(descVersion, parentVersion);
-        maxSimilarity = Math.max(maxSimilarity, sim * 1.2); // Parent name boost
-      }
-    }
+    maxSimilarity = Math.max(athleteSimilarity, parentSimilarity * 1.1); // Slight boost for parent matches
     
-    // Word-by-word matching
-    const descWords = descVersions[0].split(' ').filter(w => w.length > 2);
-    const athleteWords = athleteVersions[0].split(' ').filter(w => w.length > 2);
-    const parentWords = parentVersions[0].split(' ').filter(w => w.length > 2);
+    console.log(`🔍 MATCHING: "${description}" vs "${athleteName}" (${athleteSimilarity}%) / "${parentName}" (${parentSimilarity}%)`);
     
-    let wordMatchScore = 0;
-    let totalPossibleMatches = descWords.length;
-    
-    for (const descWord of descWords) {
-      let bestWordMatch = 0;
-      
-      // Check athlete name words
-      for (const athleteWord of athleteWords) {
-        if (descWord === athleteWord) {
-          bestWordMatch = Math.max(bestWordMatch, 100);
-        } else if (descWord.includes(athleteWord) || athleteWord.includes(descWord)) {
-          bestWordMatch = Math.max(bestWordMatch, 80);
-        } else {
-          const wordSim = calculateLevenshteinSimilarity(descWord, athleteWord);
-          if (wordSim > 70) {
-            bestWordMatch = Math.max(bestWordMatch, wordSim * 0.8);
-          }
-        }
-      }
-      
-      // Check parent name words
-      for (const parentWord of parentWords) {
-        if (descWord === parentWord) {
-          bestWordMatch = Math.max(bestWordMatch, 105);
-        } else if (descWord.includes(parentWord) || parentWord.includes(descWord)) {
-          bestWordMatch = Math.max(bestWordMatch, 85);
-        } else {
-          const wordSim = calculateLevenshteinSimilarity(descWord, parentWord);
-          if (wordSim > 70) {
-            bestWordMatch = Math.max(bestWordMatch, wordSim * 0.85);
-          }
-        }
-      }
-      
-      wordMatchScore += bestWordMatch;
-    }
-    
-    const avgWordMatch = totalPossibleMatches > 0 ? wordMatchScore / totalPossibleMatches : 0;
-    let finalSimilarity = Math.max(maxSimilarity, avgWordMatch);
-    
-    // FIXED: More inclusive sibling detection
+    // Check if this athlete is a sibling
     const isSibling = siblingMap.has(athlete.id.toString());
-    let shouldIncludeAsSibling = false;
     
-    if (isSibling) {
-      // FIXED: Lower threshold for sibling inclusion - if there's ANY reasonable match, show as sibling
-      if (finalSimilarity > 15) { // Lowered from 30 to 15 for better sibling visibility
-        shouldIncludeAsSibling = true;
-        finalSimilarity = Math.min(100, finalSimilarity + 3); // Small boost for siblings
-      }
-    }
-    
-    // FIXED: Much lower threshold to ensure suggestions are always shown
-    if (finalSimilarity > 10) { // Lowered from 20 to 10 to ensure suggestions appear
+    // ALWAYS include suggestions with ANY similarity > 5, regardless of sibling status
+    if (maxSimilarity > 5) {
       suggestions.push({
         athleteId: athlete.id.toString(),
         athleteName: athleteName,
         parentName: parentName,
-        similarity: Math.round(finalSimilarity),
-        isSibling: shouldIncludeAsSibling
+        similarity: Math.round(maxSimilarity),
+        isSibling: isSibling
       });
     }
   }
@@ -499,29 +440,30 @@ const findClosestMatches = (description: string, athletes: any[], limit: number 
     topSimilarities: suggestions.slice(0, 5).map(s => ({ name: s.athleteName, similarity: s.similarity, isSibling: s.isSibling }))
   });
   
-  // FIXED: Ensure we always return at least some suggestions if athletes exist
+  // GUARANTEED FALLBACK: If no suggestions found, add ALL athletes with low similarity
   if (suggestions.length === 0 && athletes.length > 0) {
-    console.log('⚠️ NO SUGGESTIONS FOUND - Adding top athletes as fallback');
-    // Add top 5 athletes as fallback suggestions with low similarity
-    athletes.slice(0, 5).forEach(athlete => {
+    console.log('⚠️ NO SUGGESTIONS FOUND - Adding ALL athletes as fallback');
+    athletes.forEach(athlete => {
       const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
       const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
       
-      suggestions.push({
-        athleteId: athlete.id.toString(),
-        athleteName: athleteName,
-        parentName: parentName,
-        similarity: 5, // Very low similarity as fallback
-        isSibling: siblingMap.has(athlete.id.toString())
-      });
+      if (athleteName || parentName) {
+        suggestions.push({
+          athleteId: athlete.id.toString(),
+          athleteName: athleteName,
+          parentName: parentName,
+          similarity: 1, // Very low similarity as fallback
+          isSibling: siblingMap.has(athlete.id.toString())
+        });
+      }
     });
   }
   
   // Sort by similarity (highest first), with preference for siblings when they have similar scores
   return suggestions
     .sort((a, b) => {
-      // If both have similar similarity scores (within 10 points), prefer siblings
-      if (Math.abs(a.similarity - b.similarity) <= 10 && a.isSibling !== b.isSibling) {
+      // If both have similar similarity scores (within 5 points), prefer siblings
+      if (Math.abs(a.similarity - b.similarity) <= 5 && a.isSibling !== b.isSibling) {
         return a.isSibling ? -1 : 1;
       }
       return b.similarity - a.similarity;
@@ -1946,26 +1888,34 @@ export default function Payments() {
     }
 
     const totalAmount = matchedPayments[matchIndex].excelData.amount;
-    const amountPerAthlete = totalAmount / selectedAthletes.length;
+    const amountPerAthlete = Math.round((totalAmount / selectedAthletes.length) * 100) / 100; // Round to 2 decimal places
 
-    // Create multiple payment records
+    console.log('🔄 MULTI-ATHLETE MATCH:', {
+      totalAmount,
+      selectedAthletes: selectedAthletes.length,
+      amountPerAthlete,
+      athleteNames: selectedAthletes.map(a => `${a.studentName} ${a.studentSurname}`)
+    });
+
+    // Create multiple payment records - EACH athlete gets their own separate payment
     const multiplePayments = selectedAthletes.map(athlete => ({
       id: athlete.id,
       athleteName: `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim(),
       parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
       amount: amountPerAthlete,
       status: 'Bekliyor',
-      sport: athlete.selectedSports ? athlete.selectedSports[0] : 'Genel'
+      sport: athlete.selectedSports ? athlete.selectedSports[0] : (athlete.sportsBranches ? athlete.sportsBranches[0] : 'Genel')
     }));
 
     const updatedMatches = [...matchedPayments];
     updatedMatches[matchIndex] = {
       ...updatedMatches[matchIndex],
-      payment: multiplePayments[0], // Use first athlete as primary
-      multiplePayments: multiplePayments,
+      payment: multiplePayments[0], // Use first athlete as primary for display
+      multiplePayments: multiplePayments, // Store all payments for processing
       status: 'matched',
       confidence: 100,
-      isMultiple: true
+      isMultiple: true,
+      isManual: true // Mark as manual match
     };
     
     setMatchedPayments(updatedMatches);
@@ -1976,7 +1926,7 @@ export default function Payments() {
       [matchIndex]: []
     }));
     
-    toast.success(`Ödeme ${selectedAthletes.length} sporcu arasında bölüştürüldü (${amountPerAthlete.toFixed(2)} ₺ / sporcu)`);
+    toast.success(`Ödeme ${selectedAthletes.length} sporcu arasında eşit olarak bölüştürüldü (₺${amountPerAthlete} / sporcu)`);
   };
 
   // Clear all filled fields function
