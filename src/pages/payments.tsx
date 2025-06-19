@@ -123,15 +123,25 @@ const parseTurkishDate = (dateStr: string): Date | null => {
   return null;
 };
 
-// Parse Turkish amount format
-const parseAmount = (amountStr: string): number => {
-  if (!amountStr) return 0;
+// Parse Turkish amount format - Improved version
+const parseAmount = (amountStr: string | number): number => {
+  if (!amountStr && amountStr !== 0) return 0;
   
   try {
+    // Handle numeric values directly
+    if (typeof amountStr === 'number') {
+      return amountStr < 0 ? 0 : amountStr;
+    }
+    
     let cleanAmount = amountStr.toString().trim();
     
-    // Remove currency symbols and extra spaces
-    cleanAmount = cleanAmount.replace(/[₺\s]/g, '');
+    // Skip empty values
+    if (!cleanAmount || cleanAmount.length === 0) {
+      return 0;
+    }
+    
+    // Remove currency symbols, spaces, and other non-numeric characters except . , -
+    cleanAmount = cleanAmount.replace(/[₺\s\u00A0]/g, '');
     
     // Skip negative amounts - check for minus sign anywhere in the string
     if (cleanAmount.includes('-') || cleanAmount.startsWith('-')) {
@@ -146,37 +156,57 @@ const parseAmount = (amountStr: string): number => {
       return 0;
     }
     
-    // Skip if it's empty after cleaning
-    if (!cleanAmount || cleanAmount.length === 0) {
+    // Skip if it contains letters (likely text, not amount)
+    if (/[a-zA-ZçğıöşüÇĞIİÖŞÜ]/.test(cleanAmount)) {
+      console.log(`Skipping text content: ${amountStr}`);
       return 0;
     }
     
     // Handle Turkish format: 2.100,00 (thousands separator with decimal)
     if (cleanAmount.includes('.') && cleanAmount.includes(',')) {
-      const parsed = parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.'));
-      return isNaN(parsed) || parsed < 0 ? 0 : parsed;
-    }
-    // Handle format with comma as decimal: 1234,56
-    else if (cleanAmount.includes(',') && !cleanAmount.includes('.')) {
-      const parsed = parseFloat(cleanAmount.replace(',', '.'));
-      return isNaN(parsed) || parsed < 0 ? 0 : parsed;
-    }
-    // Handle format with dot as thousands separator: 2.100
-    else if (cleanAmount.includes('.') && !cleanAmount.includes(',')) {
-      const parts = cleanAmount.split('.');
-      if (parts.length === 2 && parts[1].length <= 2) {
-        const parsed = parseFloat(cleanAmount); // Decimal: 1234.56
-        return isNaN(parsed) || parsed < 0 ? 0 : parsed;
-      } else {
-        const parsed = parseFloat(cleanAmount.replace(/\./g, '')); // Thousands: 2.100
+      // Find the last comma (decimal separator)
+      const lastCommaIndex = cleanAmount.lastIndexOf(',');
+      const beforeComma = cleanAmount.substring(0, lastCommaIndex);
+      const afterComma = cleanAmount.substring(lastCommaIndex + 1);
+      
+      // Check if after comma has 2 digits (decimal part)
+      if (afterComma.length <= 2 && /^\d+$/.test(afterComma)) {
+        const parsed = parseFloat(beforeComma.replace(/\./g, '') + '.' + afterComma);
         return isNaN(parsed) || parsed < 0 ? 0 : parsed;
       }
     }
-    // Handle integer: 1234
-    else {
-      const parsed = parseFloat(cleanAmount);
-      return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    // Handle format with comma as decimal: 1234,56
+    else if (cleanAmount.includes(',') && !cleanAmount.includes('.')) {
+      const parts = cleanAmount.split(',');
+      if (parts.length === 2 && parts[1].length <= 2) {
+        const parsed = parseFloat(parts[0] + '.' + parts[1]);
+        return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+      }
     }
+    // Handle format with dot as decimal or thousands separator
+    else if (cleanAmount.includes('.') && !cleanAmount.includes(',')) {
+      const parts = cleanAmount.split('.');
+      if (parts.length === 2) {
+        // If last part has 2 digits, treat as decimal
+        if (parts[1].length <= 2) {
+          const parsed = parseFloat(cleanAmount);
+          return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+        } else {
+          // Treat as thousands separator
+          const parsed = parseFloat(cleanAmount.replace(/\./g, ''));
+          return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+        }
+      } else if (parts.length > 2) {
+        // Multiple dots, treat as thousands separators
+        const parsed = parseFloat(cleanAmount.replace(/\./g, ''));
+        return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+      }
+    }
+    
+    // Handle integer: 1234
+    const parsed = parseFloat(cleanAmount);
+    return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    
   } catch (error) {
     console.error(`Error parsing amount "${amountStr}":`, error);
     return 0;
@@ -363,9 +393,12 @@ export default function Payments() {
     }
   };
 
-  // Step 2: Process Excel file (parse only, no matching yet)
+  // Step 2: Process Excel file (parse only, no matching yet) - Improved version
   const processExcelFile = async () => {
-    if (!uploadedFile) return;
+    if (!uploadedFile) {
+      toast.error("Lütfen önce bir dosya seçin");
+      return;
+    }
 
     setIsProcessing(true);
     setUploadProgress(0);
@@ -382,93 +415,145 @@ export default function Payments() {
         });
       }, 100);
 
-      // Read Excel file
-      const arrayBuffer = await uploadedFile.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      // Read Excel file with better error handling
+      let arrayBuffer: ArrayBuffer;
+      try {
+        arrayBuffer = await uploadedFile.arrayBuffer();
+      } catch (error) {
+        clearInterval(interval);
+        throw new Error("Dosya okunamadı. Dosyanın bozuk olmadığından emin olun.");
+      }
+
+      let workbook: any;
+      try {
+        workbook = XLSX.read(arrayBuffer, { 
+          type: 'array',
+          cellDates: true,
+          cellNF: false,
+          cellText: false
+        });
+      } catch (error) {
+        clearInterval(interval);
+        throw new Error("Excel dosyası geçersiz. Lütfen .xlsx veya .xls formatında bir dosya seçin.");
+      }
       
+      // Check if workbook has sheets
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        clearInterval(interval);
+        throw new Error("Excel dosyasında sayfa bulunamadı.");
+      }
+
       // Get first worksheet
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       
-      // Convert to JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      if (!worksheet) {
+        clearInterval(interval);
+        throw new Error("Excel sayfası okunamadı.");
+      }
+
+      // Convert to JSON with better options
+      let jsonData: any[][];
+      try {
+        jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,
+          defval: '',
+          blankrows: false
+        });
+      } catch (error) {
+        clearInterval(interval);
+        throw new Error("Excel verisi işlenemedi.");
+      }
       
       clearInterval(interval);
       setUploadProgress(100);
 
-      // Process Excel data
+      // Process Excel data with improved logic
       const parsedData: ExcelRow[] = [];
+      
+      console.log(`Processing ${jsonData.length} rows from Excel...`);
       
       // Skip header row and process data
       for (let i = 1; i < jsonData.length; i++) {
         const row = jsonData[i] as any[];
         
-        // Skip empty rows
-        if (!row || row.length === 0 || !row.some(cell => cell)) continue;
+        // Skip completely empty rows
+        if (!row || row.length === 0 || !row.some(cell => cell !== null && cell !== undefined && cell !== '')) {
+          continue;
+        }
         
-        // Extract data from row
+        // Extract data from row with improved logic
         let date = '';
         let amount = 0;
         let description = '';
         let reference = '';
         
-        // Look for date, amount, description in the row
+        // Process each cell in the row
         for (let j = 0; j < row.length; j++) {
           const cell = row[j];
-          if (cell && typeof cell === 'string') {
-            // Try to parse date
+          
+          // Skip null, undefined, or empty cells
+          if (cell === null || cell === undefined || cell === '') continue;
+          
+          // Handle date cells
+          if (cell instanceof Date) {
+            if (!date) {
+              date = cell.toLocaleDateString('tr-TR');
+            }
+          } else if (typeof cell === 'string') {
+            // Try to parse date from string
             const parsedDate = parseTurkishDate(cell);
             if (parsedDate && !date) {
               date = cell;
             }
             
-            // Look for description (usually the longest text field)
-            if (cell.length > description.length && cell.length > 10) {
-              description = cell;
+            // Look for description (text longer than 10 characters, not a date or amount)
+            const cellTrimmed = cell.trim();
+            if (cellTrimmed.length > 10 && 
+                !parseTurkishDate(cellTrimmed) && 
+                parseAmount(cellTrimmed) === 0 &&
+                cellTrimmed.length > description.length) {
+              description = cellTrimmed;
             }
             
-            // Look for reference number
-            if (cell.match(/^[A-Z0-9]{6,}$/i) && !reference) {
-              reference = cell;
+            // Look for reference number (alphanumeric, 6+ characters)
+            if (cellTrimmed.match(/^[A-Z0-9]{6,}$/i) && !reference) {
+              reference = cellTrimmed;
             }
           }
           
-          // Look for amount (number or string that can be parsed as amount)
-          // But first check if it's not a date format
-          if (typeof cell === 'number' && cell > 0 && amount === 0) {
-            amount = cell;
-          } else if (typeof cell === 'string' && cell.trim && cell.trim()) {
-            try {
-              // Check if the string looks like a date (contains / or - with year patterns)
-              const datePattern = /^\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}$|^\d{2,4}[\/\.\-]\d{1,2}[\/\.\-]\d{1,2}$/;
-              if (!datePattern.test(cell.trim())) {
-                const parsedAmount = parseAmount(cell);
-                if (parsedAmount > 0 && amount === 0) {
-                  amount = parsedAmount;
-                }
-              }
-            } catch (error) {
-              console.log(`Error parsing amount from cell: ${cell}`, error);
-              // Continue processing other cells
+          // Handle amount cells
+          if (amount === 0) {
+            const parsedAmount = parseAmount(cell);
+            if (parsedAmount > 0) {
+              amount = parsedAmount;
             }
           }
         }
         
-        // Only add if we have essential data
-        if (date && amount > 0 && description) {
+        // Validate and add row if we have essential data
+        if (date && amount > 0) {
+          // Use a fallback description if none found
+          if (!description || description.length < 5) {
+            description = `Ödeme - Satır ${i + 1}`;
+          }
+          
           parsedData.push({
             date: date,
             amount: amount,
             description: description,
-            reference: reference || `REF${i}`,
+            reference: reference || `REF${Date.now()}_${i}`,
             rowIndex: i + 1
           });
+          
+          console.log(`Row ${i + 1}: Date=${date}, Amount=${amount}, Description=${description.substring(0, 50)}...`);
+        } else {
+          console.log(`Row ${i + 1} skipped: Date=${date}, Amount=${amount}, Description=${description.substring(0, 30)}...`);
         }
       }
 
       if (parsedData.length === 0) {
-        toast.error("Excel dosyasında geçerli ödeme verisi bulunamadı. Lütfen dosya formatını kontrol edin.");
-        return;
+        throw new Error("Excel dosyasında geçerli ödeme verisi bulunamadı. Dosyanın tarih ve tutar sütunları içerdiğinden emin olun.");
       }
 
       setExcelData(parsedData);
@@ -476,9 +561,14 @@ export default function Payments() {
       
       toast.success(`Excel dosyası başarıyla işlendi! ${parsedData.length} ödeme kaydı bulundu.`);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Excel processing error:', error);
-      toast.error("Excel dosyası işlenirken hata oluştu. Lütfen dosya formatını kontrol edin.");
+      const errorMessage = error.message || "Excel dosyası işlenirken bilinmeyen bir hata oluştu.";
+      toast.error(errorMessage);
+      
+      // Reset on error
+      setExcelData([]);
+      setStep('upload');
     } finally {
       setIsProcessing(false);
     }
