@@ -2819,11 +2819,19 @@ export default function Athletes() {
                           <TableCell>
                             <div className="flex items-center space-x-3">
                               <Avatar>
-                                <AvatarImage src={athlete.photo || athlete.studentPhoto || athlete.profilePhoto} />
+                                <AvatarImage 
+                                  src={athlete.photo || athlete.studentPhoto || athlete.profilePhoto || `https://assets.co.dev/e522a9c1-d37e-4a9b-a7ec-bbeec7aa3e7a/ekran-goruntusu-2025-06-19-154116-6f6a4a3.jpg`} 
+                                  alt={`${athlete.studentName} ${athlete.studentSurname}`}
+                                  onError={(e) => {
+                                    console.log('Image load error for athlete:', athlete.studentName, athlete.studentSurname);
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
                                 <AvatarFallback>
                                   {getInitials(athlete.studentName, athlete.studentSurname)}
                                 </AvatarFallback>
                               </Avatar>
+=======
                               <div>
                                 <p className="font-medium">{athlete.studentName} {athlete.studentSurname}</p>
                                 <p className="text-sm text-muted-foreground">

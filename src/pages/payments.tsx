@@ -417,13 +417,18 @@ export default function Payments() {
           // But first check if it's not a date format
           if (typeof cell === 'number' && cell > 0 && amount === 0) {
             amount = cell;
-          } else if (typeof cell === 'string') {
+          } else if (typeof cell === 'string' && cell.trim()) {
             // Check if the string looks like a date (contains / or - with year patterns)
             const datePattern = /^\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}$|^\d{2,4}[\/\.\-]\d{1,2}[\/\.\-]\d{1,2}$/;
             if (!datePattern.test(cell.trim())) {
-              const parsedAmount = parseAmount(cell);
-              if (parsedAmount > 0 && amount === 0) {
-                amount = parsedAmount;
+              try {
+                const parsedAmount = parseAmount(cell);
+                if (parsedAmount > 0 && amount === 0) {
+                  amount = parsedAmount;
+                }
+              } catch (error) {
+                console.log(`Error parsing amount from cell: ${cell}`, error);
+                // Continue processing other cells
               }
             }
           }
