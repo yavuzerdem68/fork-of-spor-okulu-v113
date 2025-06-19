@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
@@ -119,21 +120,8 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
   const validateTcNo = (tcNo: string): string => {
     if (!tcNo) return "";
     
-    const cleanTcNo = tcNo.replace(/\D/g, '');
-    
-    if (cleanTcNo.length !== 11) {
-      return "TC Kimlik numarası 11 haneli olmalıdır";
-    }
-    
-    if (!/^\d{11}$/.test(cleanTcNo)) {
-      return "TC Kimlik numarası sadece rakamlardan oluşmalıdır";
-    }
-    
-    if (cleanTcNo[0] === '0') {
-      return "TC Kimlik numarası 0 ile başlayamaz";
-    }
-    
-    return "";
+    const validation = validateTCKimlikNo(tcNo);
+    return validation.isValid ? "" : (validation.error || "Geçersiz TC Kimlik No");
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -153,7 +141,7 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
   };
 
   const handleTcNoChange = (field: string, value: string) => {
-    const cleanValue = value.replace(/\D/g, '').slice(0, 11);
+    const cleanValue = cleanTCKimlikNo(value).slice(0, 11);
     handleInputChange(field, cleanValue);
   };
 

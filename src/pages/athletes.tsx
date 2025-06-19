@@ -49,6 +49,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import NewAthleteForm from "@/components/NewAthleteForm";
 import * as XLSX from 'xlsx';
+import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -178,11 +179,17 @@ function EditAthleteForm({ athlete, onSave, onCancel }: {
     if (!formData.parentEmail || !formData.parentEmail.toString().trim()) newErrors.parentEmail = 'Veli email zorunludur';
 
     // TC No validation
-    if (formData.studentTcNo && formData.studentTcNo.toString().replace(/\D/g, '').length !== 11) {
-      newErrors.studentTcNo = 'TC Kimlik No 11 haneli olmalıdır';
+    if (formData.studentTcNo) {
+      const studentTcValidation = validateTCKimlikNo(formData.studentTcNo.toString());
+      if (!studentTcValidation.isValid) {
+        newErrors.studentTcNo = studentTcValidation.error;
+      }
     }
-    if (formData.parentTcNo && formData.parentTcNo.toString().replace(/\D/g, '').length !== 11) {
-      newErrors.parentTcNo = 'Veli TC Kimlik No 11 haneli olmalıdır';
+    if (formData.parentTcNo) {
+      const parentTcValidation = validateTCKimlikNo(formData.parentTcNo.toString());
+      if (!parentTcValidation.isValid) {
+        newErrors.parentTcNo = parentTcValidation.error;
+      }
     }
 
     // Email validation
