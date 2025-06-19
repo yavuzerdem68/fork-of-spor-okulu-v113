@@ -219,6 +219,7 @@ interface ExcelRow {
   description: string;
   reference: string;
   rowIndex: number;
+  paymentType?: string; // Added for transaction type from "İşlem" column
 }
 
 interface MatchResult {
@@ -393,7 +394,7 @@ export default function Payments() {
     }
   };
 
-  // Step 2: Process Excel file (parse only, no matching yet) - Improved version
+  // Step 2: Process Excel file (parse only, no matching yet) - Fixed version with column header detection
   const processExcelFile = async () => {
     if (!uploadedFile) {
       toast.error("Lütfen önce bir dosya seçin");
@@ -468,12 +469,66 @@ export default function Payments() {
       clearInterval(interval);
       setUploadProgress(100);
 
-      // Process Excel data with completely improved logic for better description detection
+      // Process Excel data with column header detection
       const parsedData: ExcelRow[] = [];
       
       console.log(`Processing ${jsonData.length} rows from Excel...`);
       
-      // Skip header row and process data
+      if (jsonData.length < 2) {
+        throw new Error("Excel dosyasında yeterli veri bulunamadı. En az başlık satırı ve bir veri satırı olmalı.");
+      }
+
+      // Find column indices by header names
+      const headerRow = jsonData[0] as any[];
+      let dateColumnIndex = -1;
+      let amountColumnIndex = -1;
+      let descriptionColumnIndex = -1; // "Açıklama" column for athlete/parent names
+      let transactionTypeColumnIndex = -1; // "İşlem" column for payment type
+      let referenceColumnIndex = -1;
+
+      console.log('Header row:', headerRow);
+
+      // Search for column headers (case-insensitive, Turkish character friendly)
+      for (let i = 0; i < headerRow.length; i++) {
+        const header = headerRow[i];
+        if (!header || typeof header !== 'string') continue;
+        
+        const normalizedHeader = normalizeTurkish(header.toLowerCase());
+        
+        // Date column patterns
+        if (normalizedHeader.includes('tarih') || normalizedHeader.includes('date')) {
+          dateColumnIndex = i;
+        }
+        // Amount column patterns
+        else if (normalizedHeader.includes('tutar') || normalizedHeader.includes('miktar') || 
+                 normalizedHeader.includes('amount') || normalizedHeader.includes('para')) {
+          amountColumnIndex = i;
+        }
+        // Description column - specifically look for "Açıklama"
+        else if (normalizedHeader.includes('aciklama') || normalizedHeader.includes('description')) {
+          descriptionColumnIndex = i;
+        }
+        // Transaction type column - specifically look for "İşlem"
+        else if (normalizedHeader.includes('islem') || normalizedHeader.includes('transaction') || 
+                 normalizedHeader.includes('type') || normalizedHeader.includes('tip')) {
+          transactionTypeColumnIndex = i;
+        }
+        // Reference column patterns
+        else if (normalizedHeader.includes('referans') || normalizedHeader.includes('ref') || 
+                 normalizedHeader.includes('reference') || normalizedHeader.includes('no')) {
+          referenceColumnIndex = i;
+        }
+      }
+
+      console.log('Column indices found:', {
+        date: dateColumnIndex,
+        amount: amountColumnIndex,
+        description: descriptionColumnIndex,
+        transactionType: transactionTypeColumnIndex,
+        reference: referenceColumnIndex
+      });
+
+      // Process data rows
       for (let i = 1; i < jsonData.length; i++) {
         const row = jsonData[i] as any[];
         
@@ -482,97 +537,94 @@ export default function Payments() {
           continue;
         }
         
-        // Extract data from row with completely improved logic
+        // Extract data using column indices
         let date = '';
         let amount = 0;
         let description = '';
+        let transactionType = '';
         let reference = '';
-        let allDescriptions: string[] = []; // Collect all potential descriptions
         
-        // First pass: collect all data types
-        for (let j = 0; j < row.length; j++) {
-          const cell = row[j];
-          
-          // Skip null, undefined, or empty cells
-          if (cell === null || cell === undefined || cell === '') continue;
-          
-          // Handle date cells
-          if (cell instanceof Date) {
-            if (!date) {
-              date = cell.toLocaleDateString('tr-TR');
-            }
-          } else if (typeof cell === 'string') {
-            const cellTrimmed = cell.trim();
-            
-            // Try to parse date from string
-            const parsedDate = parseTurkishDate(cellTrimmed);
-            if (parsedDate && !date) {
-              date = cellTrimmed;
-            }
-            
-            // Collect all potential descriptions (text that's not a date or amount)
-            if (cellTrimmed.length >= 3 && 
-                !parseTurkishDate(cellTrimmed) && 
-                parseAmount(cellTrimmed) === 0) {
-              
-              // Additional checks to filter out non-description content
-              const isNotDescription = 
-                /^[A-Z0-9]{6,}$/i.test(cellTrimmed) || // Reference numbers
-                /^\d+$/.test(cellTrimmed) || // Pure numbers
-                cellTrimmed.length < 5 || // Too short
-                /^(TL|₺|\$|EUR|USD)$/i.test(cellTrimmed) || // Currency symbols
-                /^(DEBIT|CREDIT|DR|CR)$/i.test(cellTrimmed); // Banking terms
-              
-              if (!isNotDescription) {
-                allDescriptions.push(cellTrimmed);
-              }
-            }
-            
-            // Look for reference number (alphanumeric, 6+ characters)
-            if (cellTrimmed.match(/^[A-Z0-9]{6,}$/i) && !reference) {
-              reference = cellTrimmed;
-            }
-          }
-          
-          // Handle amount cells (both string and number)
-          if (amount === 0) {
-            const parsedAmount = parseAmount(cell);
-            if (parsedAmount > 0) {
-              amount = parsedAmount;
+        // Extract date
+        if (dateColumnIndex >= 0 && row[dateColumnIndex]) {
+          const dateCell = row[dateColumnIndex];
+          if (dateCell instanceof Date) {
+            date = dateCell.toLocaleDateString('tr-TR');
+          } else if (typeof dateCell === 'string') {
+            const parsedDate = parseTurkishDate(dateCell.trim());
+            if (parsedDate) {
+              date = dateCell.trim();
             }
           }
         }
         
-        // Second pass: determine the best description
-        if (allDescriptions.length > 0) {
-          // Sort descriptions by length (longer descriptions are usually more informative)
-          allDescriptions.sort((a, b) => b.length - a.length);
+        // Extract amount
+        if (amountColumnIndex >= 0 && row[amountColumnIndex]) {
+          amount = parseAmount(row[amountColumnIndex]);
+        }
+        
+        // Extract description from "Açıklama" column - this should contain athlete/parent names
+        if (descriptionColumnIndex >= 0 && row[descriptionColumnIndex]) {
+          const descCell = row[descriptionColumnIndex];
+          if (typeof descCell === 'string' && descCell.trim().length > 0) {
+            description = descCell.trim();
+          }
+        }
+        
+        // Extract transaction type from "İşlem" column - this should contain payment type (FAST, Havale, etc.)
+        if (transactionTypeColumnIndex >= 0 && row[transactionTypeColumnIndex]) {
+          const typeCell = row[transactionTypeColumnIndex];
+          if (typeof typeCell === 'string' && typeCell.trim().length > 0) {
+            transactionType = typeCell.trim();
+          }
+        }
+        
+        // Extract reference
+        if (referenceColumnIndex >= 0 && row[referenceColumnIndex]) {
+          const refCell = row[referenceColumnIndex];
+          if (typeof refCell === 'string' && refCell.trim().length > 0) {
+            reference = refCell.trim();
+          }
+        }
+        
+        // If specific columns not found, fall back to old logic for compatibility
+        if (!description && (descriptionColumnIndex < 0 || transactionTypeColumnIndex < 0)) {
+          // Fallback: collect all text cells as potential descriptions
+          const allDescriptions: string[] = [];
           
-          // Take the longest meaningful description
-          description = allDescriptions[0];
-          
-          // If we have multiple descriptions, combine them intelligently
-          if (allDescriptions.length > 1) {
-            // Look for names in descriptions (Turkish names pattern)
-            const nameDescriptions = allDescriptions.filter(desc => 
-              /[A-ZÇĞIİÖŞÜ][a-zçğıöşü]+\s+[A-ZÇĞIİÖŞÜ][a-zçğıöşü]+/i.test(desc)
-            );
+          for (let j = 0; j < row.length; j++) {
+            const cell = row[j];
+            if (cell === null || cell === undefined || cell === '') continue;
             
-            if (nameDescriptions.length > 0) {
-              description = nameDescriptions[0]; // Prefer descriptions with names
-            }
-            
-            // If descriptions are very different, combine them
-            const uniqueDescriptions = allDescriptions.filter((desc, index) => {
-              return !allDescriptions.slice(0, index).some(prevDesc => 
-                calculateSimilarity(desc, prevDesc) > 70
-              );
-            });
-            
-            if (uniqueDescriptions.length > 1 && uniqueDescriptions.length <= 3) {
-              description = uniqueDescriptions.join(' | ');
+            if (typeof cell === 'string') {
+              const cellTrimmed = cell.trim();
+              
+              if (cellTrimmed.length >= 3 && 
+                  !parseTurkishDate(cellTrimmed) && 
+                  parseAmount(cellTrimmed) === 0) {
+                
+                const isNotDescription = 
+                  /^[A-Z0-9]{6,}$/i.test(cellTrimmed) || 
+                  /^\d+$/.test(cellTrimmed) || 
+                  cellTrimmed.length < 5 || 
+                  /^(TL|₺|\$|EUR|USD)$/i.test(cellTrimmed) || 
+                  /^(DEBIT|CREDIT|DR|CR|FAST|HAVALE|EFT)$/i.test(cellTrimmed);
+                
+                if (!isNotDescription) {
+                  allDescriptions.push(cellTrimmed);
+                }
+              }
             }
           }
+          
+          if (allDescriptions.length > 0) {
+            allDescriptions.sort((a, b) => b.length - a.length);
+            description = allDescriptions[0];
+          }
+        }
+        
+        // Generate reference if not found
+        if (!reference) {
+          reference = `REF${Date.now()}_${i}`;
         }
         
         // Validate and add row if we have essential data
@@ -582,23 +634,29 @@ export default function Payments() {
             description = `Ödeme - Satır ${i + 1}`;
           }
           
+          // Create enhanced description that includes transaction type if available
+          let enhancedDescription = description;
+          if (transactionType) {
+            enhancedDescription = `${description} (${transactionType})`;
+          }
+          
           parsedData.push({
             date: date,
             amount: amount,
-            description: description,
-            reference: reference || `REF${Date.now()}_${i}`,
-            rowIndex: i + 1
+            description: description, // Use clean description for matching
+            reference: reference,
+            rowIndex: i + 1,
+            paymentType: transactionType // Store payment type separately
           });
           
-          console.log(`Row ${i + 1}: Date=${date}, Amount=${amount}, Description=${description.substring(0, 80)}...`);
-          console.log(`  All descriptions found: [${allDescriptions.join(', ')}]`);
+          console.log(`Row ${i + 1}: Date=${date}, Amount=${amount}, Description=${enhancedDescription}, TransactionType=${transactionType}`);
         } else {
-          console.log(`Row ${i + 1} skipped: Date=${date}, Amount=${amount}, Descriptions=[${allDescriptions.join(', ')}]`);
+          console.log(`Row ${i + 1} skipped: Date=${date}, Amount=${amount}, Description=${description}`);
         }
       }
 
       if (parsedData.length === 0) {
-        throw new Error("Excel dosyasında geçerli ödeme verisi bulunamadı. Dosyanın tarih ve tutar sütunları içerdiğinden emin olun.");
+        throw new Error("Excel dosyasında geçerli ödeme verisi bulunamadı. Dosyanın tarih, tutar ve açıklama sütunları içerdiğinden emin olun.");
       }
 
       setExcelData(parsedData);
@@ -952,17 +1010,34 @@ export default function Payments() {
     }
   };
 
-  // Get available athletes for manual matching
-  const getAvailableAthletes = () => {
-    return athletes
+  // Get available athletes for manual matching - with siblings at the end
+  const getAvailableAthletes = (currentAthleteId?: string) => {
+    const allAthletes = athletes
       .filter(athlete => athlete.status === 'Aktif' || !athlete.status)
       .map(athlete => ({
         id: athlete.id,
         name: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
         parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-        sport: athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel'
+        sport: athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel',
+        isSibling: false
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'tr-TR'));
+
+    // If we have a current athlete, find siblings and mark them
+    if (currentAthleteId) {
+      const siblings = findSiblings(currentAthleteId);
+      const siblingIds = new Set(siblings.map(s => s.id.toString()));
+      
+      // Mark siblings and move them to the end
+      const regularAthletes = allAthletes.filter(a => !siblingIds.has(a.id.toString()));
+      const siblingAthletes = allAthletes
+        .filter(a => siblingIds.has(a.id.toString()))
+        .map(a => ({ ...a, isSibling: true }));
+      
+      return [...regularAthletes, ...siblingAthletes];
+    }
+
+    return allAthletes;
   };
 
   // Find siblings (athletes with same parent)
@@ -1668,6 +1743,7 @@ export default function Payments() {
                               <TableHead>Tarih</TableHead>
                               <TableHead>Tutar</TableHead>
                               <TableHead>Açıklama</TableHead>
+                              <TableHead>Ödeme Tipi</TableHead>
                               <TableHead>Referans</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -1678,6 +1754,15 @@ export default function Payments() {
                                 <TableCell>{row.date}</TableCell>
                                 <TableCell className="font-medium">₺{row.amount.toLocaleString()}</TableCell>
                                 <TableCell className="max-w-xs truncate">{row.description}</TableCell>
+                                <TableCell>
+                                  {row.paymentType ? (
+                                    <Badge variant="outline" className="text-xs">
+                                      {row.paymentType}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
+                                </TableCell>
                                 <TableCell>{row.reference}</TableCell>
                               </TableRow>
                             ))}
@@ -1770,11 +1855,24 @@ export default function Payments() {
                                           <SelectValue placeholder="Sporcu seçin..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          {getAvailableAthletes().map(athlete => (
-                                            <SelectItem key={athlete.id} value={athlete.id.toString()}>
+                                          {getAvailableAthletes(result.athleteId || undefined).map(athlete => (
+                                            <SelectItem 
+                                              key={athlete.id} 
+                                              value={athlete.id.toString()}
+                                              className={athlete.isSibling ? "bg-purple-50 border-l-4 border-l-purple-400" : ""}
+                                            >
                                               <div className="flex flex-col">
-                                                <span className="font-medium">{athlete.name}</span>
-                                                <span className="text-xs text-muted-foreground">
+                                                <div className="flex items-center space-x-2">
+                                                  <span className={`font-medium ${athlete.isSibling ? 'text-purple-800' : ''}`}>
+                                                    {athlete.name}
+                                                  </span>
+                                                  {athlete.isSibling && (
+                                                    <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-xs">
+                                                      Kardeş
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                                <span className={`text-xs ${athlete.isSibling ? 'text-purple-600' : 'text-muted-foreground'}`}>
                                                   {athlete.parentName} - {athlete.sport}
                                                 </span>
                                               </div>
