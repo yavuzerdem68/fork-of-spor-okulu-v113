@@ -796,62 +796,39 @@ export default function Payments() {
           }
         }
         
-        // If no historical match, try to match with existing payments
+        // If no historical match, try to match directly with athletes (not just payments)
         if (!bestMatch) {
-          for (const payment of payments) {
-            if (payment.status === "Ödendi") continue; // Skip already paid
+          for (const athlete of athletes) {
+            const athleteName = `${athlete.studentName || athlete.firstName || ''} ${athlete.studentSurname || athlete.lastName || ''}`.trim();
+            const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+            
+            // Skip if no name data
+            if (!athleteName && !parentName) continue;
             
             let confidence = 0;
             
-            // Enhanced name matching with Turkish character normalization
-            const normalizedDescription = normalizeTurkishText(excelRow.description)[0]; // Use first normalized version
-            const normalizedParentName = normalizeTurkishText(payment.parentName)[0];
-            const normalizedAthleteName = normalizeTurkishText(payment.athleteName)[0];
+            // Calculate similarity scores using the bulletproof calculateSimilarity function
+            const parentSimilarity = calculateSimilarity(excelRow.description, parentName);
+            const athleteSimilarity = calculateSimilarity(excelRow.description, athleteName);
             
-            // Calculate similarity scores using Levenshtein distance
-            const parentSimilarity = calculateSimilarity(excelRow.description, payment.parentName);
-            const athleteSimilarity = calculateSimilarity(excelRow.description, payment.athleteName);
-            
-            // Use the higher similarity score
+            // Use the higher similarity score (pure name matching, no amount consideration)
             const nameSimilarity = Math.max(parentSimilarity, athleteSimilarity);
             
-            // Word-based matching for partial matches
-            const parentWords = normalizedParentName.split(' ').filter(w => w.length > 2);
-            const athleteWords = normalizedAthleteName.split(' ').filter(w => w.length > 2);
-            const descWords = normalizedDescription.split(' ').filter(w => w.length > 2);
+            console.log(`🔍 DIRECT ATHLETE MATCH: "${excelRow.description}" vs "${athleteName}" (${athleteSimilarity}%) / "${parentName}" (${parentSimilarity}%)`);
             
-            let wordMatches = 0;
-            let totalWords = parentWords.length + athleteWords.length;
+            // Pure name-based confidence (no amount matching needed)
+            confidence = nameSimilarity;
             
-            // Check parent name word matches
-            for (const word of parentWords) {
-              if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
-                wordMatches++;
-              }
-            }
-            
-            // Check athlete name word matches
-            for (const word of athleteWords) {
-              if (descWords.some(dw => dw.includes(word) || word.includes(dw))) {
-                wordMatches++;
-              }
-            }
-            
-            // Calculate word-based confidence
-            const wordConfidence = totalWords > 0 ? (wordMatches / totalWords) * 50 : 0;
-            
-            // Use the higher of similarity-based or word-based confidence
-            const nameConfidence = Math.max(nameSimilarity * 0.6, wordConfidence);
-            
-            // Amount matching with ±30 TL tolerance (increased for better flexibility)
-            const amountDiff = Math.abs(excelRow.amount - payment.amount);
-            const amountConfidence = amountDiff <= 30 ? 40 - (amountDiff * 1.3) : 0;
-            
-            confidence = nameConfidence + amountConfidence;
-            
-            // FIXED: Use proper threshold for automatic matching - 100% matches should always be automatic
             if (confidence > bestConfidence) {
-              bestMatch = payment;
+              // Create a payment object for the athlete
+              bestMatch = {
+                id: athlete.id,
+                athleteName: athleteName,
+                parentName: parentName,
+                amount: excelRow.amount, // Use Excel amount
+                status: 'Bekliyor',
+                sport: athlete.selectedSports ? athlete.selectedSports[0] : (athlete.sportsBranches ? athlete.sportsBranches[0] : 'Genel')
+              };
               bestConfidence = confidence;
             }
           }
