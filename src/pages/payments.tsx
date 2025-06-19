@@ -988,62 +988,91 @@ export default function Payments() {
           athletes = JSON.parse(storedAthletes);
         }
 
+        let processedCount = 0;
         autoProcessMatches.forEach(match => {
-          // Parse Turkish date correctly for payment date
-          const parsedDate = parseTurkishDate(match.excelData.date);
-          const paymentDate = parsedDate ? parsedDate.toISOString().split('T')[0] : match.excelData.date;
-          const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
-          const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelData.date;
+          try {
+            // Parse Turkish date correctly for payment date
+            const parsedDate = parseTurkishDate(match.excelData.date);
+            const paymentDate = parsedDate ? parsedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
+            const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelData.date;
 
-          // Handle single athlete payments (auto-processed matches are always single)
-          const singleMatch = updatedPayments.find(payment => payment.id === match.payment?.id);
-          if (singleMatch) {
-            singleMatch.status = "Ödendi";
-            singleMatch.paymentDate = paymentDate;
-            singleMatch.method = "Havale/EFT";
-            singleMatch.reference = match.excelData.reference;
-          }
+            // Handle single athlete payments (auto-processed matches are always single)
+            const singleMatch = updatedPayments.find(payment => payment.id === match.payment?.id);
+            if (singleMatch) {
+              singleMatch.status = "Ödendi";
+              singleMatch.paymentDate = paymentDate;
+              singleMatch.method = "Havale/EFT";
+              singleMatch.reference = match.excelData.reference;
+              console.log(`✅ Updated payment record for: ${singleMatch.athleteName}`);
+            } else {
+              // Create new payment record if not found
+              const newPayment = {
+                id: `auto_${Date.now()}_${Math.random()}`,
+                athleteId: match.payment.id,
+                athleteName: match.payment.athleteName,
+                parentName: match.payment.parentName,
+                amount: match.excelData.amount,
+                status: "Ödendi",
+                paymentDate: paymentDate,
+                method: "Havale/EFT",
+                reference: match.excelData.reference,
+                sport: match.payment.sport || 'Genel',
+                invoiceNumber: `AUTO-${Date.now()}-${match.payment.id}`,
+                dueDate: paymentDate,
+                description: `Otomatik eşleştirme - ${match.excelData.description}`,
+                isGenerated: false
+              };
+              updatedPayments.push(newPayment);
+              console.log(`✅ Created new payment record for: ${match.payment.athleteName}`);
+            }
 
-          // Find athlete for account entry
-          let athlete = null;
-          if (match.payment.id) {
-            athlete = athletes.find((a: any) => a.id === match.payment.id);
-          }
-          
-          if (!athlete) {
-            const nameParts = match.payment.athleteName.split(' ');
-            const firstName = nameParts[0];
-            const lastName = nameParts.slice(1).join(' ');
+            // Find athlete for account entry
+            let athlete = null;
+            if (match.payment.id) {
+              athlete = athletes.find((a: any) => a.id === match.payment.id);
+            }
             
-            athlete = athletes.find((a: any) => {
-              const athleteFirstName = a.studentName || a.firstName || '';
-              const athleteLastName = a.studentSurname || a.lastName || '';
-              return athleteFirstName === firstName && athleteLastName === lastName;
-            });
-          }
-          
-          if (athlete) {
-            const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
-            const paymentEntry = {
-              id: Date.now() + Math.random(),
-              date: entryDate,
-              month: entryDate.slice(0, 7),
-              description: `EFT/Havale Tahsilatı (Otomatik) - ${displayDate} - ₺${match.excelData.amount} - Ref: ${match.excelData.reference}`,
-              amountExcludingVat: match.excelData.amount,
-              vatRate: 0,
-              vatAmount: 0,
-              amountIncludingVat: match.excelData.amount,
-              unitCode: 'Adet',
-              type: 'credit'
-            };
+            if (!athlete) {
+              const nameParts = match.payment.athleteName.split(' ');
+              const firstName = nameParts[0];
+              const lastName = nameParts.slice(1).join(' ');
+              
+              athlete = athletes.find((a: any) => {
+                const athleteFirstName = a.studentName || a.firstName || '';
+                const athleteLastName = a.studentSurname || a.lastName || '';
+                return athleteFirstName === firstName && athleteLastName === lastName;
+              });
+            }
             
-            existingEntries.push(paymentEntry);
-            localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
-            console.log(`✅ AUTO-PROCESSED: ${athlete.studentName} ${athlete.studentSurname} - ₺${match.excelData.amount}`);
+            if (athlete) {
+              const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+              const paymentEntry = {
+                id: Date.now() + Math.random(),
+                date: entryDate,
+                month: entryDate.slice(0, 7),
+                description: `EFT/Havale Tahsilatı (Otomatik) - ${displayDate} - ₺${match.excelData.amount} - Ref: ${match.excelData.reference}`,
+                amountExcludingVat: match.excelData.amount,
+                vatRate: 0,
+                vatAmount: 0,
+                amountIncludingVat: match.excelData.amount,
+                unitCode: 'Adet',
+                type: 'credit'
+              };
+              
+              existingEntries.push(paymentEntry);
+              localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+              console.log(`✅ AUTO-PROCESSED: ${athlete.studentName} ${athlete.studentSurname} - ₺${match.excelData.amount}`);
+              processedCount++;
+            } else {
+              console.warn(`⚠️ Could not find athlete for auto-processing: ${match.payment.athleteName}`);
+            }
+          } catch (error) {
+            console.error(`❌ Error auto-processing match:`, error, match);
           }
         });
 
-        // Update payments in localStorage
+        // Update payments in localStorage and state
         setPayments(updatedPayments);
         localStorage.setItem('payments', JSON.stringify(updatedPayments));
         
@@ -1052,7 +1081,19 @@ export default function Payments() {
         setMatchedPayments(remainingMatches);
         
         // Show success message for auto-processed payments
-        toast.success(`🎯 ${autoProcessMatches.length} adet %100 eşleşme otomatik olarak işlendi! Kalan ${remainingMatches.length} eşleşme manuel onay bekliyor.`);
+        if (processedCount > 0) {
+          toast.success(`🎯 ${processedCount} adet %100 eşleşme otomatik olarak işlendi! ${remainingMatches.length > 0 ? `Kalan ${remainingMatches.length} eşleşme manuel onay bekliyor.` : 'Tüm eşleşmeler tamamlandı!'}`);
+        }
+        
+        // If all matches were auto-processed, close the dialog
+        if (remainingMatches.length === 0) {
+          setTimeout(() => {
+            setIsUploadDialogOpen(false);
+            setUploadedFile(null);
+            setUploadProgress(0);
+            loadPayments(); // Reload payments to reflect changes
+          }, 2000);
+        }
       }
       
       const matchedCount = matches.filter(m => m.status === 'matched').length;
