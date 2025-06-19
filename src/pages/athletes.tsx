@@ -2812,6 +2812,7 @@ export default function Athletes() {
                           <TableCell>
                             <div className="flex items-center space-x-3">
                               <Avatar>
+                                <AvatarImage src={athlete.photo || athlete.studentPhoto} />
                                 <AvatarFallback>
                                   {getInitials(athlete.studentName, athlete.studentSurname)}
                                 </AvatarFallback>

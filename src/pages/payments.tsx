@@ -129,29 +129,37 @@ const parseAmount = (amountStr: string): number => {
   
   let cleanAmount = amountStr.toString().trim().replace(/[₺\s]/g, '');
   
-  // Skip negative amounts
-  if (cleanAmount.includes('-')) return 0;
+  // Skip negative amounts - check for minus sign anywhere in the string
+  if (cleanAmount.includes('-') || cleanAmount.startsWith('-')) {
+    console.log(`Skipping negative amount: ${amountStr}`);
+    return 0;
+  }
   
   // Handle Turkish format: 2.100,00 (thousands separator with decimal)
   if (cleanAmount.includes('.') && cleanAmount.includes(',')) {
-    return parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.'));
+    const parsed = parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.'));
+    return parsed < 0 ? 0 : parsed; // Double check for negative
   }
   // Handle format with comma as decimal: 1234,56
   else if (cleanAmount.includes(',') && !cleanAmount.includes('.')) {
-    return parseFloat(cleanAmount.replace(',', '.'));
+    const parsed = parseFloat(cleanAmount.replace(',', '.'));
+    return parsed < 0 ? 0 : parsed; // Double check for negative
   }
   // Handle format with dot as thousands separator: 2.100
   else if (cleanAmount.includes('.') && !cleanAmount.includes(',')) {
     const parts = cleanAmount.split('.');
     if (parts.length === 2 && parts[1].length <= 2) {
-      return parseFloat(cleanAmount); // Decimal: 1234.56
+      const parsed = parseFloat(cleanAmount); // Decimal: 1234.56
+      return parsed < 0 ? 0 : parsed; // Double check for negative
     } else {
-      return parseFloat(cleanAmount.replace(/\./g, '')); // Thousands: 2.100
+      const parsed = parseFloat(cleanAmount.replace(/\./g, '')); // Thousands: 2.100
+      return parsed < 0 ? 0 : parsed; // Double check for negative
     }
   }
   // Handle integer: 1234
   else {
-    return parseFloat(cleanAmount);
+    const parsed = parseFloat(cleanAmount);
+    return parsed < 0 ? 0 : parsed; // Double check for negative
   }
 };
 

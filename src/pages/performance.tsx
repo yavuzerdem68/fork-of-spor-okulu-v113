@@ -547,7 +547,7 @@ export default function Performance() {
                     <CardHeader className="pb-3">
                       <div className="flex items-center space-x-3">
                         <Avatar>
-                          <AvatarImage src={athlete.photo} />
+                          <AvatarImage src={athlete.photo || athlete.studentPhoto} />
                           <AvatarFallback>{getInitials(`${athlete.studentName} ${athlete.studentSurname}`)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
