@@ -976,7 +976,7 @@ export default function Athletes() {
             continue;
           }
 
-          // Enhanced birth date parsing - handle Turkish format (DD/MM/YYYY)
+          // Enhanced birth date parsing - STRICTLY handle Turkish format (DD/MM/YYYY)
           let parsedBirthDate = '';
           const birthDateField = studentData['Doğum Tarihi (DD.MM.YYYY)'] || studentData['Doğum Tarihi (DD/MM/YYYY)'] || studentData['Doğum Tarihi'];
           
@@ -1008,61 +1008,97 @@ export default function Athletes() {
                 console.log('Converted Excel serial date to:', parsedBirthDate);
               }
             }
-            // Handle string dates - Turkish format (DD/MM/YYYY or DD.MM.YYYY)
+            // Handle string dates - STRICTLY Turkish format (DD/MM/YYYY or DD.MM.YYYY)
             else {
               const birthDateStr = birthDateField.toString().trim();
               
               if (birthDateStr && birthDateStr !== '0' && birthDateStr !== 'undefined') {
-                // Handle DD.MM.YYYY or DD/MM/YYYY formats (Turkish format)
-                if (birthDateStr.match(/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}$/)) {
-                  const separator = birthDateStr.includes('.') ? '.' : '/';
-                  const parts = birthDateStr.split(separator);
-                  console.log('Date parts (Turkish format DD/MM/YYYY):', parts);
+                console.log('Processing date string:', birthDateStr);
+                
+                // STRICTLY handle DD.MM.YYYY or DD/MM/YYYY formats (Turkish format ONLY)
+                const turkishDateMatch = birthDateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})$/);
+                if (turkishDateMatch) {
+                  console.log('Turkish date format detected:', turkishDateMatch);
                   
-                  if (parts.length === 3) {
-                    // Turkish format: parts[0] = day, parts[1] = month, parts[2] = year
-                    let day = parts[0].trim();
-                    let month = parts[1].trim();
-                    let year = parts[2].trim();
+                  // IMPORTANT: In Turkish format, first number is DAY, second is MONTH
+                  let day = parseInt(turkishDateMatch[1]);
+                  let month = parseInt(turkishDateMatch[2]);
+                  let year = parseInt(turkishDateMatch[3]);
+                  
+                  console.log('Parsed Turkish date parts - Day:', day, 'Month:', month, 'Year:', year);
+                  
+                  // Handle 2-digit years
+                  if (year < 100) {
+                    year = year <= 30 ? 2000 + year : 1900 + year;
+                  }
+                  
+                  // Validate Turkish format constraints (day <= 31, month <= 12)
+                  if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2030) {
+                    // Create date with Turkish format interpretation: DD/MM/YYYY
+                    const testDate = new Date(year, month - 1, day);
                     
-                    // Handle 2-digit years
-                    if (year.length === 2) {
-                      const yearNum = parseInt(year);
-                      if (yearNum >= 0 && yearNum <= 30) {
-                        year = (2000 + yearNum).toString();
-                      } else if (yearNum >= 31 && yearNum <= 99) {
-                        year = (1900 + yearNum).toString();
+                    // Verify the date was created correctly
+                    if (testDate.getFullYear() === year && 
+                        testDate.getMonth() === month - 1 && 
+                        testDate.getDate() === day) {
+                      
+                      const formattedDay = day.toString().padStart(2, '0');
+                      const formattedMonth = month.toString().padStart(2, '0');
+                      
+                      // Store in ISO format: YYYY-MM-DD
+                      parsedBirthDate = `${year}-${formattedMonth}-${formattedDay}`;
+                      console.log('SUCCESS: Converted Turkish date DD/MM/YYYY to ISO:', parsedBirthDate);
+                    } else {
+                      console.log('Date validation failed for Turkish format');
+                    }
+                  } else {
+                    console.log('Turkish date validation failed - invalid day/month/year values:', { day, month, year });
+                  }
+                }
+                // Handle compact date formats (DDMMYYYY or DDMMYY) - also Turkish format
+                else if (birthDateStr.match(/^\d{6,8}$/)) {
+                  console.log('Compact date format detected:', birthDateStr);
+                  
+                  if (birthDateStr.length === 6) {
+                    // DDMMYY format (Turkish: day-month-year)
+                    const day = parseInt(birthDateStr.substring(0, 2));
+                    const month = parseInt(birthDateStr.substring(2, 4));
+                    const yearShort = parseInt(birthDateStr.substring(4, 6));
+                    const year = yearShort <= 30 ? 2000 + yearShort : 1900 + yearShort;
+                    
+                    console.log('Compact DDMMYY parsed - Day:', day, 'Month:', month, 'Year:', year);
+                    
+                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                      const testDate = new Date(year, month - 1, day);
+                      if (testDate.getFullYear() === year && 
+                          testDate.getMonth() === month - 1 && 
+                          testDate.getDate() === day) {
+                        parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                        console.log('SUCCESS: Converted compact DDMMYY to ISO:', parsedBirthDate);
                       }
                     }
+                  } else if (birthDateStr.length === 8) {
+                    // DDMMYYYY format (Turkish: day-month-year)
+                    const day = parseInt(birthDateStr.substring(0, 2));
+                    const month = parseInt(birthDateStr.substring(2, 4));
+                    const year = parseInt(birthDateStr.substring(4, 8));
                     
-                    // Validate and format date parts
-                    const dayNum = parseInt(day);
-                    const monthNum = parseInt(month);
-                    const yearNum = parseInt(year);
+                    console.log('Compact DDMMYYYY parsed - Day:', day, 'Month:', month, 'Year:', year);
                     
-                    if (!isNaN(dayNum) && !isNaN(monthNum) && !isNaN(yearNum) &&
-                        dayNum >= 1 && dayNum <= 31 &&
-                        monthNum >= 1 && monthNum <= 12 &&
-                        yearNum >= 1900 && yearNum <= 2030) {
-                      
-                      // Create and validate the date (Turkish format: DD/MM/YYYY)
-                      const testDate = new Date(yearNum, monthNum - 1, dayNum);
-                      if (testDate.getFullYear() === yearNum && 
-                          testDate.getMonth() === monthNum - 1 && 
-                          testDate.getDate() === dayNum) {
-                        
-                        const formattedDay = dayNum.toString().padStart(2, '0');
-                        const formattedMonth = monthNum.toString().padStart(2, '0');
-                        
-                        // Store in ISO format: YYYY-MM-DD
-                        parsedBirthDate = `${year}-${formattedMonth}-${formattedDay}`;
-                        console.log('Converted Turkish date format to ISO:', parsedBirthDate);
+                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2030) {
+                      const testDate = new Date(year, month - 1, day);
+                      if (testDate.getFullYear() === year && 
+                          testDate.getMonth() === month - 1 && 
+                          testDate.getDate() === day) {
+                        parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                        console.log('SUCCESS: Converted compact DDMMYYYY to ISO:', parsedBirthDate);
                       }
                     }
                   }
                 }
                 // Handle YYYY-MM-DD format (already in ISO format)
                 else if (birthDateStr.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                  console.log('ISO date format detected:', birthDateStr);
                   const dateParts = birthDateStr.split('-');
                   if (dateParts.length === 3) {
                     const year = parseInt(dateParts[0]);
@@ -1079,81 +1115,21 @@ export default function Athletes() {
                           testDate.getMonth() === month - 1 && 
                           testDate.getDate() === day) {
                         parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-                        console.log('Valid ISO date format:', parsedBirthDate);
+                        console.log('SUCCESS: Valid ISO date format:', parsedBirthDate);
                       }
                     }
                   }
                 }
-                // Handle compact date formats (DDMMYYYY or DDMMYY)
-                else if (birthDateStr.match(/^\d{6,8}$/)) {
-                  if (birthDateStr.length === 6) {
-                    // DDMMYY format
-                    const day = birthDateStr.substring(0, 2);
-                    const month = birthDateStr.substring(2, 4);
-                    const year = birthDateStr.substring(4, 6);
-                    const fullYear = parseInt(year) <= 30 ? `20${year}` : `19${year}`;
-                    
-                    const dayNum = parseInt(day);
-                    const monthNum = parseInt(month);
-                    const yearNum = parseInt(fullYear);
-                    
-                    if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12) {
-                      const testDate = new Date(yearNum, monthNum - 1, dayNum);
-                      if (testDate.getFullYear() === yearNum && 
-                          testDate.getMonth() === monthNum - 1 && 
-                          testDate.getDate() === dayNum) {
-                        parsedBirthDate = `${fullYear}-${month}-${day}`;
-                        console.log('Converted compact date DDMMYY to ISO:', parsedBirthDate);
-                      }
-                    }
-                  } else if (birthDateStr.length === 8) {
-                    // DDMMYYYY format
-                    const day = birthDateStr.substring(0, 2);
-                    const month = birthDateStr.substring(2, 4);
-                    const year = birthDateStr.substring(4, 8);
-                    
-                    const dayNum = parseInt(day);
-                    const monthNum = parseInt(month);
-                    const yearNum = parseInt(year);
-                    
-                    if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 1900 && yearNum <= 2030) {
-                      const testDate = new Date(yearNum, monthNum - 1, dayNum);
-                      if (testDate.getFullYear() === yearNum && 
-                          testDate.getMonth() === monthNum - 1 && 
-                          testDate.getDate() === dayNum) {
-                        parsedBirthDate = `${year}-${month}-${day}`;
-                        console.log('Converted compact date DDMMYYYY to ISO:', parsedBirthDate);
-                      }
-                    }
-                  }
-                }
-                // Try to parse as a general date string (fallback)
                 else {
-                  try {
-                    // Note: JavaScript Date constructor interprets MM/DD/YYYY format by default
-                    // We need to be careful here and avoid this for Turkish dates
-                    console.log('Attempting fallback date parsing for:', birthDateStr);
-                    
-                    // Only use fallback for clearly non-Turkish formats
-                    if (birthDateStr.includes('-') || birthDateStr.length > 10) {
-                      const testDate = new Date(birthDateStr);
-                      if (!isNaN(testDate.getTime()) && testDate.getFullYear() >= 1900 && testDate.getFullYear() <= 2030) {
-                        const day = testDate.getDate().toString().padStart(2, '0');
-                        const month = (testDate.getMonth() + 1).toString().padStart(2, '0');
-                        const year = testDate.getFullYear().toString();
-                        parsedBirthDate = `${year}-${month}-${day}`;
-                        console.log('Parsed as general date (fallback):', parsedBirthDate);
-                      }
-                    }
-                  } catch (e) {
-                    console.log('Failed to parse date string:', e);
-                  }
+                  console.log('UNRECOGNIZED date format, skipping fallback to avoid MM/DD/YYYY interpretation:', birthDateStr);
                 }
               }
             }
             
             if (!parsedBirthDate) {
-              console.warn('Could not parse birth date:', birthDateField, 'Type:', typeof birthDateField);
+              console.warn('FAILED to parse birth date:', birthDateField, 'Type:', typeof birthDateField);
+            } else {
+              console.log('FINAL parsed birth date:', parsedBirthDate);
             }
           }
 
