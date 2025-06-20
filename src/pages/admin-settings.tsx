@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { hashPassword, validatePasswordStrength, sanitizeInput } from "@/utils/security";
+import { SessionManager } from "@/utils/security";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -128,6 +130,7 @@ export default function AdminSettings() {
     role: "staff",
     permissions: {} as any
   });
+  const [passwordStrength, setPasswordStrength] = useState({ isValid: false, score: 0, feedback: [] });
 
   // Load admin users from localStorage
   const loadAdminUsers = () => {
@@ -258,35 +261,69 @@ export default function AdminSettings() {
     }
   };
 
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.password) {
+  const handleAddUser = async () => {
+    // Sanitize inputs
+    const sanitizedName = sanitizeInput(newUser.name.trim(), 100);
+    const sanitizedEmail = sanitizeInput(newUser.email.trim(), 100);
+
+    if (!sanitizedName || !sanitizedEmail || !newUser.password) {
       setError("Lütfen tüm alanları doldurun");
       setTimeout(() => setError(""), 3000);
       return;
     }
 
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(newUser.password);
+    if (!passwordValidation.isValid) {
+      setError(`Şifre güvenlik gereksinimlerini karşılamıyor: ${passwordValidation.feedback.join(', ')}`);
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
     // Check if email already exists
-    if (adminUsers.some(user => user.email === newUser.email)) {
+    if (adminUsers.some(user => user.email === sanitizedEmail)) {
       setError("Bu email adresi zaten kullanılıyor");
       setTimeout(() => setError(""), 3000);
       return;
     }
 
-    const newId = adminUsers.length > 0 ? Math.max(...adminUsers.map(u => u.id)) + 1 : 1;
-    const userToAdd = {
-      ...newUser,
-      id: newId,
-      isActive: true,
-      lastLogin: new Date().toISOString(),
-      permissions: newUser.permissions || getDefaultPermissions(newUser.role)
-    };
+    try {
+      // Hash password
+      const hashedPassword = await hashPassword(newUser.password);
 
-    const updatedUsers = [...adminUsers, userToAdd];
-    saveAdminUsers(updatedUsers);
-    setSuccess("Yeni kullanıcı başarıyla eklendi");
-    setIsAddDialogOpen(false);
-    setNewUser({ name: "", email: "", password: "", role: "staff", permissions: {} });
-    setTimeout(() => setSuccess(""), 3000);
+      const newId = adminUsers.length > 0 ? Math.max(...adminUsers.map(u => u.id)) + 1 : 1;
+      const userToAdd = {
+        id: newId,
+        name: sanitizedName,
+        email: sanitizedEmail,
+        password: hashedPassword,
+        role: newUser.role,
+        permissions: newUser.permissions || getDefaultPermissions(newUser.role),
+        isActive: true,
+        lastLogin: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        createdBy: localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser')!).id : 'system'
+      };
+
+      const updatedUsers = [...adminUsers, userToAdd];
+      saveAdminUsers(updatedUsers);
+      setSuccess("Yeni kullanıcı başarıyla eklendi");
+      setIsAddDialogOpen(false);
+      setNewUser({ name: "", email: "", password: "", role: "staff", permissions: {} });
+      setPasswordStrength({ isValid: false, score: 0, feedback: [] });
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      setError("Kullanıcı oluşturulurken hata oluştu");
+      setTimeout(() => setError(""), 3000);
+    }
+  };
+
+  // Handle password change with validation
+  const handlePasswordChange = (password: string) => {
+    setNewUser(prev => ({ ...prev, password }));
+    const validation = validatePasswordStrength(password);
+    setPasswordStrength(validation);
   };
 
   const handleDeleteUser = (userId: number) => {
@@ -383,8 +420,9 @@ export default function AdminSettings() {
                           id="new-password"
                           type={showPassword ? "text" : "password"}
                           value={newUser.password}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                          onChange={(e) => handlePasswordChange(e.target.value)}
                           placeholder="••••••••"
+                          className={passwordStrength.score < 4 && newUser.password ? "border-red-500" : ""}
                         />
                         <Button
                           type="button"
@@ -396,6 +434,38 @@ export default function AdminSettings() {
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
+                      
+                      {/* Password strength indicator */}
+                      {newUser.password && (
+                        <div className="mt-2 space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all duration-300 ${
+                                  passwordStrength.score <= 2 ? 'bg-red-500' :
+                                  passwordStrength.score <= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
+                                style={{ width: `${(passwordStrength.score / 6) * 100}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-medium ${
+                              passwordStrength.score <= 2 ? 'text-red-600' :
+                              passwordStrength.score <= 4 ? 'text-yellow-600' : 'text-green-600'
+                            }`}>
+                              {passwordStrength.score <= 2 ? 'Zayıf' :
+                               passwordStrength.score <= 4 ? 'Orta' : 'Güçlü'}
+                            </span>
+                          </div>
+                          
+                          {passwordStrength.feedback.length > 0 && (
+                            <div className="text-xs text-red-600 space-y-1">
+                              {passwordStrength.feedback.map((feedback, index) => (
+                                <div key={index}>• {feedback}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="new-role">Rol</Label>

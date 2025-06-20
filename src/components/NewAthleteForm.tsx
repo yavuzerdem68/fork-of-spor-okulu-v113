@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
+import { sanitizeInput, sanitizeHtml } from "@/utils/security";
 
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
@@ -126,14 +127,42 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
   };
 
   const handleInputChange = (field: string, value: any) => {
+    // Sanitize input based on field type
+    let sanitizedValue = value;
+    
+    if (typeof value === 'string') {
+      // For text fields, sanitize input
+      if (field.includes('Name') || field.includes('Surname') || field === 'parentRelation' || 
+          field === 'emergencyContactRelation' || field === 'parentOccupation') {
+        sanitizedValue = sanitizeInput(value, 100);
+      }
+      // For email fields
+      else if (field.includes('Email')) {
+        sanitizedValue = sanitizeInput(value, 100).toLowerCase();
+      }
+      // For phone fields
+      else if (field.includes('Phone')) {
+        sanitizedValue = sanitizeInput(value.replace(/[^\d\s\+\-\(\)]/g, ''), 20);
+      }
+      // For address and text areas
+      else if (field === 'address' || field.includes('Detail') || field.includes('medications') || 
+               field.includes('allergies') || field.includes('expectations')) {
+        sanitizedValue = sanitizeInput(value, 500);
+      }
+      // For other text fields
+      else if (typeof value === 'string') {
+        sanitizedValue = sanitizeInput(value, 200);
+      }
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: sanitizedValue
     }));
     
     // Validate TC numbers on change
     if (field === 'studentTcNo' || field === 'parentTcNo') {
-      const error = validateTcNo(value);
+      const error = validateTcNo(sanitizedValue);
       setTcErrors(prev => ({
         ...prev,
         [field]: error

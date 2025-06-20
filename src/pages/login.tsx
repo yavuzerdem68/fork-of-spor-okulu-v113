@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Trophy, Shield, Users, Eye, EyeOff, ArrowLeft, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { verifyPassword, hashPassword } from "@/utils/security";
+import { RateLimiter, SessionManager } from "@/utils/security";
+import { sanitizeInput } from "@/utils/security";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -25,23 +28,60 @@ export default function Login() {
   const [coachCredentials, setCoachCredentials] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rateLimiter] = useState(() => new RateLimiter(5, 15 * 60 * 1000)); // 5 attempts per 15 minutes
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const { isValid, session } = SessionManager.validateSession();
+    if (isValid && session) {
+      // Redirect based on role
+      switch (session.userRole) {
+        case 'admin':
+          router.push('/dashboard');
+          break;
+        case 'coach':
+          router.push('/coach-dashboard');
+          break;
+        case 'parent':
+          router.push('/parent-dashboard');
+          break;
+        default:
+          SessionManager.destroySession();
+      }
+    }
+  }, [router]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    // Sanitize inputs
+    const email = sanitizeInput(adminCredentials.email.trim(), 100);
+    const password = adminCredentials.password;
+
+    // Rate limiting
+    const clientId = `admin_${email}`;
+    if (!rateLimiter.isAllowed(clientId)) {
+      const remainingTime = Math.ceil(rateLimiter.getRemainingTime(clientId) / 1000 / 60);
+      setError(`Çok fazla başarısız deneme. ${remainingTime} dakika sonra tekrar deneyin.`);
+      setLoading(false);
+      return;
+    }
+
     try {
       // Initialize default admin if no admin users exist
       let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
       
       if (adminUsers.length === 0) {
+        // Create default admin with hashed password
+        const hashedPassword = await hashPassword('admin123');
         const defaultAdmin = {
           id: 'default-admin',
           name: 'Sistem',
           surname: 'Yöneticisi',
           email: 'admin@sportscr.com',
-          password: 'admin123',
+          password: hashedPassword,
           role: 'admin',
           createdAt: new Date().toISOString(),
           isDefault: true
@@ -50,20 +90,48 @@ export default function Login() {
         localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
       }
 
-      // Check against registered admin users
-      const admin = adminUsers.find((a: any) => 
-        a.email === adminCredentials.email && a.password === adminCredentials.password
-      );
+      // Find admin by email
+      const admin = adminUsers.find((a: any) => a.email === email);
 
       if (admin) {
-        localStorage.setItem("userRole", "admin");
-        localStorage.setItem("currentUser", JSON.stringify(admin));
-        localStorage.setItem("userEmail", admin.email);
-        router.push("/dashboard");
+        // Verify password
+        const isPasswordValid = admin.isDefault && admin.password === 'admin123' 
+          ? password === 'admin123' // Backward compatibility for default admin
+          : await verifyPassword(password, admin.password);
+
+        if (isPasswordValid) {
+          // If using old plain text password, update to hashed
+          if (admin.isDefault && admin.password === 'admin123') {
+            admin.password = await hashPassword('admin123');
+            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+          }
+
+          // Create secure session
+          const sessionId = SessionManager.createSession(admin.id, 'admin');
+          
+          // Update last login
+          admin.lastLogin = new Date().toISOString();
+          const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+          localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("currentUser", JSON.stringify(admin));
+          localStorage.setItem("userEmail", admin.email);
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push("/dashboard");
+        } else {
+          setError("Geçersiz email veya şifre");
+        }
       } else {
         setError("Geçersiz email veya şifre");
       }
     } catch (error) {
+      console.error('Admin login error:', error);
       setError("Giriş sırasında bir hata oluştu");
     }
     
@@ -75,21 +143,57 @@ export default function Login() {
     setLoading(true);
     setError("");
 
+    // Sanitize inputs
+    const email = sanitizeInput(coachCredentials.email.trim(), 100);
+    const password = coachCredentials.password;
+
+    // Rate limiting
+    const clientId = `coach_${email}`;
+    if (!rateLimiter.isAllowed(clientId)) {
+      const remainingTime = Math.ceil(rateLimiter.getRemainingTime(clientId) / 1000 / 60);
+      setError(`Çok fazla başarısız deneme. ${remainingTime} dakika sonra tekrar deneyin.`);
+      setLoading(false);
+      return;
+    }
+
     try {
       // Check against registered coaches
       const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
-      const coach = coaches.find((c: any) => 
-        c.email === coachCredentials.email && c.password === coachCredentials.password
-      );
+      const coach = coaches.find((c: any) => c.email === email);
 
       if (coach) {
-        localStorage.setItem("userRole", "coach");
-        localStorage.setItem("currentUser", JSON.stringify(coach));
-        router.push("/coach-dashboard");
+        // Verify password (handle both hashed and plain text for backward compatibility)
+        const isPasswordValid = coach.password && coach.password.length > 50
+          ? await verifyPassword(password, coach.password)
+          : password === coach.password;
+
+        if (isPasswordValid) {
+          // If using old plain text password, update to hashed
+          if (coach.password && coach.password.length <= 50) {
+            coach.password = await hashPassword(coach.password);
+            const updatedCoaches = coaches.map((c: any) => c.id === coach.id ? coach : c);
+            localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+          }
+
+          // Create secure session
+          const sessionId = SessionManager.createSession(coach.id, 'coach');
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "coach");
+          localStorage.setItem("currentUser", JSON.stringify(coach));
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push("/coach-dashboard");
+        } else {
+          setError("Geçersiz email veya şifre");
+        }
       } else {
         setError("Geçersiz email veya şifre");
       }
     } catch (error) {
+      console.error('Coach login error:', error);
       setError("Giriş sırasında bir hata oluştu");
     }
     
@@ -101,23 +205,60 @@ export default function Login() {
     setLoading(true);
     setError("");
 
+    // Sanitize inputs
+    const emailOrUsername = sanitizeInput(parentCredentials.email.trim(), 100);
+    const password = parentCredentials.password;
+
+    // Rate limiting
+    const clientId = `parent_${emailOrUsername}`;
+    if (!rateLimiter.isAllowed(clientId)) {
+      const remainingTime = Math.ceil(rateLimiter.getRemainingTime(clientId) / 1000 / 60);
+      setError(`Çok fazla başarısız deneme. ${remainingTime} dakika sonra tekrar deneyin.`);
+      setLoading(false);
+      return;
+    }
+
     try {
       // Check against registered parent users
       const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
       const user = parentUsers.find((u: any) => 
-        (u.email === parentCredentials.email || u.username === parentCredentials.email) && 
-        u.password === parentCredentials.password
+        u.email === emailOrUsername || u.username === emailOrUsername
       );
 
       if (user) {
-        localStorage.setItem("userRole", "parent");
-        localStorage.setItem("currentUser", JSON.stringify(user));
-        localStorage.setItem("userEmail", user.email);
-        router.push("/parent-dashboard");
+        // Verify password (handle both hashed and plain text for backward compatibility)
+        const isPasswordValid = user.password && user.password.length > 50
+          ? await verifyPassword(password, user.password)
+          : password === user.password;
+
+        if (isPasswordValid) {
+          // If using old plain text password, update to hashed
+          if (user.password && user.password.length <= 50) {
+            user.password = await hashPassword(user.password);
+            const updatedUsers = parentUsers.map((u: any) => u.id === user.id ? user : u);
+            localStorage.setItem('parentUsers', JSON.stringify(updatedUsers));
+          }
+
+          // Create secure session
+          const sessionId = SessionManager.createSession(user.id, 'parent');
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "parent");
+          localStorage.setItem("currentUser", JSON.stringify(user));
+          localStorage.setItem("userEmail", user.email);
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push("/parent-dashboard");
+        } else {
+          setError("Geçersiz kullanıcı adı/email veya şifre");
+        }
       } else {
         setError("Geçersiz kullanıcı adı/email veya şifre");
       }
     } catch (error) {
+      console.error('Parent login error:', error);
       setError("Giriş sırasında bir hata oluştu");
     }
     

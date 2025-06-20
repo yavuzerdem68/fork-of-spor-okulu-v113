@@ -3,10 +3,14 @@ import '../styles/globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import NetworkStatus from '@/components/NetworkStatus'
+import ErrorBoundary from '@/components/ErrorBoundary'
+import { SessionManager } from '@/utils/security'
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 
 export default function App({ Component, pageProps }: AppProps) {
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     // Get the color-scheme value from :root
@@ -19,7 +23,21 @@ export default function App({ Component, pageProps }: AppProps) {
       document.documentElement.classList.add('light');
     }
     setMounted(true);
-  }, []);
+
+    // Session validation on app load
+    const { isValid } = SessionManager.validateSession();
+    
+    // Refresh session activity on route changes
+    const handleRouteChange = () => {
+      SessionManager.refreshSession();
+    };
+
+    router.events.on('routeChangeComplete', handleRouteChange);
+
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+    };
+  }, [router]);
 
   // Prevent flash while theme loads
   if (!mounted) {
@@ -27,11 +45,13 @@ export default function App({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <div className="min-h-screen">
-      <Component {...pageProps} />
-      <Toaster />
-      <PWAInstallPrompt />
-      <NetworkStatus />
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen">
+        <Component {...pageProps} />
+        <Toaster />
+        <PWAInstallPrompt />
+        <NetworkStatus />
+      </div>
+    </ErrorBoundary>
   )
 }
