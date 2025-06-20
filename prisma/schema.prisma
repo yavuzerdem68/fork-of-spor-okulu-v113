@@ -1,0 +1,327 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String?  @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      UserRole
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  adminProfile  AdminProfile?
+  coachProfile  CoachProfile?
+  parentProfile ParentProfile?
+  sessions      Session[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model AdminProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  permissions Json? // Store admin permissions as JSON
+
+  @@map("admin_profiles")
+}
+
+model CoachProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sportsBranches String[] // Array of sports branches
+  trainingGroups String[] // Array of training group IDs
+
+  // Relations
+  trainings Training[]
+
+  @@map("coach_profiles")
+}
+
+model ParentProfile {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tcNo     String?
+  relation String? // Relationship to athlete (Anne, Baba, etc.)
+
+  // Relations
+  athletes Athlete[]
+
+  @@map("parent_profiles")
+}
+
+model Athlete {
+  id           String    @id @default(cuid())
+  firstName    String
+  lastName     String
+  tcNo         String?   @unique
+  birthDate    DateTime?
+  age          Int?
+  gender       String?
+  school       String?
+  class        String?
+  photo        String?
+  status       AthleteStatus @default(ACTIVE)
+  paymentStatus PaymentStatus @default(CURRENT)
+  registrationDate DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Parent relation
+  parentId String
+  parent   ParentProfile @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  // Relations
+  sportsBranches    AthleteSportsBranch[]
+  trainingGroups    AthleteTrainingGroup[]
+  attendances       Attendance[]
+  payments          Payment[]
+  accountEntries    AccountEntry[]
+  performanceRecords PerformanceRecord[]
+
+  @@map("athletes")
+}
+
+model SportsBranch {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  athletes  AthleteSportsBranch[]
+  trainings Training[]
+
+  @@map("sports_branches")
+}
+
+model AthleteSportsBranch {
+  id             String @id @default(cuid())
+  athleteId      String
+  sportsBranchId String
+  athlete        Athlete      @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  sportsBranch   SportsBranch @relation(fields: [sportsBranchId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+
+  @@unique([athleteId, sportsBranchId])
+  @@map("athlete_sports_branches")
+}
+
+model TrainingGroup {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  location    String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  athletes  AthleteTrainingGroup[]
+  trainings Training[]
+
+  @@map("training_groups")
+}
+
+model AthleteTrainingGroup {
+  id               String @id @default(cuid())
+  athleteId        String
+  trainingGroupId  String
+  athlete          Athlete       @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  trainingGroup    TrainingGroup @relation(fields: [trainingGroupId], references: [id], onDelete: Cascade)
+  joinedAt         DateTime      @default(now())
+
+  @@unique([athleteId, trainingGroupId])
+  @@map("athlete_training_groups")
+}
+
+model Training {
+  id              String @id @default(cuid())
+  name            String
+  description     String?
+  startDate       DateTime
+  endDate         DateTime
+  location        String?
+  isRecurring     Boolean @default(false)
+  recurringDays   String[] // Days of week for recurring trainings
+  maxParticipants Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  coachId         String
+  coach           CoachProfile  @relation(fields: [coachId], references: [id])
+  sportsBranchId  String?
+  sportsBranch    SportsBranch? @relation(fields: [sportsBranchId], references: [id])
+  trainingGroupId String?
+  trainingGroup   TrainingGroup? @relation(fields: [trainingGroupId], references: [id])
+  attendances     Attendance[]
+
+  @@map("trainings")
+}
+
+model Attendance {
+  id         String @id @default(cuid())
+  athleteId  String
+  trainingId String
+  athlete    Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  status     AttendanceStatus
+  notes      String?
+  recordedAt DateTime @default(now())
+  recordedBy String // User ID who recorded attendance
+
+  @@unique([athleteId, trainingId])
+  @@map("attendances")
+}
+
+model Payment {
+  id          String @id @default(cuid())
+  athleteId   String
+  athlete     Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  amount      Decimal @db.Decimal(10, 2)
+  currency    String  @default("TRY")
+  description String?
+  paymentDate DateTime
+  method      PaymentMethod
+  status      PaymentStatus @default(PENDING)
+  reference   String? // Bank reference, invoice number, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("payments")
+}
+
+model AccountEntry {
+  id                String @id @default(cuid())
+  athleteId         String
+  athlete           Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  type              AccountEntryType
+  description       String
+  amountExcludingVat Decimal @db.Decimal(10, 2)
+  vatRate           Decimal @db.Decimal(5, 2)
+  vatAmount         Decimal @db.Decimal(10, 2)
+  amountIncludingVat Decimal @db.Decimal(10, 2)
+  unitCode          String?
+  month             String? // YYYY-MM format
+  invoiceNumber     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("account_entries")
+}
+
+model PerformanceRecord {
+  id        String @id @default(cuid())
+  athleteId String
+  athlete   Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  metric    String // e.g., "speed", "strength", "endurance"
+  value     Decimal @db.Decimal(10, 2)
+  unit      String? // e.g., "seconds", "kg", "meters"
+  notes     String?
+  recordedAt DateTime @default(now())
+  recordedBy String // User ID who recorded the performance
+
+  @@map("performance_records")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActivity DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  resource  String
+  resourceId String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  category  String?
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  COACH
+  PARENT
+}
+
+enum AthleteStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  CURRENT
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum AccountEntryType {
+  DEBIT
+  CREDIT
+}
