@@ -436,6 +436,70 @@ export default function Athletes() {
     alert(`${activeAthletesList.length} sporcu için toplu aidat şablonu oluşturuldu! (${fileName})\n\nŞablonu doldurup tekrar yükleyebilirsiniz.`);
   };
 
+  // Generate username and password for parent
+  const generateParentCredentials = (parentName: string, parentSurname: string, parentPhone: string) => {
+    // Generate username from name and surname
+    const cleanName = parentName.toLowerCase().replace(/[^a-z]/g, '');
+    const cleanSurname = parentSurname.toLowerCase().replace(/[^a-z]/g, '');
+    const phoneLastFour = parentPhone.slice(-4);
+    const username = `${cleanName}${cleanSurname}${phoneLastFour}`;
+    
+    // Generate a simple password
+    const password = `${cleanName.charAt(0).toUpperCase()}${cleanSurname.charAt(0).toUpperCase()}${phoneLastFour}`;
+    
+    return { username, password };
+  };
+
+  // Create parent user account
+  const createParentUser = (athlete: any, credentials: any) => {
+    const parentUser = {
+      id: Date.now() + Math.random(),
+      username: credentials.username,
+      password: credentials.password,
+      firstName: athlete.parentName,
+      lastName: athlete.parentSurname,
+      phone: athlete.parentPhone,
+      email: athlete.parentEmail,
+      tcNo: athlete.parentTcNo,
+      relation: athlete.parentRelation,
+      linkedAthletes: [athlete.id],
+      role: 'parent',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Get existing parent users
+    const existingParentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+    
+    // Check if parent already exists (by phone or email)
+    const existingParent = existingParentUsers.find((parent: any) => 
+      parent.phone === athlete.parentPhone || parent.email === athlete.parentEmail
+    );
+
+    if (existingParent) {
+      // Add athlete to existing parent's linked athletes if not already linked
+      if (!existingParent.linkedAthletes.includes(athlete.id)) {
+        existingParent.linkedAthletes.push(athlete.id);
+        existingParent.updatedAt = new Date().toISOString();
+      }
+      
+      // Update existing parent users
+      const updatedParentUsers = existingParentUsers.map((parent: any) => 
+        parent.id === existingParent.id ? existingParent : parent
+      );
+      localStorage.setItem('parentUsers', JSON.stringify(updatedParentUsers));
+      
+      return existingParent;
+    } else {
+      // Create new parent user
+      const updatedParentUsers = [...existingParentUsers, parentUser];
+      localStorage.setItem('parentUsers', JSON.stringify(updatedParentUsers));
+      
+      return parentUser;
+    }
+  };
+
   // Bulk Upload Functions
   const generateBulkUploadTemplate = () => {
     const templateData = [
@@ -443,7 +507,7 @@ export default function Athletes() {
         'Öğrenci Adı': 'Ahmet',
         'Öğrenci Soyadı': 'Yılmaz',
         'TC Kimlik No': '12345678901',
-        'Doğum Tarihi (DD/MM/YYYY)': '15/03/2010',
+        'Doğum Tarihi (DD.MM.YYYY)': '15.03.2010',
         'Yaş': '14',
         'Cinsiyet': 'Erkek',
         'Spor Branşları (virgülle ayırın)': 'Basketbol, Futbol',
@@ -458,7 +522,7 @@ export default function Athletes() {
         'Öğrenci Adı': 'Elif',
         'Öğrenci Soyadı': 'Demir',
         'TC Kimlik No': '10987654321',
-        'Doğum Tarihi (DD/MM/YYYY)': '22/07/2012',
+        'Doğum Tarihi (DD.MM.YYYY)': '22.07.2012',
         'Yaş': '12',
         'Cinsiyet': 'Kız',
         'Spor Branşları (virgülle ayırın)': 'Yüzme, Jimnastik',
@@ -473,7 +537,7 @@ export default function Athletes() {
         'Öğrenci Adı': '',
         'Öğrenci Soyadı': '',
         'TC Kimlik No': '',
-        'Doğum Tarihi (DD/MM/YYYY)': '',
+        'Doğum Tarihi (DD.MM.YYYY)': '',
         'Yaş': '',
         'Cinsiyet': '',
         'Spor Branşları (virgülle ayırın)': '',
@@ -494,8 +558,8 @@ export default function Athletes() {
     const colWidths = Object.keys(templateData[0]).map(() => ({ wch: 20 }));
     ws['!cols'] = colWidths;
     
-    // Format the birth date column as text to preserve DD/MM/YYYY format
-    const birthDateColIndex = Object.keys(templateData[0]).indexOf('Doğum Tarihi (DD/MM/YYYY)');
+    // Format the birth date column as text to preserve DD.MM.YYYY format
+    const birthDateColIndex = Object.keys(templateData[0]).indexOf('Doğum Tarihi (DD.MM.YYYY)');
     if (birthDateColIndex !== -1) {
       // Set column format to text for birth date column
       if (!ws['!cols']) ws['!cols'] = [];
@@ -643,31 +707,95 @@ export default function Athletes() {
         return;
       }
 
+      // Get bulk fee entries for the selected month to determine unit price
+      const selectedMonthStr = selectedInvoiceMonth;
+      let unitPrice = '350.00'; // Default price
+      
+      // Try to find unit price from bulk fee entries for this month
+      activeAthletesList.forEach(athlete => {
+        const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+        const monthEntry = accountEntries.find((entry: any) => 
+          entry.month === selectedMonthStr && 
+          entry.type === 'debit' && 
+          entry.description.toLowerCase().includes('aidat')
+        );
+        if (monthEntry && monthEntry.amountExcludingVat) {
+          unitPrice = monthEntry.amountExcludingVat.toString();
+        }
+      });
+
       const invoiceData: any[] = [];
 
       activeAthletesList.forEach((athlete, index) => {
-        // Create the complete e-invoice row with all required columns
+        // Create the complete e-invoice row with all required columns in exact order
         const invoiceRow = {
-          'Id': index + 1,
-          'Fatura Numarası': '', // Empty as requested
+          'Id': '',
+          'Fatura Numarası': '',
           'ETTN': '',
-          'Fatura Tarihi': new Date().toLocaleDateString('tr-TR'),
-          'Fatura Saati': new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-          'Fatura Tipi': 'SATIS',
-          'Fatura Profili': 'EARSIVFATURA',
+          'Fatura Tarihi': '',
+          'Fatura Saati': '',
+          'Fatura Tipi': '',
+          'Fatura Profili': '',
+          'Döviz Kodu': '',
           'Alıcı VKN/TCKN': athlete.parentTcNo || '',
           'Alıcı Ünvan/Adı | Yabancı Alıcı Ünvan/Adı | Turist Adı': athlete.parentName || '',
           'Alıcı Soyadı | Yabancı Alıcı Soyadı | Turist Soyadı ': athlete.parentSurname || '',
-          'Alıcı Ülke | Yabancı Ülke | Turist Ülke': 'TÜRKİYE',
+          'Alıcı Ülke | Yabancı Ülke | Turist Ülke': 'Türkiye',
           'Alıcı Şehir | Yabancı Şehir | Turist Şehir': 'Kırklareli',
           'Alıcı İlçe | Yabancı İlçe | Turist İlçe': 'Lüleburgaz',
+          'Alıcı Sokak | Yabancı Sokak | Turist Sokak': '',
+          'Alıcı Bina No | Yabancı Bina No | Turist Bina No': '',
+          'Alıcı Kapı No | Yabancı Kapı No | Turist Kapı No': '',
           'Alıcı Eposta | Yabancı Eposta | Turist Eposta': athlete.parentEmail || '',
-          'Alıcı Telefon | Yabancı Telefon | Turist Telefon': athlete.parentPhone || '',
+          'Gönderim Türü': '',
+          'Satışın Yapıldığı Web Sitesi': '',
+          'Ödeme Tarihi': '',
+          'Ödeme Türü': '',
           'Mal/Hizmet Adı': invoiceServiceDescription,
-          'Miktar': 1,
+          'Miktar': '1',
           'Birim Kodu': invoiceUnitCode,
-          'Birim Fiyat': '350.00',
-          'KDV Oranı': invoiceVatRate
+          ' Birim Fiyat ': unitPrice,
+          'KDV Oranı': invoiceVatRate,
+          'KDV Muafiyet Kodu': '',
+          'KDV Muafiyet Nedeni': '',
+          'İskonto Oranı': '',
+          'İskonto Açıklaması': '',
+          'İskonto Oranı 2': '',
+          'İskonto Açıklaması 2': '',
+          'Satıcı Kodu (SellersItemIdentification)': '',
+          'Alıcı Kodu (BuyersItemIdentification)': '',
+          'Üretici Kodu (ManufacturersItemIdentification)': '',
+          'Marka (BrandName)': '',
+          'Model (ModelName)': '',
+          'Menşei Kodu': '',
+          'Açıklama (Description)': '',
+          'Not (Note)': '',
+          'Artırım Oranı': '',
+          'Artırım Tutarı': '',
+          'ÖTV Kodu': '',
+          'ÖTV Oranı': '',
+          'ÖTV Tutarı': '',
+          'Tevkifat Kodu': '',
+          'Tevkifat Oranı': '',
+          'BSMV Oranı': '',
+          'Enerji Fonu Vergi Oranı': '',
+          'TRT Payı Vergi Oranı': '',
+          'Elektrik ve Havagazı Tüketim Vergisi Oranı': '',
+          'Konaklama Vergisi Oranı': '',
+          'GTip No': '',
+          'Teslim Şartı': '',
+          'Gönderilme Şekli': '',
+          'Gümrük Takip No': '',
+          'Bulunduğu Kabın Markası': '',
+          'Bulunduğu Kabın Cinsi': '',
+          'Bulunduğu Kabın Numarası': '',
+          'Bulunduğu Kabın Adedi': '',
+          'İhracat Teslim ve Ödeme Yeri/Ülke': '',
+          'İhracat Teslim ve Ödeme Yeri/Şehir': '',
+          'İhracat Teslim ve Ödeme Yeri/Mahalle/İlçe': '',
+          'Künye No': '',
+          'Mal Sahibi Ad/Soyad/Ünvan': '',
+          'Mal Sahibi Vkn/Tckn': ''
         };
 
         invoiceData.push(invoiceRow);
@@ -676,7 +804,7 @@ export default function Athletes() {
       // Create Excel file
       const ws = XLSX.utils.json_to_sheet(invoiceData);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'E-Fatura');
+      XLSX.utils.book_append_sheet(wb, ws, 'E-Arşiv Fatura');
       
       // Set column widths for better readability
       const colWidths = Object.keys(invoiceData[0]).map(() => ({ wch: 15 }));
@@ -684,13 +812,13 @@ export default function Athletes() {
       
       // Generate filename with date and month
       const monthName = new Date(selectedInvoiceMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
-      const fileName = `E_Fatura_${monthName.replace(' ', '_')}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`;
+      const fileName = `E_Arsiv_Fatura_${monthName.replace(' ', '_')}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`;
       
       // Download the file
       XLSX.writeFile(wb, fileName);
       
       // Show success message
-      alert(`E-fatura Excel dosyası oluşturuldu!\n\n✅ ${activeAthletesList.length} sporcu için fatura kaydı\n📅 Dönem: ${monthName}\n🏷️ Hizmet: ${invoiceServiceDescription}\n💰 KDV Oranı: %${invoiceVatRate}\n📁 Dosya: ${fileName}`);
+      alert(`E-arşiv fatura Excel dosyası oluşturuldu!\n\n✅ ${activeAthletesList.length} sporcu için fatura kaydı\n📅 Dönem: ${monthName}\n🏷️ Hizmet: ${invoiceServiceDescription}\n💰 Birim Fiyat: ₺${unitPrice} (KDV Hariç)\n💰 KDV Oranı: %${invoiceVatRate}\n📁 Dosya: ${fileName}`);
       
       // Close dialog
       setIsInvoiceExportDialogOpen(false);
@@ -1811,29 +1939,42 @@ export default function Athletes() {
                   <span>E-Fatura Dışa Aktarma</span>
                 </DialogTitle>
                 <DialogDescription>
-                  Aktif sporcular için e-fatura formatında Excel dosyası oluşturun
+                  Toplu aidat girişi yapılan dönem için e-arşiv fatura formatında Excel dosyası oluşturun
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Bu işlem seçilen dönemde toplu aidat girişi yapılmış sporcular için e-arşiv fatura formatında Excel dosyası oluşturacaktır.
+                  </AlertDescription>
+                </Alert>
+
                 <div className="space-y-2">
-                  <Label htmlFor="invoiceMonth">Fatura Dönemi (Ay/Yıl)</Label>
+                  <Label htmlFor="invoiceMonth">Hangi Tarihte Girilen Toplu Aidat İçin Fatura Kesilecek?</Label>
                   <Input
                     id="invoiceMonth"
                     type="month"
                     value={selectedInvoiceMonth}
                     onChange={(e) => setSelectedInvoiceMonth(e.target.value)}
                   />
+                  <p className="text-sm text-muted-foreground">
+                    Bu tarihte toplu aidat girişi yapılmış sporcular için fatura oluşturulacak
+                  </p>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="serviceDescription">Hizmet Açıklaması</Label>
+                  <Label htmlFor="serviceDescription">Mal/Hizmet Adı</Label>
                   <Input
                     id="serviceDescription"
-                    placeholder="Örn: Spor Okulu Aidatı"
+                    placeholder="Örn: Spor Okulu Aidatı Haziran"
                     value={invoiceServiceDescription}
                     onChange={(e) => setInvoiceServiceDescription(e.target.value)}
                   />
+                  <p className="text-sm text-muted-foreground">
+                    Toplu aidat yüklemesinden gelen bilgi (Örn: "Spor Okulu Aidatı Haziran")
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1844,8 +1985,8 @@ export default function Athletes() {
                         <SelectValue placeholder="Birim seçin" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Ay">Ay (Aylık aidat için)</SelectItem>
-                        <SelectItem value="Adet">Adet (Forma, çanta vb. için)</SelectItem>
+                        <SelectItem value="Ay">Ay</SelectItem>
+                        <SelectItem value="Adet">Adet</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1857,21 +1998,32 @@ export default function Athletes() {
                         <SelectValue placeholder="KDV oranı seçin" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="10">%10</SelectItem>
-                        <SelectItem value="20">%20</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">Önizleme:</h4>
+                  <h4 className="font-medium text-blue-900 mb-2">E-Arşiv Fatura Formatı:</h4>
                   <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• <strong>Dönem:</strong> {new Date(selectedInvoiceMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</li>
-                    <li>• <strong>Hizmet:</strong> {invoiceServiceDescription}</li>
-                    <li>• <strong>Birim:</strong> {invoiceUnitCode}</li>
+                    <li>• <strong>Alıcı VKN/TCKN:</strong> Veli TC Kimlik Numarası</li>
+                    <li>• <strong>Alıcı Adı/Soyadı:</strong> Veli Adı ve Soyadı</li>
+                    <li>• <strong>Alıcı Ülke/Şehir/İlçe:</strong> Türkiye/Kırklareli/Lüleburgaz</li>
+                    <li>• <strong>Alıcı Email:</strong> Veli Email Adresi</li>
+                    <li>• <strong>Mal/Hizmet Adı:</strong> {invoiceServiceDescription || 'Belirtilmedi'}</li>
+                    <li>• <strong>Birim Fiyat:</strong> KDV Hariç (Toplu aidat girişinden)</li>
                     <li>• <strong>KDV Oranı:</strong> %{invoiceVatRate}</li>
+                  </ul>
+                </div>
+
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h4 className="font-medium text-green-900 mb-2">Önizleme:</h4>
+                  <ul className="text-sm text-green-800 space-y-1">
+                    <li>• <strong>Dönem:</strong> {new Date(selectedInvoiceMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</li>
                     <li>• <strong>Aktif Sporcu Sayısı:</strong> {activeAthletes}</li>
+                    <li>• <strong>Dosya Formatı:</strong> E-Arşiv Excel (.xlsx)</li>
                   </ul>
                 </div>
               </div>
@@ -1888,7 +2040,7 @@ export default function Athletes() {
                   disabled={!selectedInvoiceMonth || !invoiceServiceDescription}
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  E-Fatura Excel Dosyası Oluştur
+                  E-Arşiv Fatura Excel Dosyası Oluştur
                 </Button>
               </div>
             </DialogContent>
