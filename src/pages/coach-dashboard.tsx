@@ -36,6 +36,8 @@ export default function CoachDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [myStudents, setMyStudents] = useState<any[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
+  const [myTrainings, setMyTrainings] = useState<any[]>([]);
+  const [todayTrainings, setTodayTrainings] = useState<any[]>([]);
 
   useEffect(() => {
     const userRole = localStorage.getItem("userRole");
@@ -50,6 +52,7 @@ export default function CoachDashboard() {
     // Load students assigned to this coach's training groups
     loadMyStudents(user);
     loadTodayAttendance(user);
+    loadMyTrainings(user);
   }, [router]);
 
   const loadMyStudents = (coach: any) => {
@@ -91,14 +94,88 @@ export default function CoachDashboard() {
     setMyStudents(myStudents);
   };
 
+  const loadMyTrainings = (coach: any) => {
+    const allTrainings = JSON.parse(localStorage.getItem('trainings') || '[]');
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0];
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDayName = dayNames[dayOfWeek];
+    
+    const coachName = `${coach.name || ''} ${coach.surname || ''}`.trim();
+    
+    // Filter trainings assigned to this coach
+    const coachTrainings = allTrainings.filter((training: any) => {
+      return training.coach === coachName;
+    });
+    
+    // Filter today's trainings
+    const todaysTrainings = coachTrainings.filter((training: any) => {
+      // Check single-day trainings
+      if (training.date === currentDate) {
+        return true;
+      }
+      
+      // Check date range trainings
+      if (training.startDate) {
+        const startDate = new Date(training.startDate);
+        const endDate = training.endDate ? new Date(training.endDate) : startDate;
+        
+        // Check if current date is within training period
+        if (today >= startDate && today <= endDate) {
+          // If it's a recurring training, check if today is one of the recurring days
+          if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
+            return training.recurringDays.includes(currentDayName);
+          } else {
+            // Non-recurring training within date range
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    });
+    
+    // Sort by time
+    todaysTrainings.sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''));
+    
+    setMyTrainings(coachTrainings);
+    setTodayTrainings(todaysTrainings);
+  };
+
   const loadTodayAttendance = (coach: any) => {
     const attendance = JSON.parse(localStorage.getItem('attendance') || '[]');
     const today = new Date().toISOString().split('T')[0];
-    const todayRecords = attendance.filter((record: any) => 
-      record.date === today && 
-      coach.trainingGroups?.includes(record.trainingGroup)
-    );
-    setTodayAttendance(todayRecords);
+    const coachName = `${coach.name || ''} ${coach.surname || ''}`.trim();
+    
+    // Get today's attendance records for this coach's trainings
+    const todayRecords = attendance.filter((record: any) => {
+      if (record.date !== today) return false;
+      
+      // Check if this attendance record belongs to coach's training
+      const allTrainings = JSON.parse(localStorage.getItem('trainings') || '[]');
+      const training = allTrainings.find((t: any) => t.id === record.trainingId);
+      
+      return training && training.coach === coachName;
+    });
+    
+    // Flatten the attendance records to show individual students
+    const flattenedRecords: any[] = [];
+    todayRecords.forEach((record: any) => {
+      if (record.students && Array.isArray(record.students)) {
+        record.students.forEach((student: any) => {
+          flattenedRecords.push({
+            ...student,
+            trainingId: record.trainingId,
+            date: record.date,
+            studentName: `${student.name || ''} ${student.surname || ''}`.trim(),
+            status: student.present === true ? 'present' : student.present === false ? 'absent' : 'not_taken'
+          });
+        });
+      }
+    });
+    
+    setTodayAttendance(flattenedRecords);
   };
 
   const handleLogout = () => {
@@ -194,6 +271,18 @@ export default function CoachDashboard() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
+                    <p className="text-sm font-medium text-muted-foreground">Bugünkü Antrenmanlar</p>
+                    <p className="text-2xl font-bold">{todayTrainings.length}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
                     <p className="text-sm font-medium text-muted-foreground">Bugün Katılan</p>
                     <p className="text-2xl font-bold text-green-600">{presentStudents}</p>
                   </div>
@@ -206,20 +295,8 @@ export default function CoachDashboard() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Bugün Katılmayan</p>
-                    <p className="text-2xl font-bold text-red-600">{absentStudents}</p>
-                  </div>
-                  <UserX className="h-8 w-8 text-red-600" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Antrenman Grupları</p>
-                    <p className="text-2xl font-bold">{currentUser.trainingGroups?.length || 0}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Toplam Antrenmanlar</p>
+                    <p className="text-2xl font-bold">{myTrainings.length}</p>
                   </div>
                   <Target className="h-8 w-8 text-primary" />
                 </div>
@@ -229,13 +306,163 @@ export default function CoachDashboard() {
 
           {/* Main Content */}
           <motion.div variants={fadeInUp} initial="initial" animate="animate">
-            <Tabs defaultValue="students" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="trainings" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="trainings">Antrenmanlarım</TabsTrigger>
                 <TabsTrigger value="students">Sporcularım</TabsTrigger>
                 <TabsTrigger value="attendance">Yoklama</TabsTrigger>
                 <TabsTrigger value="messages">Mesajlar</TabsTrigger>
                 <TabsTrigger value="profile">Profil</TabsTrigger>
               </TabsList>
+
+              {/* My Trainings */}
+              <TabsContent value="trainings">
+                <div className="space-y-6">
+                  {/* Today's Trainings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Clock className="w-5 h-5" />
+                        <span>Bugünkü Antrenmanlarım</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Bugün yapacağınız antrenmanlar ve yoklama durumu
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {todayTrainings.length > 0 ? (
+                        <div className="space-y-4">
+                          {todayTrainings.map((training) => (
+                            <Card key={training.id} className="border-l-4 border-l-primary">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-4 mb-2">
+                                      <div className="flex items-center space-x-2">
+                                        <Clock className="w-4 h-4 text-primary" />
+                                        <span className="font-semibold">{training.startTime} - {training.endTime}</span>
+                                      </div>
+                                      <Badge variant="outline">{training.sport}</Badge>
+                                    </div>
+                                    
+                                    <h4 className="font-semibold mb-2">{training.title}</h4>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                      <div>
+                                        <span className="text-muted-foreground">Lokasyon:</span>
+                                        <p className="font-medium">{training.location}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-muted-foreground">Grup:</span>
+                                        <p className="font-medium">{training.trainingGroup || training.ageGroup}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-muted-foreground">Katılımcı:</span>
+                                        <p className="font-medium">{training.assignedAthletes?.length || 0} sporcu</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex flex-col space-y-2">
+                                    <Link href="/attendance">
+                                      <Button size="sm">
+                                        <UserCheck className="w-4 h-4 mr-2" />
+                                        Yoklama Al
+                                      </Button>
+                                    </Link>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">Bugün için planlanmış antrenman bulunmuyor</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* All My Trainings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Calendar className="w-5 h-5" />
+                        <span>Tüm Antrenmanlarım</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Size atanmış tüm antrenman programları
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {myTrainings.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Antrenman</TableHead>
+                              <TableHead>Tarih & Saat</TableHead>
+                              <TableHead>Lokasyon</TableHead>
+                              <TableHead>Katılımcı</TableHead>
+                              <TableHead>Durum</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {myTrainings.map((training) => (
+                              <TableRow key={training.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{training.title}</p>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <Badge variant="outline">{training.sport}</Badge>
+                                      <Badge variant="secondary" className="text-xs">{training.ageGroup}</Badge>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {training.startDate ? new Date(training.startDate).toLocaleDateString('tr-TR') : 
+                                       training.date ? new Date(training.date).toLocaleDateString('tr-TR') : 'Belirtilmemiş'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {training.startTime} - {training.endTime}
+                                    </p>
+                                    {training.isRecurring && training.recurringDays && (
+                                      <p className="text-xs text-blue-600">
+                                        Tekrarlanan: {training.recurringDays.length} gün
+                                      </p>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>{training.location}</TableCell>
+                                <TableCell>
+                                  <div className="text-center">
+                                    <p className="text-sm font-medium">
+                                      {training.assignedAthletes?.length || 0}/{training.maxParticipants}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={training.status === 'Aktif' ? 'default' : 'secondary'}>
+                                    {training.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">Henüz size atanmış antrenman bulunmuyor</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
 
               {/* My Students */}
               <TabsContent value="students">

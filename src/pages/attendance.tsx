@@ -88,27 +88,22 @@ export default function Attendance() {
         return true;
       }
       
-      // Check multi-day trainings (startDate to endDate range)
-      if (training.startDate && training.endDate) {
+      // Check date range trainings
+      if (training.startDate) {
         const startDate = new Date(training.startDate);
-        const endDate = new Date(training.endDate);
+        const endDate = training.endDate ? new Date(training.endDate) : startDate;
         const checkDate = new Date(date);
         
-        // If it's a recurring training, check if the selected day is in recurringDays
-        if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
-          return checkDate >= startDate && checkDate <= endDate && 
-                 training.recurringDays.includes(selectedDayName);
+        // Check if the selected date is within the training period
+        if (checkDate >= startDate && checkDate <= endDate) {
+          // If it's a recurring training, check if the selected day is in recurringDays
+          if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
+            return training.recurringDays.includes(selectedDayName);
+          } else {
+            // Non-recurring training within date range
+            return true;
+          }
         }
-        
-        // If it's not recurring, check if it's within the date range
-        if (!training.isRecurring) {
-          return checkDate >= startDate && checkDate <= endDate;
-        }
-      }
-      
-      // Check single-day trainings with startDate only
-      if (training.startDate && !training.endDate) {
-        return training.startDate === date;
       }
       
       return false;

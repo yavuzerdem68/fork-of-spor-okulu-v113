@@ -175,36 +175,164 @@ export default function ParentDashboard() {
 
   const loadAttendanceData = (children: any[]) => {
     const allAttendance = JSON.parse(localStorage.getItem('attendance') || '[]');
-    const childrenAttendance = allAttendance.filter((record: any) => 
-      children.some(child => 
-        record.studentName === `${child.studentName} ${child.studentSurname}` ||
-        record.studentId === child.id
-      )
-    );
+    const childrenAttendance: any[] = [];
+    
+    // Process attendance records and extract individual student records
+    allAttendance.forEach((record: any) => {
+      if (record.students && Array.isArray(record.students)) {
+        record.students.forEach((student: any) => {
+          const studentFullName = `${student.name || ''} ${student.surname || ''}`.trim();
+          const matchingChild = children.find(child => 
+            studentFullName === `${child.studentName} ${child.studentSurname}` ||
+            student.id === child.id
+          );
+          
+          if (matchingChild) {
+            childrenAttendance.push({
+              id: `${record.trainingId}_${student.id}_${record.date}`,
+              studentName: studentFullName,
+              studentId: student.id,
+              date: record.date,
+              status: student.present === true ? 'present' : student.present === false ? 'absent' : 'not_taken',
+              trainingId: record.trainingId,
+              sport: record.sport || 'Genel',
+              trainingGroup: record.trainingGroup || 'Genel'
+            });
+          }
+        });
+      } else {
+        // Handle old format attendance records
+        const matchingChild = children.find(child => 
+          record.studentName === `${child.studentName} ${child.studentSurname}` ||
+          record.studentId === child.id
+        );
+        
+        if (matchingChild) {
+          childrenAttendance.push(record);
+        }
+      }
+    });
+    
     setAttendance(childrenAttendance);
   };
 
   const loadScheduleData = (children: any[]) => {
     const allTrainings = JSON.parse(localStorage.getItem('trainings') || '[]');
     const childrenSchedule: any[] = [];
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0];
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDayName = dayNames[dayOfWeek];
     
     children.forEach(child => {
-      child.sportsBranches?.forEach((sport: string) => {
-        const relatedTrainings = allTrainings.filter((training: any) => 
-          training.sport === sport || training.sportsBranches?.includes(sport)
-        );
+      // Find trainings where this child is assigned
+      const childTrainings = allTrainings.filter((training: any) => {
+        // Check if child is directly assigned to this training
+        if (training.assignedAthletes && training.assignedAthletes.includes(child.id.toString())) {
+          return true;
+        }
         
-        relatedTrainings.forEach((training: any) => {
+        // Check if child's sport matches training sport
+        if (child.sportsBranches?.includes(training.sport)) {
+          return true;
+        }
+        
+        return false;
+      });
+      
+      childTrainings.forEach((training: any) => {
+        // Check if training is active for today or in the future
+        let isActiveTraining = false;
+        let displayDay = 'Belirtilmemiş';
+        let displayTime = training.startTime && training.endTime 
+          ? `${training.startTime} - ${training.endTime}` 
+          : 'Belirtilmemiş';
+        
+        // Handle single-day trainings
+        if (training.date && !training.endDate) {
+          const trainingDate = new Date(training.date);
+          if (trainingDate >= today || training.date === currentDate) {
+            isActiveTraining = true;
+            displayDay = trainingDate.toLocaleDateString('tr-TR', { weekday: 'long' });
+          }
+        }
+        
+        // Handle date range trainings
+        if (training.startDate) {
+          const startDate = new Date(training.startDate);
+          const endDate = training.endDate ? new Date(training.endDate) : startDate;
+          
+          // Check if current date is within training period
+          if (today >= startDate && today <= endDate) {
+            // If it's a recurring training, check if today is one of the recurring days
+            if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
+              if (training.recurringDays.includes(currentDayName)) {
+                isActiveTraining = true;
+                displayDay = today.toLocaleDateString('tr-TR', { weekday: 'long' });
+              }
+            } else {
+              // Non-recurring training within date range
+              isActiveTraining = true;
+              displayDay = today.toLocaleDateString('tr-TR', { weekday: 'long' });
+            }
+          }
+          
+          // Also show future trainings
+          if (startDate > today) {
+            isActiveTraining = true;
+            if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
+              // Show all recurring days
+              training.recurringDays.forEach((dayName: string) => {
+                const dayIndex = dayNames.indexOf(dayName);
+                const dayNameTurkish = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][dayIndex];
+                
+                childrenSchedule.push({
+                  id: `${child.id}_${training.id}_${dayName}`,
+                  childName: `${child.studentName} ${child.studentSurname}`,
+                  sport: training.sport,
+                  day: dayNameTurkish,
+                  time: displayTime,
+                  coach: training.coach || 'Belirtilmemiş',
+                  location: training.location || 'Belirtilmemiş',
+                  trainingGroup: training.trainingGroup || training.ageGroup || 'Genel',
+                  status: training.status || 'Aktif'
+                });
+              });
+              return; // Skip the single entry below
+            } else {
+              displayDay = startDate.toLocaleDateString('tr-TR', { weekday: 'long' });
+            }
+          }
+        }
+        
+        if (isActiveTraining) {
           childrenSchedule.push({
             id: `${child.id}_${training.id}`,
             childName: `${child.studentName} ${child.studentSurname}`,
-            sport: sport,
-            day: training.day || 'Belirtilmemiş',
-            time: training.time || 'Belirtilmemiş',
-            coach: training.coach || 'Belirtilmemiş'
+            sport: training.sport,
+            day: displayDay,
+            time: displayTime,
+            coach: training.coach || 'Belirtilmemiş',
+            location: training.location || 'Belirtilmemiş',
+            trainingGroup: training.trainingGroup || training.ageGroup || 'Genel',
+            status: training.status || 'Aktif'
           });
-        });
+        }
       });
+    });
+    
+    // Sort by day and time
+    childrenSchedule.sort((a, b) => {
+      const dayOrder = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+      const dayA = dayOrder.indexOf(a.day);
+      const dayB = dayOrder.indexOf(b.day);
+      
+      if (dayA !== dayB) {
+        return dayA - dayB;
+      }
+      
+      return a.time.localeCompare(b.time);
     });
     
     setSchedule(childrenSchedule);
