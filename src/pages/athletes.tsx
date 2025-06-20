@@ -1652,12 +1652,20 @@ export default function Athletes() {
                                   // Parse birth date
                                   let parsedBirthDate = '';
                                   if (studentData['Doğum Tarihi (DD/MM/YYYY)']) {
-                                    const birthDateStr = studentData['Doğum Tarihi (DD/MM/YYYY)'].toString();
-                                    if (birthDateStr.includes('/')) {
+                                    const birthDateStr = studentData['Doğum Tarihi (DD/MM/YYYY)'].toString().trim();
+                                    if (birthDateStr && birthDateStr.includes('/')) {
                                       const parts = birthDateStr.split('/');
-                                      if (parts.length === 3) {
-                                        // Convert DD/MM/YYYY to YYYY-MM-DD
-                                        parsedBirthDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                      if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+                                        const day = parts[0].padStart(2, '0');
+                                        const month = parts[1].padStart(2, '0');
+                                        const year = parts[2];
+                                        
+                                        // Validate date parts
+                                        if (year.length === 4 && !isNaN(parseInt(year)) && 
+                                            !isNaN(parseInt(month)) && !isNaN(parseInt(day))) {
+                                          // Convert DD/MM/YYYY to YYYY-MM-DD
+                                          parsedBirthDate = `${year}-${month}-${day}`;
+                                        }
                                       }
                                     }
                                   }
@@ -1864,6 +1872,8 @@ export default function Athletes() {
                         <Button 
                           onClick={async () => {
                             try {
+                              setIsProcessing(true);
+                              
                               const data = await bulkFeeUploadFile.arrayBuffer();
                               const workbook = XLSX.read(data, { type: 'array' });
                               const sheetName = workbook.SheetNames[0];
@@ -1871,19 +1881,135 @@ export default function Athletes() {
                               const jsonData = XLSX.utils.sheet_to_json(worksheet);
                               
                               console.log('Processing bulk fee data:', jsonData);
-                              alert(`${jsonData.length} aidat kaydı işlendi!`);
+                              
+                              if (jsonData.length === 0) {
+                                alert('Excel dosyasında işlenecek aidat kaydı bulunamadı!');
+                                setIsProcessing(false);
+                                return;
+                              }
+
+                              // Get all students
+                              const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+                              let processedCount = 0;
+                              let errorCount = 0;
+                              let notFoundCount = 0;
+                              const errors: string[] = [];
+
+                              for (const row of jsonData) {
+                                try {
+                                  const feeData = row as any;
+                                  
+                                  // Skip empty rows
+                                  if (!feeData['Sporcu Adı Soyadı'] || !feeData['Açıklama'] || !feeData['Tutar']) {
+                                    continue;
+                                  }
+
+                                  const athleteName = feeData['Sporcu Adı Soyadı'].toString().trim();
+                                  const description = feeData['Açıklama'].toString().trim();
+                                  const amount = parseFloat(feeData['Tutar'].toString()) || 0;
+                                  const vatRate = parseFloat(feeData['KDV Oranı (%)'].toString()) || 10;
+                                  const unitCode = feeData['Birim Kod']?.toString() || 'Ay';
+
+                                  if (amount <= 0) {
+                                    errors.push(`${athleteName}: Geçersiz tutar (${amount})`);
+                                    errorCount++;
+                                    continue;
+                                  }
+
+                                  // Find the athlete by name
+                                  const athlete = allStudents.find((student: any) => {
+                                    const studentFullName = `${student.studentName || ''} ${student.studentSurname || ''}`.trim();
+                                    return studentFullName.toLowerCase() === athleteName.toLowerCase();
+                                  });
+
+                                  if (!athlete) {
+                                    errors.push(`${athleteName}: Sporcu bulunamadı`);
+                                    notFoundCount++;
+                                    continue;
+                                  }
+
+                                  // Calculate VAT and total
+                                  const vatAmount = (amount * vatRate) / 100;
+                                  const totalAmount = amount + vatAmount;
+
+                                  // Create fee entry
+                                  const feeEntry = {
+                                    id: Date.now() + Math.random(),
+                                    date: new Date().toISOString(),
+                                    month: new Date().toISOString().slice(0, 7), // Current month
+                                    description: description,
+                                    amountExcludingVat: amount,
+                                    vatRate: vatRate,
+                                    vatAmount: vatAmount,
+                                    amountIncludingVat: totalAmount,
+                                    unitCode: unitCode,
+                                    type: 'debit' // Fee is a debit entry
+                                  };
+
+                                  // Get existing account entries for this athlete
+                                  const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+                                  const updatedEntries = [...existingEntries, feeEntry];
+                                  
+                                  // Save updated entries
+                                  localStorage.setItem(`account_${athlete.id}`, JSON.stringify(updatedEntries));
+                                  
+                                  processedCount++;
+                                } catch (rowError) {
+                                  console.error('Error processing fee row:', rowError);
+                                  errorCount++;
+                                  errors.push(`Satır işleme hatası: ${rowError instanceof Error ? rowError.message : 'Bilinmeyen hata'}`);
+                                }
+                              }
+
+                              setIsProcessing(false);
+
+                              // Show results
+                              let resultMessage = `✅ Toplu aidat girişi tamamlandı!\n\n`;
+                              resultMessage += `📊 İşlem Özeti:\n`;
+                              resultMessage += `• Başarıyla işlenen: ${processedCount} aidat kaydı\n`;
+                              
+                              if (notFoundCount > 0) {
+                                resultMessage += `• Sporcu bulunamayan: ${notFoundCount} kayıt\n`;
+                              }
+                              
+                              if (errorCount > 0) {
+                                resultMessage += `• Hatalı kayıt: ${errorCount} satır\n`;
+                              }
+
+                              if (errors.length > 0 && errors.length <= 10) {
+                                resultMessage += `\n⚠️ Hatalar:\n${errors.slice(0, 10).join('\n')}`;
+                              } else if (errors.length > 10) {
+                                resultMessage += `\n⚠️ ${errors.length} hata oluştu (ilk 10 tanesi gösteriliyor):\n${errors.slice(0, 10).join('\n')}`;
+                              }
+
+                              alert(resultMessage);
                               
                               setBulkFeeUploadFile(null);
                               setIsBulkFeeDialogOpen(false);
+                              
+                              // Refresh the athletes list to show updated payment statuses
+                              loadAthletes(userRole!, currentUser);
+                              
                             } catch (error) {
-                              console.error('Error processing bulk fee:', error);
-                              alert('Dosya işlenirken hata oluştu!');
+                              console.error('Error processing bulk fee upload:', error);
+                              setIsProcessing(false);
+                              alert('Toplu aidat girişi sırasında hata oluştu!\n\nHata: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
                             }
                           }}
                           className="w-full"
+                          disabled={isProcessing}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Toplu Aidat Girişini Başlat
+                          {isProcessing ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              İşleniyor...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Toplu Aidat Girişini Başlat
+                            </>
+                          )}
                         </Button>
                       )}
                     </div>
