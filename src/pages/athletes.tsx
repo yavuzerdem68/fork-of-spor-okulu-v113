@@ -976,7 +976,7 @@ export default function Athletes() {
             continue;
           }
 
-          // Parse birth date - handle multiple formats including Excel date formats
+          // Enhanced birth date parsing - handle multiple formats including Excel date formats
           let parsedBirthDate = '';
           const birthDateField = studentData['Doğum Tarihi (DD.MM.YYYY)'] || studentData['Doğum Tarihi (DD/MM/YYYY)'] || studentData['Doğum Tarihi'];
           
@@ -984,28 +984,26 @@ export default function Athletes() {
             console.log('Processing birth date:', birthDateField, 'Type:', typeof birthDateField);
             
             // Handle Excel serial date numbers (Excel dates are stored as numbers)
-            if (typeof birthDateField === 'number' && birthDateField > 1000) {
+            if (typeof birthDateField === 'number' && birthDateField > 25569) { // Excel epoch starts from 1900-01-01
               const serialNumber = birthDateField;
               console.log('Excel serial number detected:', serialNumber);
               
-              // Excel serial date conversion with proper handling of Excel's leap year bug
-              // Excel incorrectly treats 1900 as a leap year
-              let adjustedDays = serialNumber;
+              // Convert Excel serial number to JavaScript Date
+              // Excel serial date: days since 1900-01-01 (with leap year bug)
+              const excelEpoch = new Date(1900, 0, 1);
+              let daysSinceEpoch = serialNumber - 1; // Excel is 1-indexed
               
-              // Adjust for Excel's 1-indexing and leap year bug
-              if (serialNumber > 59) {
-                adjustedDays = serialNumber - 2; // -1 for 1-indexing, -1 for leap year bug
-              } else {
-                adjustedDays = serialNumber - 1; // -1 for 1-indexing only
+              // Account for Excel's leap year bug (treats 1900 as leap year)
+              if (serialNumber >= 60) {
+                daysSinceEpoch = serialNumber - 2;
               }
               
-              const excelEpoch = new Date(1900, 0, 1);
-              const excelDate = new Date(excelEpoch.getTime() + adjustedDays * 24 * 60 * 60 * 1000);
+              const jsDate = new Date(excelEpoch.getTime() + daysSinceEpoch * 24 * 60 * 60 * 1000);
               
-              if (!isNaN(excelDate.getTime()) && excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2030) {
-                const day = excelDate.getDate().toString().padStart(2, '0');
-                const month = (excelDate.getMonth() + 1).toString().padStart(2, '0');
-                const year = excelDate.getFullYear().toString();
+              if (!isNaN(jsDate.getTime()) && jsDate.getFullYear() >= 1900 && jsDate.getFullYear() <= 2030) {
+                const day = jsDate.getDate().toString().padStart(2, '0');
+                const month = (jsDate.getMonth() + 1).toString().padStart(2, '0');
+                const year = jsDate.getFullYear().toString();
                 parsedBirthDate = `${year}-${month}-${day}`;
                 console.log('Converted Excel serial date to:', parsedBirthDate);
               }
@@ -1014,14 +1012,14 @@ export default function Athletes() {
             else {
               const birthDateStr = birthDateField.toString().trim();
               
-              if (birthDateStr) {
+              if (birthDateStr && birthDateStr !== '0' && birthDateStr !== 'undefined') {
                 // Handle DD.MM.YYYY or DD/MM/YYYY formats
-                if (birthDateStr.includes('.') || birthDateStr.includes('/')) {
+                if (birthDateStr.match(/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}$/)) {
                   const separator = birthDateStr.includes('.') ? '.' : '/';
                   const parts = birthDateStr.split(separator);
                   console.log('Date parts:', parts);
                   
-                  if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+                  if (parts.length === 3) {
                     let day = parts[0].trim();
                     let month = parts[1].trim();
                     let year = parts[2].trim();
@@ -1029,12 +1027,10 @@ export default function Athletes() {
                     // Handle 2-digit years
                     if (year.length === 2) {
                       const yearNum = parseInt(year);
-                      
-                      // If year is greater than 30, assume 19xx, otherwise 20xx
-                      if (yearNum > 30) {
-                        year = (1900 + yearNum).toString();
-                      } else {
+                      if (yearNum >= 0 && yearNum <= 30) {
                         year = (2000 + yearNum).toString();
+                      } else if (yearNum >= 31 && yearNum <= 99) {
+                        year = (1900 + yearNum).toString();
                       }
                     }
                     
@@ -1048,24 +1044,23 @@ export default function Athletes() {
                         monthNum >= 1 && monthNum <= 12 &&
                         yearNum >= 1900 && yearNum <= 2030) {
                       
-                      // Validate that it's a real date
+                      // Create and validate the date
                       const testDate = new Date(yearNum, monthNum - 1, dayNum);
                       if (testDate.getFullYear() === yearNum && 
                           testDate.getMonth() === monthNum - 1 && 
                           testDate.getDate() === dayNum) {
                         
-                        day = dayNum.toString().padStart(2, '0');
-                        month = monthNum.toString().padStart(2, '0');
+                        const formattedDay = dayNum.toString().padStart(2, '0');
+                        const formattedMonth = monthNum.toString().padStart(2, '0');
                         
-                        // Convert DD.MM.YYYY or DD/MM/YYYY to YYYY-MM-DD
-                        parsedBirthDate = `${year}-${month}-${day}`;
+                        parsedBirthDate = `${year}-${formattedMonth}-${formattedDay}`;
                         console.log('Converted date format to:', parsedBirthDate);
                       }
                     }
                   }
                 }
                 // Handle YYYY-MM-DD format
-                else if (birthDateStr.includes('-') && birthDateStr.length === 10) {
+                else if (birthDateStr.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
                   const dateParts = birthDateStr.split('-');
                   if (dateParts.length === 3) {
                     const year = parseInt(dateParts[0]);
@@ -1077,20 +1072,18 @@ export default function Athletes() {
                         month >= 1 && month <= 12 &&
                         day >= 1 && day <= 31) {
                       
-                      // Validate that it's a real date
                       const testDate = new Date(year, month - 1, day);
                       if (testDate.getFullYear() === year && 
                           testDate.getMonth() === month - 1 && 
                           testDate.getDate() === day) {
-                        parsedBirthDate = birthDateStr;
+                        parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                         console.log('Valid ISO date format:', parsedBirthDate);
                       }
                     }
                   }
                 }
-                // Handle other potential date formats
+                // Try to parse as a general date string
                 else {
-                  // Try to parse as a regular date
                   try {
                     const testDate = new Date(birthDateStr);
                     if (!isNaN(testDate.getTime()) && testDate.getFullYear() >= 1900 && testDate.getFullYear() <= 2030) {
@@ -1098,7 +1091,7 @@ export default function Athletes() {
                       const month = (testDate.getMonth() + 1).toString().padStart(2, '0');
                       const year = testDate.getFullYear().toString();
                       parsedBirthDate = `${year}-${month}-${day}`;
-                      console.log('Parsed as regular date:', parsedBirthDate);
+                      console.log('Parsed as general date:', parsedBirthDate);
                     }
                   } catch (e) {
                     console.log('Failed to parse date string:', e);
@@ -1108,7 +1101,7 @@ export default function Athletes() {
             }
             
             if (!parsedBirthDate) {
-              console.warn('Could not parse birth date:', birthDateField);
+              console.warn('Could not parse birth date:', birthDateField, 'Type:', typeof birthDateField);
             }
           }
 

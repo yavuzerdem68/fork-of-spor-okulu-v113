@@ -33,87 +33,88 @@ const cities = [
 
 interface NewAthleteFormProps {
   onClose: () => void;
+  athlete?: any; // For editing existing athlete
 }
 
-export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
+export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tcErrors, setTcErrors] = useState({
     studentTcNo: "",
     parentTcNo: ""
   });
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(athlete?.photo || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     // Öğrenci Bilgileri
-    studentName: "",
-    studentSurname: "",
-    studentTcNo: "",
-    studentBirthDate: "",
-    studentGender: "",
-    studentSchool: "",
-    studentClass: "",
-    selectedSports: [] as string[],
+    studentName: athlete?.studentName || "",
+    studentSurname: athlete?.studentSurname || "",
+    studentTcNo: athlete?.studentTcNo || "",
+    studentBirthDate: athlete?.studentBirthDate || "",
+    studentGender: athlete?.studentGender || "",
+    studentSchool: athlete?.studentSchool || "",
+    studentClass: athlete?.studentClass || "",
+    selectedSports: athlete?.sportsBranches || [],
     
     // Fiziksel Bilgiler
-    studentHeight: "",
-    studentWeight: "",
-    bloodType: "",
-    dominantHand: "",
-    dominantFoot: "",
-    sportsPosition: "",
+    studentHeight: athlete?.studentHeight || "",
+    studentWeight: athlete?.studentWeight || "",
+    bloodType: athlete?.bloodType || "",
+    dominantHand: athlete?.dominantHand || "",
+    dominantFoot: athlete?.dominantFoot || "",
+    sportsPosition: athlete?.sportsPosition || "",
     
     // Veli Bilgileri
-    parentName: "",
-    parentSurname: "",
-    parentTcNo: "",
-    parentPhone: "",
-    parentEmail: "",
-    parentRelation: "",
-    parentOccupation: "",
+    parentName: athlete?.parentName || "",
+    parentSurname: athlete?.parentSurname || "",
+    parentTcNo: athlete?.parentTcNo || "",
+    parentPhone: athlete?.parentPhone || "",
+    parentEmail: athlete?.parentEmail || "",
+    parentRelation: athlete?.parentRelation || "",
+    parentOccupation: athlete?.parentOccupation || "",
     
     // İkinci Veli Bilgileri
-    secondParentName: "",
-    secondParentSurname: "",
-    secondParentPhone: "",
-    secondParentEmail: "",
-    secondParentRelation: "",
+    secondParentName: athlete?.secondParentName || "",
+    secondParentSurname: athlete?.secondParentSurname || "",
+    secondParentPhone: athlete?.secondParentPhone || "",
+    secondParentEmail: athlete?.secondParentEmail || "",
+    secondParentRelation: athlete?.secondParentRelation || "",
     
     // İletişim Bilgileri
-    address: "",
-    city: "",
-    district: "",
-    postalCode: "",
+    address: athlete?.address || "",
+    city: athlete?.city || "",
+    district: athlete?.district || "",
+    postalCode: athlete?.postalCode || "",
     
     // Sağlık Bilgileri
-    hasHealthIssues: "",
-    healthIssuesDetail: "",
-    medications: "",
-    allergies: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    emergencyContactRelation: "",
-    specialDiet: "",
+    hasHealthIssues: athlete?.hasHealthIssues || "",
+    healthIssuesDetail: athlete?.healthIssuesDetail || "",
+    medications: athlete?.medications || "",
+    allergies: athlete?.allergies || "",
+    emergencyContactName: athlete?.emergencyContactName || "",
+    emergencyContactPhone: athlete?.emergencyContactPhone || "",
+    emergencyContactRelation: athlete?.emergencyContactRelation || "",
+    specialDiet: athlete?.specialDiet || "",
     
     // Sporcu Geçmişi
-    previousClubs: "",
-    achievements: "",
-    sportsGoals: "",
-    motivation: "",
+    previousClubs: athlete?.previousClubs || "",
+    achievements: athlete?.achievements || "",
+    sportsGoals: athlete?.sportsGoals || "",
+    motivation: athlete?.motivation || "",
     
     // Diğer Bilgiler
-    howDidYouHear: "",
-    previousSportsExperience: "",
-    expectations: "",
+    howDidYouHear: athlete?.howDidYouHear || "",
+    previousSportsExperience: athlete?.previousSportsExperience || "",
+    expectations: athlete?.expectations || "",
     
     // Onaylar
-    agreementAccepted: false,
-    dataProcessingAccepted: false,
-    photoVideoPermission: false,
+    agreementAccepted: athlete ? true : false,
+    dataProcessingAccepted: athlete ? true : false,
+    photoVideoPermission: athlete?.photoVideoPermission || false,
     
     // Photo
-    photo: ""
+    photo: athlete?.photo || ""
   });
 
   // TC Kimlik numarası validation function
@@ -239,9 +240,8 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
       // Calculate age from birth date
       const studentAge = calculateAge(formData.studentBirthDate);
 
-      // Create new student object
-      const newStudent = {
-        id: Date.now().toString(),
+      // Create student object
+      const studentData = {
         studentName: formData.studentName,
         studentSurname: formData.studentSurname,
         studentTcNo: formData.studentTcNo,
@@ -309,23 +309,37 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
         // Photo
         photo: formData.photo,
         
-        // System fields
-        status: 'Aktif',
-        paymentStatus: 'Güncel',
-        registrationDate: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        createdBy: 'admin'
+        // Update timestamp
+        updatedAt: new Date().toISOString()
       };
 
-      // Save to localStorage
       const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
-      existingStudents.push(newStudent);
-      localStorage.setItem('students', JSON.stringify(existingStudents));
 
-      toast.success("Sporcu başarıyla kaydedildi!");
-      
-      // Trigger a page reload to refresh the athletes list
-      window.location.reload();
+      if (athlete) {
+        // Update existing athlete
+        const updatedStudents = existingStudents.map((student: any) => 
+          student.id === athlete.id 
+            ? { ...student, ...studentData }
+            : student
+        );
+        localStorage.setItem('students', JSON.stringify(updatedStudents));
+        toast.success("Sporcu bilgileri başarıyla güncellendi!");
+      } else {
+        // Create new athlete
+        const newStudent = {
+          ...studentData,
+          id: Date.now().toString(),
+          status: 'Aktif',
+          paymentStatus: 'Güncel',
+          registrationDate: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          createdBy: 'admin'
+        };
+        
+        existingStudents.push(newStudent);
+        localStorage.setItem('students', JSON.stringify(existingStudents));
+        toast.success("Sporcu başarıyla kaydedildi!");
+      }
       
       onClose();
     } catch (err) {
@@ -901,7 +915,10 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
           İptal
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? "Kayıt yapılıyor..." : "Sporcu Kaydet"}
+          {loading 
+            ? (athlete ? "Güncelleniyor..." : "Kayıt yapılıyor...") 
+            : (athlete ? "Sporcu Güncelle" : "Sporcu Kaydet")
+          }
         </Button>
       </div>
     </form>
