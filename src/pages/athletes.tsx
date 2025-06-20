@@ -831,6 +831,115 @@ export default function Athletes() {
     }
   };
 
+  // Process bulk fee entry
+  const processBulkFeeEntry = async () => {
+    if (!bulkFeeUploadFile) return;
+
+    try {
+      const data = await bulkFeeUploadFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      console.log('Processing bulk fee data:', jsonData);
+      
+      if (jsonData.length === 0) {
+        alert('Excel dosyasında işlenecek veri bulunamadı!');
+        return;
+      }
+
+      let processedCount = 0;
+      let errorCount = 0;
+      const currentMonth = new Date().toISOString().slice(0, 7);
+
+      for (const row of jsonData) {
+        try {
+          const feeData = row as any;
+          
+          // Skip empty rows
+          if (!feeData['Sporcu Adı Soyadı'] || !feeData['Tutar']) {
+            continue;
+          }
+
+          // Find athlete by name
+          const athleteName = feeData['Sporcu Adı Soyadı'].toString().trim();
+          const athlete = athletes.find(a => 
+            `${a.studentName} ${a.studentSurname}`.toLowerCase() === athleteName.toLowerCase()
+          );
+
+          if (!athlete) {
+            console.warn(`Athlete not found: ${athleteName}`);
+            errorCount++;
+            continue;
+          }
+
+          // Parse fee data
+          const description = feeData['Açıklama']?.toString() || 'Toplu Aidat Girişi';
+          const amountExcludingVat = parseFloat(feeData['Tutar']) || 0;
+          const vatRate = parseFloat(feeData['KDV Oranı (%)']) || 10;
+          const unitCode = feeData['Birim Kod']?.toString() || 'Ay';
+
+          if (amountExcludingVat <= 0) {
+            console.warn(`Invalid amount for athlete: ${athleteName}`);
+            errorCount++;
+            continue;
+          }
+
+          // Calculate VAT
+          const vatAmount = (amountExcludingVat * vatRate) / 100;
+          const amountIncludingVat = amountExcludingVat + vatAmount;
+
+          // Create account entry
+          const entry = {
+            id: Date.now() + Math.random(),
+            date: new Date().toISOString(),
+            month: currentMonth,
+            description: description,
+            amountExcludingVat: amountExcludingVat,
+            vatRate: vatRate,
+            vatAmount: vatAmount,
+            amountIncludingVat: amountIncludingVat,
+            unitCode: unitCode,
+            type: 'debit'
+          };
+
+          // Save to athlete's account
+          const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+          const updatedEntries = [...existingEntries, entry];
+          localStorage.setItem(`account_${athlete.id}`, JSON.stringify(updatedEntries));
+
+          processedCount++;
+
+        } catch (rowError) {
+          console.error('Error processing fee row:', rowError);
+          errorCount++;
+        }
+      }
+
+      if (processedCount === 0) {
+        alert('İşlenecek geçerli aidat kaydı bulunamadı!');
+        return;
+      }
+
+      let message = `✅ Toplu aidat girişi tamamlandı!\n\n`;
+      message += `📊 İşlem Özeti:\n`;
+      message += `• İşlenen aidat kaydı: ${processedCount}\n`;
+      if (errorCount > 0) {
+        message += `• Hatalı kayıt: ${errorCount}\n`;
+      }
+      message += `• Dönem: ${new Date(currentMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}`;
+      
+      alert(message);
+      
+      setBulkFeeUploadFile(null);
+      setIsBulkFeeDialogOpen(false);
+    } catch (error) {
+      console.error('Error processing bulk fee entry:', error);
+      alert('Dosya işlenirken hata oluştu! Lütfen dosya formatını kontrol edin.\n\nHata: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
+    }
+  };
+
   // Process bulk upload with duplicate merging and parent credential generation
   const processBulkUpload = async () => {
     if (!bulkUploadFile) return;
@@ -840,7 +949,7 @@ export default function Athletes() {
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'dd.mm.yyyy' });
       
       console.log('Processing bulk upload data:', jsonData);
       
@@ -867,12 +976,27 @@ export default function Athletes() {
             continue;
           }
 
-          // Parse birth date - handle both DD.MM.YYYY and DD/MM/YYYY formats
+          // Parse birth date - handle multiple formats including Excel date formats
           let parsedBirthDate = '';
-          const birthDateField = studentData['Doğum Tarihi (DD.MM.YYYY)'] || studentData['Doğum Tarihi (DD/MM/YYYY)'];
+          const birthDateField = studentData['Doğum Tarihi (DD.MM.YYYY)'] || studentData['Doğum Tarihi (DD/MM/YYYY)'] || studentData['Doğum Tarihi'];
+          
           if (birthDateField) {
             const birthDateStr = birthDateField.toString().trim();
-            if (birthDateStr && (birthDateStr.includes('.') || birthDateStr.includes('/'))) {
+            console.log('Processing birth date:', birthDateStr);
+            
+            // Handle Excel serial date numbers
+            if (!isNaN(Number(birthDateStr)) && Number(birthDateStr) > 25000) {
+              // Excel serial date
+              const excelDate = new Date((Number(birthDateStr) - 25569) * 86400 * 1000);
+              if (!isNaN(excelDate.getTime())) {
+                const day = excelDate.getDate().toString().padStart(2, '0');
+                const month = (excelDate.getMonth() + 1).toString().padStart(2, '0');
+                const year = excelDate.getFullYear().toString();
+                parsedBirthDate = `${year}-${month}-${day}`;
+              }
+            }
+            // Handle DD.MM.YYYY or DD/MM/YYYY formats
+            else if (birthDateStr.includes('.') || birthDateStr.includes('/')) {
               const separator = birthDateStr.includes('.') ? '.' : '/';
               const parts = birthDateStr.split(separator);
               if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
@@ -888,6 +1012,10 @@ export default function Athletes() {
                 }
               }
             }
+            // Handle YYYY-MM-DD format
+            else if (birthDateStr.includes('-') && birthDateStr.length === 10) {
+              parsedBirthDate = birthDateStr;
+            }
           }
 
           // Parse sports branches
@@ -900,15 +1028,27 @@ export default function Athletes() {
               .filter((branch: string) => branch.length > 0);
           }
 
+          // Process parent phone number - add +90 prefix if not present
+          let parentPhone = studentData['Veli Telefon']?.toString() || '';
+          if (parentPhone && !parentPhone.startsWith('+90')) {
+            // Remove any existing country codes or formatting
+            parentPhone = parentPhone.replace(/^\+?90?/, '').replace(/\D/g, '');
+            // Add +90 prefix
+            if (parentPhone.length >= 10) {
+              parentPhone = '+90' + parentPhone.slice(-10);
+            }
+          }
+
           // Check for duplicates based on name and TC
-          const existingStudent = existingStudents.find((student: any) => 
+          const existingStudentIndex = existingStudents.findIndex((student: any) => 
             (student.studentName?.toLowerCase() === studentData['Öğrenci Adı']?.toString().toLowerCase() && 
              student.studentSurname?.toLowerCase() === studentData['Öğrenci Soyadı']?.toString().toLowerCase()) ||
             (studentData['TC Kimlik No'] && student.studentTcNo === studentData['TC Kimlik No']?.toString())
           );
 
-          if (existingStudent) {
+          if (existingStudentIndex !== -1) {
             // Merge duplicate - update existing student with new information
+            const existingStudent = existingStudents[existingStudentIndex];
             const updatedStudent = {
               ...existingStudent,
               // Update fields if new data is provided
@@ -922,13 +1062,14 @@ export default function Athletes() {
               parentName: studentData['Veli Adı']?.toString() || existingStudent.parentName,
               parentSurname: studentData['Veli Soyadı']?.toString() || existingStudent.parentSurname,
               parentTcNo: studentData['Veli TC Kimlik No']?.toString() || existingStudent.parentTcNo,
-              parentPhone: studentData['Veli Telefon']?.toString() || existingStudent.parentPhone,
+              parentPhone: parentPhone || existingStudent.parentPhone,
               parentEmail: studentData['Veli Email']?.toString() || existingStudent.parentEmail,
               parentRelation: studentData['Yakınlık Derecesi']?.toString() || existingStudent.parentRelation,
               updatedAt: new Date().toISOString()
             };
             
-            mergedStudents.push(updatedStudent);
+            // Update the existing student in the array
+            existingStudents[existingStudentIndex] = updatedStudent;
             mergedCount++;
             continue;
           }
@@ -945,7 +1086,7 @@ export default function Athletes() {
             parentName: studentData['Veli Adı']?.toString() || '',
             parentSurname: studentData['Veli Soyadı']?.toString() || '',
             parentTcNo: studentData['Veli TC Kimlik No']?.toString() || '',
-            parentPhone: studentData['Veli Telefon']?.toString() || '',
+            parentPhone: parentPhone,
             parentEmail: studentData['Veli Email']?.toString() || '',
             parentRelation: studentData['Yakınlık Derecesi']?.toString() || 'Veli',
             status: 'Aktif',
@@ -982,14 +1123,8 @@ export default function Athletes() {
         }
       }
 
-      // Update existing students with merged data
-      let updatedStudents = existingStudents.map((student: any) => {
-        const mergedStudent = mergedStudents.find(merged => merged.id === student.id);
-        return mergedStudent || student;
-      });
-
-      // Add new students
-      updatedStudents = [...updatedStudents, ...newStudents];
+      // Combine existing students (with merged updates) and new students
+      const updatedStudents = [...existingStudents, ...newStudents];
 
       if (newStudents.length === 0 && mergedCount === 0) {
         let message = 'İşlenecek yeni sporcu bulunamadı.';
@@ -1332,9 +1467,15 @@ export default function Athletes() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={athlete.status === 'Aktif' ? 'default' : 'secondary'}>
-                              {athlete.status || 'Aktif'}
-                            </Badge>
+                            {athlete.status === 'Pasif' ? (
+                              <Badge variant="destructive" className="bg-red-500 text-white">
+                                PASİF
+                              </Badge>
+                            ) : (
+                              <Badge variant="default">
+                                {athlete.status || 'Aktif'}
+                              </Badge>
+                            )}
                           </TableCell>
                           {userRole === 'admin' && (
                             <TableCell>
@@ -1649,8 +1790,514 @@ export default function Athletes() {
             </DialogContent>
           </Dialog>
 
-          {/* Note: Other dialogs (View, Edit, Delete, Account, Status, Bulk Fee) would be added here */}
-          {/* For brevity, I'm not including all dialogs in this implementation */}
+          {/* Bulk Fee Entry Dialog */}
+          <Dialog open={isBulkFeeDialogOpen} onOpenChange={setIsBulkFeeDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Calculator className="h-5 w-5" />
+                  <span>Toplu Aidat Girişi</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Excel dosyası ile birden fazla sporcu için aidat girişi yapın
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Template Download */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">1. Şablon İndir</CardTitle>
+                    <CardDescription>
+                      Önce Excel şablonunu indirin ve aidat bilgilerini doldurun
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button onClick={generateBulkFeeTemplate} variant="outline" className="w-full">
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Toplu Aidat Şablonunu İndir
+                    </Button>
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">Şablon Bilgileri:</h4>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• Aktif sporcuların listesini içerir</li>
+                        <li>• Açıklama, Tutar, KDV Oranı alanlarını doldurun</li>
+                        <li>• Toplam otomatik hesaplanır</li>
+                        <li>• Birim kodu varsayılan olarak "Ay" gelir</li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* File Upload */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">2. Dosya Yükle</CardTitle>
+                    <CardDescription>
+                      Doldurduğunuz Excel dosyasını seçin
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setBulkFeeUploadFile(file);
+                          }}
+                          className="hidden"
+                          id="bulk-fee-file"
+                        />
+                        <label htmlFor="bulk-fee-file" className="cursor-pointer">
+                          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-lg font-medium text-gray-900 mb-2">
+                            Excel dosyasını seçin
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            .xlsx veya .xls formatında olmalıdır
+                          </p>
+                        </label>
+                      </div>
+
+                      {bulkFeeUploadFile && (
+                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                            <span className="text-sm font-medium text-green-900">
+                              {bulkFeeUploadFile.name}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setBulkFeeUploadFile(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {bulkFeeUploadFile && (
+                        <Button 
+                          onClick={processBulkFeeEntry}
+                          className="w-full"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Toplu Aidat Girişini İşle
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsBulkFeeDialogOpen(false);
+                    setBulkFeeUploadFile(null);
+                  }}
+                >
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* View Dialog */}
+          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Eye className="h-5 w-5" />
+                  <span>Sporcu Detayları</span>
+                </DialogTitle>
+              </DialogHeader>
+              
+              {selectedAthleteForView && (
+                <div className="space-y-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-20 h-20 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center overflow-hidden">
+                      {selectedAthleteForView.photo ? (
+                        <img 
+                          src={selectedAthleteForView.photo} 
+                          alt={`${selectedAthleteForView.studentName} ${selectedAthleteForView.studentSurname}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getInitials(selectedAthleteForView.studentName, selectedAthleteForView.studentSurname)
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold">
+                        {selectedAthleteForView.studentName} {selectedAthleteForView.studentSurname}
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Kayıt Tarihi: {new Date(selectedAthleteForView.registrationDate || selectedAthleteForView.createdAt).toLocaleDateString('tr-TR')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Sporcu Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">TC Kimlik No</Label>
+                          <p className="font-medium">{selectedAthleteForView.studentTcNo || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Doğum Tarihi</Label>
+                          <p className="font-medium">{formatBirthDate(selectedAthleteForView.studentBirthDate)}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Yaş</Label>
+                          <p className="font-medium">{selectedAthleteForView.studentAge || calculateAge(selectedAthleteForView.studentBirthDate)}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Cinsiyet</Label>
+                          <p className="font-medium">{selectedAthleteForView.studentGender || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Spor Branşları</Label>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {selectedAthleteForView.sportsBranches?.map((branch: string, idx: number) => (
+                              <Badge key={idx} variant="outline">{branch}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Veli Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Ad Soyad</Label>
+                          <p className="font-medium">{selectedAthleteForView.parentName} {selectedAthleteForView.parentSurname}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">TC Kimlik No</Label>
+                          <p className="font-medium">{selectedAthleteForView.parentTcNo || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Telefon</Label>
+                          <p className="font-medium">{selectedAthleteForView.parentPhone}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                          <p className="font-medium">{selectedAthleteForView.parentEmail}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Yakınlık</Label>
+                          <p className="font-medium">{selectedAthleteForView.parentRelation || 'Veli'}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Edit className="h-5 w-5" />
+                  <span>Sporcu Düzenle</span>
+                </DialogTitle>
+              </DialogHeader>
+              
+              {selectedAthleteForEdit && (
+                <NewAthleteForm 
+                  athlete={selectedAthleteForEdit}
+                  onClose={() => {
+                    setIsEditDialogOpen(false);
+                    setSelectedAthleteForEdit(null);
+                    loadAthletes(userRole!, currentUser);
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Dialog */}
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Trash2 className="h-5 w-5 text-red-500" />
+                  <span>Sporcu Sil</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Bu işlem geri alınamaz. Sporcu kaydı ve tüm ilişkili veriler silinecektir.
+                </DialogDescription>
+              </DialogHeader>
+              
+              {selectedAthleteForDelete && (
+                <div className="py-4">
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>{selectedAthleteForDelete.studentName} {selectedAthleteForDelete.studentSurname}</strong> adlı sporcuyu silmek istediğinizden emin misiniz?
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                  İptal
+                </Button>
+                <Button variant="destructive" onClick={deleteAthlete}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Sil
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Status Change Dialog */}
+          <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <ToggleRight className="h-5 w-5" />
+                  <span>Sporcu Durumu Değiştir</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Sporcunun aktif/pasif durumunu değiştirin
+                </DialogDescription>
+              </DialogHeader>
+              
+              {selectedAthleteForStatus && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="font-medium">
+                      {selectedAthleteForStatus.studentName} {selectedAthleteForStatus.studentSurname}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Mevcut Durum: <Badge variant={selectedAthleteForStatus.status === 'Aktif' ? 'default' : 'secondary'}>
+                        {selectedAthleteForStatus.status || 'Aktif'}
+                      </Badge>
+                    </p>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => changeAthleteStatus('Aktif')}
+                      disabled={selectedAthleteForStatus.status === 'Aktif'}
+                    >
+                      <ToggleRight className="h-4 w-4 mr-2 text-green-600" />
+                      Aktif Yap
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => changeAthleteStatus('Pasif')}
+                      disabled={selectedAthleteForStatus.status === 'Pasif'}
+                    >
+                      <ToggleLeft className="h-4 w-4 mr-2 text-gray-400" />
+                      Pasif Yap
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Account Dialog */}
+          <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Calculator className="h-5 w-5" />
+                  <span>Cari Hesap</span>
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedAthlete && `${selectedAthlete.studentName} ${selectedAthlete.studentSurname} - Cari Hesap Hareketleri`}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Balance Summary */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Toplam Bakiye</p>
+                        <p className={`text-2xl font-bold ${getTotalBalance() >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ₺{getTotalBalance().toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Toplam Hareket</p>
+                        <p className="text-lg font-medium">{accountEntries.length}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Add New Entry */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Yeni Hareket Ekle</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="month">Ay</Label>
+                        <Input
+                          id="month"
+                          type="month"
+                          value={newEntry.month}
+                          onChange={(e) => setNewEntry(prev => ({ ...prev, month: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="description">Açıklama</Label>
+                        <Input
+                          id="description"
+                          placeholder="Örn: Haziran Aidatı"
+                          value={newEntry.description}
+                          onChange={(e) => setNewEntry(prev => ({ ...prev, description: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="type">İşlem Türü</Label>
+                        <Select value={newEntry.type} onValueChange={(value) => setNewEntry(prev => ({ ...prev, type: value }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="debit">Borç</SelectItem>
+                            <SelectItem value="credit">Alacak</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="amountExcludingVat">Tutar (KDV Hariç)</Label>
+                        <Input
+                          id="amountExcludingVat"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={newEntry.amountExcludingVat}
+                          onChange={(e) => calculateVatAmount(e.target.value, newEntry.vatRate)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="vatRate">KDV Oranı (%)</Label>
+                        <Select value={newEntry.vatRate} onValueChange={(value) => calculateVatAmount(newEntry.amountExcludingVat, value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="amountIncludingVat">Toplam (KDV Dahil)</Label>
+                        <Input
+                          id="amountIncludingVat"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={newEntry.amountIncludingVat}
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <Button onClick={saveAccountEntry}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Hareket Ekle
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Account Entries Table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Cari Hesap Hareketleri</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {accountEntries.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tarih</TableHead>
+                            <TableHead>Ay</TableHead>
+                            <TableHead>Açıklama</TableHead>
+                            <TableHead>Tür</TableHead>
+                            <TableHead>Tutar (KDV Hariç)</TableHead>
+                            <TableHead>KDV</TableHead>
+                            <TableHead>Toplam</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {accountEntries.map((entry) => (
+                            <TableRow key={entry.id}>
+                              <TableCell>{new Date(entry.date).toLocaleDateString('tr-TR')}</TableCell>
+                              <TableCell>{new Date(entry.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</TableCell>
+                              <TableCell>{entry.description}</TableCell>
+                              <TableCell>
+                                <Badge variant={entry.type === 'debit' ? 'destructive' : 'default'}>
+                                  {entry.type === 'debit' ? 'Borç' : 'Alacak'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>₺{entry.amountExcludingVat.toFixed(2)}</TableCell>
+                              <TableCell>₺{entry.vatAmount.toFixed(2)} (%{entry.vatRate})</TableCell>
+                              <TableCell className={entry.type === 'debit' ? 'text-red-600' : 'text-green-600'}>
+                                {entry.type === 'debit' ? '+' : '-'}₺{entry.amountIncludingVat.toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Calculator className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Henüz cari hesap hareketi bulunmuyor</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setIsAccountDialogOpen(false)}>
+                  Kapat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>
