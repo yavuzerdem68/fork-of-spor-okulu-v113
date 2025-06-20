@@ -980,108 +980,135 @@ export default function Athletes() {
           let parsedBirthDate = '';
           const birthDateField = studentData['Doğum Tarihi (DD.MM.YYYY)'] || studentData['Doğum Tarihi (DD/MM/YYYY)'] || studentData['Doğum Tarihi'];
           
-          if (birthDateField) {
-            const birthDateStr = birthDateField.toString().trim();
-            console.log('Processing birth date:', birthDateStr, 'Type:', typeof birthDateField);
+          if (birthDateField !== undefined && birthDateField !== null && birthDateField !== '') {
+            console.log('Processing birth date:', birthDateField, 'Type:', typeof birthDateField);
             
             // Handle Excel serial date numbers (Excel dates are stored as numbers)
-            if (!isNaN(Number(birthDateStr)) && Number(birthDateStr) > 1000) {
-              const serialNumber = Number(birthDateStr);
+            if (typeof birthDateField === 'number' && birthDateField > 1000) {
+              const serialNumber = birthDateField;
               console.log('Excel serial number detected:', serialNumber);
               
-              // Excel serial date conversion (Excel epoch starts from 1900-01-01, but has a leap year bug)
-              let excelDate;
+              // Excel serial date conversion with proper handling of Excel's leap year bug
+              // Excel incorrectly treats 1900 as a leap year
+              let adjustedDays = serialNumber;
+              
+              // Adjust for Excel's 1-indexing and leap year bug
               if (serialNumber > 59) {
-                // After Feb 28, 1900 (Excel's leap year bug)
-                excelDate = new Date((serialNumber - 25569) * 86400 * 1000);
+                adjustedDays = serialNumber - 2; // -1 for 1-indexing, -1 for leap year bug
               } else {
-                excelDate = new Date((serialNumber - 25568) * 86400 * 1000);
+                adjustedDays = serialNumber - 1; // -1 for 1-indexing only
               }
               
-              if (!isNaN(excelDate.getTime()) && excelDate.getFullYear() > 1900 && excelDate.getFullYear() < 2030) {
+              const excelEpoch = new Date(1900, 0, 1);
+              const excelDate = new Date(excelEpoch.getTime() + adjustedDays * 24 * 60 * 60 * 1000);
+              
+              if (!isNaN(excelDate.getTime()) && excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2030) {
                 const day = excelDate.getDate().toString().padStart(2, '0');
                 const month = (excelDate.getMonth() + 1).toString().padStart(2, '0');
                 const year = excelDate.getFullYear().toString();
                 parsedBirthDate = `${year}-${month}-${day}`;
-                console.log('Converted Excel date to:', parsedBirthDate);
+                console.log('Converted Excel serial date to:', parsedBirthDate);
               }
             }
-            // Handle DD.MM.YYYY or DD/MM/YYYY formats
-            else if (birthDateStr.includes('.') || birthDateStr.includes('/')) {
-              const separator = birthDateStr.includes('.') ? '.' : '/';
-              const parts = birthDateStr.split(separator);
-              console.log('Date parts:', parts);
+            // Handle string dates
+            else {
+              const birthDateStr = birthDateField.toString().trim();
               
-              if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-                let day = parts[0].trim();
-                let month = parts[1].trim();
-                let year = parts[2].trim();
-                
-                // Handle 2-digit years
-                if (year.length === 2) {
-                  const currentYear = new Date().getFullYear();
-                  const currentCentury = Math.floor(currentYear / 100) * 100;
-                  const yearNum = parseInt(year);
+              if (birthDateStr) {
+                // Handle DD.MM.YYYY or DD/MM/YYYY formats
+                if (birthDateStr.includes('.') || birthDateStr.includes('/')) {
+                  const separator = birthDateStr.includes('.') ? '.' : '/';
+                  const parts = birthDateStr.split(separator);
+                  console.log('Date parts:', parts);
                   
-                  // If year is less than 30, assume it's 20xx, otherwise 19xx
-                  if (yearNum <= 30) {
-                    year = (currentCentury + yearNum).toString();
-                  } else {
-                    year = (currentCentury - 100 + yearNum).toString();
+                  if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+                    let day = parts[0].trim();
+                    let month = parts[1].trim();
+                    let year = parts[2].trim();
+                    
+                    // Handle 2-digit years
+                    if (year.length === 2) {
+                      const yearNum = parseInt(year);
+                      
+                      // If year is greater than 30, assume 19xx, otherwise 20xx
+                      if (yearNum > 30) {
+                        year = (1900 + yearNum).toString();
+                      } else {
+                        year = (2000 + yearNum).toString();
+                      }
+                    }
+                    
+                    // Validate and format date parts
+                    const dayNum = parseInt(day);
+                    const monthNum = parseInt(month);
+                    const yearNum = parseInt(year);
+                    
+                    if (!isNaN(dayNum) && !isNaN(monthNum) && !isNaN(yearNum) &&
+                        dayNum >= 1 && dayNum <= 31 &&
+                        monthNum >= 1 && monthNum <= 12 &&
+                        yearNum >= 1900 && yearNum <= 2030) {
+                      
+                      // Validate that it's a real date
+                      const testDate = new Date(yearNum, monthNum - 1, dayNum);
+                      if (testDate.getFullYear() === yearNum && 
+                          testDate.getMonth() === monthNum - 1 && 
+                          testDate.getDate() === dayNum) {
+                        
+                        day = dayNum.toString().padStart(2, '0');
+                        month = monthNum.toString().padStart(2, '0');
+                        
+                        // Convert DD.MM.YYYY or DD/MM/YYYY to YYYY-MM-DD
+                        parsedBirthDate = `${year}-${month}-${day}`;
+                        console.log('Converted date format to:', parsedBirthDate);
+                      }
+                    }
                   }
                 }
-                
-                // Validate and format date parts
-                const dayNum = parseInt(day);
-                const monthNum = parseInt(month);
-                const yearNum = parseInt(year);
-                
-                if (!isNaN(dayNum) && !isNaN(monthNum) && !isNaN(yearNum) &&
-                    dayNum >= 1 && dayNum <= 31 &&
-                    monthNum >= 1 && monthNum <= 12 &&
-                    yearNum >= 1900 && yearNum <= 2030) {
-                  
-                  day = dayNum.toString().padStart(2, '0');
-                  month = monthNum.toString().padStart(2, '0');
-                  
-                  // Convert DD.MM.YYYY or DD/MM/YYYY to YYYY-MM-DD
-                  parsedBirthDate = `${year}-${month}-${day}`;
-                  console.log('Converted date format to:', parsedBirthDate);
+                // Handle YYYY-MM-DD format
+                else if (birthDateStr.includes('-') && birthDateStr.length === 10) {
+                  const dateParts = birthDateStr.split('-');
+                  if (dateParts.length === 3) {
+                    const year = parseInt(dateParts[0]);
+                    const month = parseInt(dateParts[1]);
+                    const day = parseInt(dateParts[2]);
+                    
+                    if (!isNaN(year) && !isNaN(month) && !isNaN(day) &&
+                        year >= 1900 && year <= 2030 &&
+                        month >= 1 && month <= 12 &&
+                        day >= 1 && day <= 31) {
+                      
+                      // Validate that it's a real date
+                      const testDate = new Date(year, month - 1, day);
+                      if (testDate.getFullYear() === year && 
+                          testDate.getMonth() === month - 1 && 
+                          testDate.getDate() === day) {
+                        parsedBirthDate = birthDateStr;
+                        console.log('Valid ISO date format:', parsedBirthDate);
+                      }
+                    }
+                  }
                 }
-              }
-            }
-            // Handle YYYY-MM-DD format
-            else if (birthDateStr.includes('-') && birthDateStr.length === 10) {
-              const dateParts = birthDateStr.split('-');
-              if (dateParts.length === 3) {
-                const year = parseInt(dateParts[0]);
-                const month = parseInt(dateParts[1]);
-                const day = parseInt(dateParts[2]);
-                
-                if (!isNaN(year) && !isNaN(month) && !isNaN(day) &&
-                    year >= 1900 && year <= 2030 &&
-                    month >= 1 && month <= 12 &&
-                    day >= 1 && day <= 31) {
-                  parsedBirthDate = birthDateStr;
-                  console.log('Valid ISO date format:', parsedBirthDate);
+                // Handle other potential date formats
+                else {
+                  // Try to parse as a regular date
+                  try {
+                    const testDate = new Date(birthDateStr);
+                    if (!isNaN(testDate.getTime()) && testDate.getFullYear() >= 1900 && testDate.getFullYear() <= 2030) {
+                      const day = testDate.getDate().toString().padStart(2, '0');
+                      const month = (testDate.getMonth() + 1).toString().padStart(2, '0');
+                      const year = testDate.getFullYear().toString();
+                      parsedBirthDate = `${year}-${month}-${day}`;
+                      console.log('Parsed as regular date:', parsedBirthDate);
+                    }
+                  } catch (e) {
+                    console.log('Failed to parse date string:', e);
+                  }
                 }
-              }
-            }
-            // Handle other potential date formats
-            else {
-              // Try to parse as a regular date
-              const testDate = new Date(birthDateStr);
-              if (!isNaN(testDate.getTime()) && testDate.getFullYear() > 1900 && testDate.getFullYear() < 2030) {
-                const day = testDate.getDate().toString().padStart(2, '0');
-                const month = (testDate.getMonth() + 1).toString().padStart(2, '0');
-                const year = testDate.getFullYear().toString();
-                parsedBirthDate = `${year}-${month}-${day}`;
-                console.log('Parsed as regular date:', parsedBirthDate);
               }
             }
             
             if (!parsedBirthDate) {
-              console.warn('Could not parse birth date:', birthDateStr);
+              console.warn('Could not parse birth date:', birthDateField);
             }
           }
 
@@ -1106,30 +1133,109 @@ export default function Athletes() {
             }
           }
 
-          // Check for duplicates based on name, surname and TC number with better matching
-          const studentName = studentData['Öğrenci Adı']?.toString().trim().toLowerCase();
-          const studentSurname = studentData['Öğrenci Soyadı']?.toString().trim().toLowerCase();
+          // Enhanced duplicate detection with multiple criteria
+          const studentName = studentData['Öğrenci Adı']?.toString().trim();
+          const studentSurname = studentData['Öğrenci Soyadı']?.toString().trim();
           const studentTcNo = studentData['TC Kimlik No']?.toString().trim();
+          const parentName = studentData['Veli Adı']?.toString().trim();
+          const parentSurname = studentData['Veli Soyadı']?.toString().trim();
+          const parentPhone = studentData['Veli Telefon']?.toString().trim();
           
-          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo });
+          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo, parentName, parentSurname, parentPhone });
           
           const existingStudentIndex = existingStudents.findIndex((student: any) => {
-            // Check by TC number first (most reliable)
-            if (studentTcNo && student.studentTcNo && 
-                studentTcNo === student.studentTcNo.toString().trim()) {
-              console.log('Duplicate found by TC:', studentTcNo);
-              return true;
+            // Priority 1: Check by TC number (most reliable)
+            if (studentTcNo && student.studentTcNo && studentTcNo.length >= 10) {
+              const normalizedNewTc = studentTcNo.replace(/\D/g, '');
+              const normalizedExistingTc = student.studentTcNo.toString().replace(/\D/g, '');
+              if (normalizedNewTc === normalizedExistingTc && normalizedNewTc.length >= 10) {
+                console.log('Duplicate found by TC number:', studentTcNo);
+                return true;
+              }
             }
             
-            // Check by name and surname combination
-            if (studentName && studentSurname && 
-                student.studentName && student.studentSurname) {
-              const existingName = student.studentName.toString().trim().toLowerCase();
-              const existingSurname = student.studentSurname.toString().trim().toLowerCase();
+            // Priority 2: Check by exact name and surname match (case-insensitive)
+            if (studentName && studentSurname && student.studentName && student.studentSurname) {
+              const newNameLower = studentName.toLowerCase().trim();
+              const newSurnameLower = studentSurname.toLowerCase().trim();
+              const existingNameLower = student.studentName.toString().toLowerCase().trim();
+              const existingSurnameLower = student.studentSurname.toString().toLowerCase().trim();
               
-              if (studentName === existingName && studentSurname === existingSurname) {
-                console.log('Duplicate found by name:', studentName, studentSurname);
+              if (newNameLower === existingNameLower && newSurnameLower === existingSurnameLower) {
+                console.log('Duplicate found by exact name match:', studentName, studentSurname);
                 return true;
+              }
+            }
+            
+            // Priority 3: Check by parent phone number (if student names are similar)
+            if (parentPhone && student.parentPhone && studentName && studentSurname && student.studentName && student.studentSurname) {
+              const normalizedNewPhone = parentPhone.replace(/\D/g, '').slice(-10);
+              const normalizedExistingPhone = student.parentPhone.toString().replace(/\D/g, '').slice(-10);
+              
+              if (normalizedNewPhone === normalizedExistingPhone && normalizedNewPhone.length >= 10) {
+                // Check if student names are similar (allowing for minor differences)
+                const newNameLower = studentName.toLowerCase().trim();
+                const newSurnameLower = studentSurname.toLowerCase().trim();
+                const existingNameLower = student.studentName.toString().toLowerCase().trim();
+                const existingSurnameLower = student.studentSurname.toString().toLowerCase().trim();
+                
+                // Calculate similarity for names
+                const namesSimilar = (
+                  newNameLower === existingNameLower ||
+                  (Math.abs(newNameLower.length - existingNameLower.length) <= 2 &&
+                   (newNameLower.includes(existingNameLower.substring(0, Math.min(3, existingNameLower.length))) ||
+                    existingNameLower.includes(newNameLower.substring(0, Math.min(3, newNameLower.length)))))
+                );
+                
+                const surnamesSimilar = (
+                  newSurnameLower === existingSurnameLower ||
+                  (Math.abs(newSurnameLower.length - existingSurnameLower.length) <= 2 &&
+                   (newSurnameLower.includes(existingSurnameLower.substring(0, Math.min(3, existingSurnameLower.length))) ||
+                    existingSurnameLower.includes(newSurnameLower.substring(0, Math.min(3, newSurnameLower.length)))))
+                );
+                
+                if (namesSimilar && surnamesSimilar) {
+                  console.log('Duplicate found by parent phone and similar names:', parentPhone, studentName, studentSurname);
+                  return true;
+                }
+              }
+            }
+            
+            // Priority 4: Check by parent name combination with student name similarity
+            if (parentName && parentSurname && student.parentName && student.parentSurname &&
+                studentName && studentSurname && student.studentName && student.studentSurname) {
+              
+              const newParentNameLower = parentName.toLowerCase().trim();
+              const newParentSurnameLower = parentSurname.toLowerCase().trim();
+              const existingParentNameLower = student.parentName.toString().toLowerCase().trim();
+              const existingParentSurnameLower = student.parentSurname.toString().toLowerCase().trim();
+              
+              // Check if parent names match exactly
+              if (newParentNameLower === existingParentNameLower && newParentSurnameLower === existingParentSurnameLower) {
+                // Check if student names are reasonably similar
+                const newNameLower = studentName.toLowerCase().trim();
+                const newSurnameLower = studentSurname.toLowerCase().trim();
+                const existingNameLower = student.studentName.toString().toLowerCase().trim();
+                const existingSurnameLower = student.studentSurname.toString().toLowerCase().trim();
+                
+                const namesSimilar = (
+                  newNameLower === existingNameLower ||
+                  (newNameLower.length >= 3 && existingNameLower.length >= 3 &&
+                   (newNameLower.includes(existingNameLower.substring(0, 3)) ||
+                    existingNameLower.includes(newNameLower.substring(0, 3))))
+                );
+                
+                const surnamesSimilar = (
+                  newSurnameLower === existingSurnameLower ||
+                  (newSurnameLower.length >= 3 && existingSurnameLower.length >= 3 &&
+                   (newSurnameLower.includes(existingSurnameLower.substring(0, 3)) ||
+                    existingSurnameLower.includes(newSurnameLower.substring(0, 3))))
+                );
+                
+                if (namesSimilar && surnamesSimilar) {
+                  console.log('Duplicate found by parent names and similar student names:', parentName, parentSurname, studentName, studentSurname);
+                  return true;
+                }
               }
             }
             
