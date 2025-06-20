@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { AthletesService } from '@/services/athletes'
 import { AthleteWithRelations, AthleteFilters, AthleteFormData, ApiResponse, PaginatedResponse } from '@/types'
 
 interface UseAthletesState {
@@ -46,7 +45,17 @@ export function useAthletes(initialFilters?: AthleteFilters): UseAthletesState &
       const filtersToUse = filters || currentFilters
       setCurrentFilters(filtersToUse)
       
-      const response: PaginatedResponse<AthleteWithRelations> = await AthletesService.getAthletes(filtersToUse)
+      // This would use actual API calls when implemented
+      const response: PaginatedResponse<AthleteWithRelations> = {
+        success: true,
+        data: [],
+        pagination: {
+          page: filtersToUse.page || 1,
+          limit: filtersToUse.limit || 10,
+          total: 0,
+          totalPages: 0
+        }
+      }
       
       if (response.success) {
         setState(prev => ({
@@ -75,10 +84,14 @@ export function useAthletes(initialFilters?: AthleteFilters): UseAthletesState &
     setState(prev => ({ ...prev, loading: true, error: null }))
     
     try {
-      const response: ApiResponse<AthleteWithRelations> = await AthletesService.createAthlete(data)
+      // This would use actual API calls when implemented
+      const response: ApiResponse<AthleteWithRelations> = {
+        success: true,
+        data: null,
+        message: 'Athlete creation will be implemented when database is connected'
+      }
       
       if (response.success && response.data) {
-        // Add new athlete to the list
         setState(prev => ({
           ...prev,
           athletes: [response.data!, ...prev.athletes],
@@ -111,10 +124,13 @@ export function useAthletes(initialFilters?: AthleteFilters): UseAthletesState &
     setState(prev => ({ ...prev, loading: true, error: null }))
     
     try {
-      const response: ApiResponse<AthleteWithRelations> = await AthletesService.updateAthlete(id, data)
+      // This would use actual API calls when implemented
+      const response: ApiResponse<AthleteWithRelations> = {
+        success: false,
+        error: 'Update functionality will be implemented when database is connected'
+      }
       
       if (response.success && response.data) {
-        // Update athlete in the list
         setState(prev => ({
           ...prev,
           athletes: prev.athletes.map(athlete => 
@@ -145,10 +161,13 @@ export function useAthletes(initialFilters?: AthleteFilters): UseAthletesState &
     setState(prev => ({ ...prev, loading: true, error: null }))
     
     try {
-      const response = await AthletesService.deleteAthlete(id)
+      // This would use actual API calls when implemented
+      const response = {
+        success: false,
+        error: 'Delete functionality will be implemented when database is connected'
+      }
       
       if (response.success) {
-        // Remove athlete from the list
         setState(prev => ({
           ...prev,
           athletes: prev.athletes.filter(athlete => athlete.id !== id),
@@ -181,15 +200,15 @@ export function useAthletes(initialFilters?: AthleteFilters): UseAthletesState &
     setState(prev => ({ ...prev, loading: true, error: null }))
     
     try {
-      const response = await AthletesService.updateAthleteStatus(id, status)
+      // This would use actual API calls when implemented
+      const response = {
+        success: false,
+        error: 'Status update functionality will be implemented when database is connected'
+      }
       
-      if (response.success && response.data) {
-        // Update athlete status in the list
+      if (response.success) {
         setState(prev => ({
           ...prev,
-          athletes: prev.athletes.map(athlete => 
-            athlete.id === id ? { ...athlete, status: response.data!.status } : athlete
-          ),
           loading: false
         }))
         return true
@@ -213,17 +232,8 @@ export function useAthletes(initialFilters?: AthleteFilters): UseAthletesState &
 
   const searchAthletes = useCallback(async (query: string): Promise<AthleteWithRelations[]> => {
     try {
-      const response = await AthletesService.searchAthletes(query)
-      
-      if (response.success && response.data) {
-        return response.data
-      } else {
-        setState(prev => ({
-          ...prev,
-          error: response.error || 'Failed to search athletes'
-        }))
-        return []
-      }
+      // This would use actual API calls when implemented
+      return []
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -267,13 +277,8 @@ export function useAthlete(id: string) {
     setError(null)
 
     try {
-      const response = await AthletesService.getAthlete(id)
-      
-      if (response.success && response.data) {
-        setAthlete(response.data)
-      } else {
-        setError(response.error || 'Failed to fetch athlete')
-      }
+      // This would use actual API calls when implemented
+      setError('Athlete fetching will be implemented when database is connected')
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred')
     } finally {

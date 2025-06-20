@@ -1,4 +1,123 @@
-import { User, Athlete, Training, Payment, AccountEntry, AttendanceStatus, UserRole, AthleteStatus, PaymentStatus, PaymentMethod, AccountEntryType } from '@prisma/client'
+// Define enums locally to avoid Prisma dependency during build
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  COACH = 'COACH',
+  PARENT = 'PARENT'
+}
+
+export enum AthleteStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  SUSPENDED = 'SUSPENDED'
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  CANCELLED = 'CANCELLED',
+  CURRENT = 'CURRENT'
+}
+
+export enum PaymentMethod {
+  CASH = 'CASH',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  CREDIT_CARD = 'CREDIT_CARD',
+  OTHER = 'OTHER'
+}
+
+export enum AttendanceStatus {
+  PRESENT = 'PRESENT',
+  ABSENT = 'ABSENT',
+  LATE = 'LATE',
+  EXCUSED = 'EXCUSED'
+}
+
+export enum AccountEntryType {
+  DEBIT = 'DEBIT',
+  CREDIT = 'CREDIT'
+}
+
+// Base types that match Prisma models
+export interface User {
+  id: string
+  email: string
+  username?: string | null
+  password: string
+  firstName: string
+  lastName: string
+  phone?: string | null
+  role: UserRole
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface Athlete {
+  id: string
+  firstName: string
+  lastName: string
+  tcNo?: string | null
+  birthDate?: Date | null
+  age?: number | null
+  gender?: string | null
+  school?: string | null
+  class?: string | null
+  photo?: string | null
+  status: AthleteStatus
+  paymentStatus: PaymentStatus
+  registrationDate: Date
+  createdAt: Date
+  updatedAt: Date
+  parentId: string
+}
+
+export interface Training {
+  id: string
+  name: string
+  description?: string | null
+  startDate: Date
+  endDate: Date
+  location?: string | null
+  isRecurring: boolean
+  recurringDays: string[]
+  maxParticipants?: number | null
+  createdAt: Date
+  updatedAt: Date
+  coachId: string
+  sportsBranchId?: string | null
+  trainingGroupId?: string | null
+}
+
+export interface Payment {
+  id: string
+  athleteId: string
+  amount: number
+  currency: string
+  description?: string | null
+  paymentDate: Date
+  method: PaymentMethod
+  status: PaymentStatus
+  reference?: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface AccountEntry {
+  id: string
+  athleteId: string
+  type: AccountEntryType
+  description: string
+  amountExcludingVat: number
+  vatRate: number
+  vatAmount: number
+  amountIncludingVat: number
+  unitCode?: string | null
+  month?: string | null
+  invoiceNumber?: string | null
+  createdAt: Date
+  updatedAt: Date
+}
 
 // API Response types
 export interface ApiResponse<T = any> {
