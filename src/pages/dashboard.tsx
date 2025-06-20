@@ -34,7 +34,9 @@ import {
   TrendingUp,
   Activity,
   Clock,
-  Heart
+  Heart,
+  Package,
+  ShoppingCart
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -220,6 +222,7 @@ export default function Dashboard() {
     { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
     { icon: UserCheck, label: "Yoklama", href: "/attendance" },
     { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+    { icon: Package, label: "Stok ve Satış", href: "/inventory-sales" },
     { icon: Trophy, label: "Etkinlikler", href: "/events-tournaments" },
     { icon: Heart, label: "Sağlık Kayıtları", href: "/health-records" },
     { icon: BarChart3, label: "Performans", href: "/performance" },
@@ -468,7 +471,7 @@ export default function Dashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
@@ -484,6 +487,14 @@ export default function Dashboard() {
                     >
                       <CreditCard className="h-6 w-6" />
                       <span className="text-sm">Ödeme Kaydet</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col space-y-2"
+                      onClick={() => router.push('/inventory-sales')}
+                    >
+                      <ShoppingCart className="h-6 w-6" />
+                      <span className="text-sm">Yeni Satış</span>
                     </Button>
                     <Button 
                       variant="outline" 
