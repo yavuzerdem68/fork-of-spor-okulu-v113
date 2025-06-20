@@ -198,6 +198,28 @@ export default function Athletes() {
     return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
   };
 
+  const calculateAge = (birthDate: string) => {
+    if (!birthDate) return '';
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age.toString();
+  };
+
+  const formatBirthDate = (birthDate: string) => {
+    if (!birthDate) return '';
+    try {
+      const date = new Date(birthDate);
+      return date.toLocaleDateString('tr-TR');
+    } catch {
+      return birthDate;
+    }
+  };
+
   const activeAthletes = athletes.filter(a => a.status === 'Aktif').length;
   const thisMonthRegistrations = athletes.filter(a => {
     const regDate = new Date(a.registrationDate || a.createdAt);
@@ -829,6 +851,7 @@ export default function Athletes() {
                             {getSortIcon('athlete')}
                           </Button>
                         </TableHead>
+                        <TableHead>Doğum Tarihi</TableHead>
                         <TableHead>Yaş</TableHead>
                         <TableHead>Branş</TableHead>
                         <TableHead>
@@ -852,8 +875,16 @@ export default function Athletes() {
                         <TableRow key={athlete.id || index}>
                           <TableCell>
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center">
-                                {getInitials(athlete.studentName, athlete.studentSurname)}
+                              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center overflow-hidden">
+                                {athlete.photo ? (
+                                  <img 
+                                    src={athlete.photo} 
+                                    alt={`${athlete.studentName} ${athlete.studentSurname}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  getInitials(athlete.studentName, athlete.studentSurname)
+                                )}
                               </div>
                               <div>
                                 <p className="font-medium">{athlete.studentName} {athlete.studentSurname}</p>
@@ -863,7 +894,16 @@ export default function Athletes() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>{athlete.studentAge}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {formatBirthDate(athlete.studentBirthDate)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm font-medium">
+                              {athlete.studentAge || calculateAge(athlete.studentBirthDate)}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {athlete.sportsBranches?.map((branch: string, idx: number) => (
@@ -988,6 +1028,23 @@ export default function Athletes() {
 
               {selectedAthleteForView && (
                 <div className="space-y-6">
+                  {/* Athlete Photo Section */}
+                  <div className="flex justify-center">
+                    <div className="w-32 h-32 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center overflow-hidden border-4 border-primary/20">
+                      {selectedAthleteForView.photo ? (
+                        <img 
+                          src={selectedAthleteForView.photo} 
+                          alt={`${selectedAthleteForView.studentName} ${selectedAthleteForView.studentSurname}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-4xl">
+                          {getInitials(selectedAthleteForView.studentName, selectedAthleteForView.studentSurname)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Sporcu Bilgileri */}
                     <Card>
@@ -1005,11 +1062,11 @@ export default function Athletes() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Doğum Tarihi:</span>
-                          <span className="font-medium">{selectedAthleteForView.studentBirthDate}</span>
+                          <span className="font-medium">{formatBirthDate(selectedAthleteForView.studentBirthDate)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Yaş:</span>
-                          <span className="font-medium">{selectedAthleteForView.studentAge}</span>
+                          <span className="font-medium">{selectedAthleteForView.studentAge || calculateAge(selectedAthleteForView.studentBirthDate)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Cinsiyet:</span>

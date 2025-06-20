@@ -323,6 +323,10 @@ export default function NewAthleteForm({ onClose }: NewAthleteFormProps) {
       localStorage.setItem('students', JSON.stringify(existingStudents));
 
       toast.success("Sporcu başarıyla kaydedildi!");
+      
+      // Trigger a page reload to refresh the athletes list
+      window.location.reload();
+      
       onClose();
     } catch (err) {
       setError("Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.");
