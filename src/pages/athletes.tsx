@@ -982,39 +982,106 @@ export default function Athletes() {
           
           if (birthDateField) {
             const birthDateStr = birthDateField.toString().trim();
-            console.log('Processing birth date:', birthDateStr);
+            console.log('Processing birth date:', birthDateStr, 'Type:', typeof birthDateField);
             
-            // Handle Excel serial date numbers
-            if (!isNaN(Number(birthDateStr)) && Number(birthDateStr) > 25000) {
-              // Excel serial date
-              const excelDate = new Date((Number(birthDateStr) - 25569) * 86400 * 1000);
-              if (!isNaN(excelDate.getTime())) {
+            // Handle Excel serial date numbers (Excel dates are stored as numbers)
+            if (!isNaN(Number(birthDateStr)) && Number(birthDateStr) > 1000) {
+              const serialNumber = Number(birthDateStr);
+              console.log('Excel serial number detected:', serialNumber);
+              
+              // Excel serial date conversion (Excel epoch starts from 1900-01-01, but has a leap year bug)
+              let excelDate;
+              if (serialNumber > 59) {
+                // After Feb 28, 1900 (Excel's leap year bug)
+                excelDate = new Date((serialNumber - 25569) * 86400 * 1000);
+              } else {
+                excelDate = new Date((serialNumber - 25568) * 86400 * 1000);
+              }
+              
+              if (!isNaN(excelDate.getTime()) && excelDate.getFullYear() > 1900 && excelDate.getFullYear() < 2030) {
                 const day = excelDate.getDate().toString().padStart(2, '0');
                 const month = (excelDate.getMonth() + 1).toString().padStart(2, '0');
                 const year = excelDate.getFullYear().toString();
                 parsedBirthDate = `${year}-${month}-${day}`;
+                console.log('Converted Excel date to:', parsedBirthDate);
               }
             }
             // Handle DD.MM.YYYY or DD/MM/YYYY formats
             else if (birthDateStr.includes('.') || birthDateStr.includes('/')) {
               const separator = birthDateStr.includes('.') ? '.' : '/';
               const parts = birthDateStr.split(separator);
+              console.log('Date parts:', parts);
+              
               if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-                const day = parts[0].padStart(2, '0');
-                const month = parts[1].padStart(2, '0');
-                const year = parts[2];
+                let day = parts[0].trim();
+                let month = parts[1].trim();
+                let year = parts[2].trim();
                 
-                // Validate date parts
-                if (year.length === 4 && !isNaN(parseInt(year)) && 
-                    !isNaN(parseInt(month)) && !isNaN(parseInt(day))) {
+                // Handle 2-digit years
+                if (year.length === 2) {
+                  const currentYear = new Date().getFullYear();
+                  const currentCentury = Math.floor(currentYear / 100) * 100;
+                  const yearNum = parseInt(year);
+                  
+                  // If year is less than 30, assume it's 20xx, otherwise 19xx
+                  if (yearNum <= 30) {
+                    year = (currentCentury + yearNum).toString();
+                  } else {
+                    year = (currentCentury - 100 + yearNum).toString();
+                  }
+                }
+                
+                // Validate and format date parts
+                const dayNum = parseInt(day);
+                const monthNum = parseInt(month);
+                const yearNum = parseInt(year);
+                
+                if (!isNaN(dayNum) && !isNaN(monthNum) && !isNaN(yearNum) &&
+                    dayNum >= 1 && dayNum <= 31 &&
+                    monthNum >= 1 && monthNum <= 12 &&
+                    yearNum >= 1900 && yearNum <= 2030) {
+                  
+                  day = dayNum.toString().padStart(2, '0');
+                  month = monthNum.toString().padStart(2, '0');
+                  
                   // Convert DD.MM.YYYY or DD/MM/YYYY to YYYY-MM-DD
                   parsedBirthDate = `${year}-${month}-${day}`;
+                  console.log('Converted date format to:', parsedBirthDate);
                 }
               }
             }
             // Handle YYYY-MM-DD format
             else if (birthDateStr.includes('-') && birthDateStr.length === 10) {
-              parsedBirthDate = birthDateStr;
+              const dateParts = birthDateStr.split('-');
+              if (dateParts.length === 3) {
+                const year = parseInt(dateParts[0]);
+                const month = parseInt(dateParts[1]);
+                const day = parseInt(dateParts[2]);
+                
+                if (!isNaN(year) && !isNaN(month) && !isNaN(day) &&
+                    year >= 1900 && year <= 2030 &&
+                    month >= 1 && month <= 12 &&
+                    day >= 1 && day <= 31) {
+                  parsedBirthDate = birthDateStr;
+                  console.log('Valid ISO date format:', parsedBirthDate);
+                }
+              }
+            }
+            // Handle other potential date formats
+            else {
+              // Try to parse as a regular date
+              const testDate = new Date(birthDateStr);
+              if (!isNaN(testDate.getTime()) && testDate.getFullYear() > 1900 && testDate.getFullYear() < 2030) {
+                const day = testDate.getDate().toString().padStart(2, '0');
+                const month = (testDate.getMonth() + 1).toString().padStart(2, '0');
+                const year = testDate.getFullYear().toString();
+                parsedBirthDate = `${year}-${month}-${day}`;
+                console.log('Parsed as regular date:', parsedBirthDate);
+              }
+            }
+            
+            if (!parsedBirthDate) {
+              console.warn('Could not parse birth date:', birthDateStr);
             }
           }
 
@@ -1039,38 +1106,66 @@ export default function Athletes() {
             }
           }
 
-          // Check for duplicates based on name and TC
-          const existingStudentIndex = existingStudents.findIndex((student: any) => 
-            (student.studentName?.toLowerCase() === studentData['Öğrenci Adı']?.toString().toLowerCase() && 
-             student.studentSurname?.toLowerCase() === studentData['Öğrenci Soyadı']?.toString().toLowerCase()) ||
-            (studentData['TC Kimlik No'] && student.studentTcNo === studentData['TC Kimlik No']?.toString())
-          );
+          // Check for duplicates based on name, surname and TC number with better matching
+          const studentName = studentData['Öğrenci Adı']?.toString().trim().toLowerCase();
+          const studentSurname = studentData['Öğrenci Soyadı']?.toString().trim().toLowerCase();
+          const studentTcNo = studentData['TC Kimlik No']?.toString().trim();
+          
+          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo });
+          
+          const existingStudentIndex = existingStudents.findIndex((student: any) => {
+            // Check by TC number first (most reliable)
+            if (studentTcNo && student.studentTcNo && 
+                studentTcNo === student.studentTcNo.toString().trim()) {
+              console.log('Duplicate found by TC:', studentTcNo);
+              return true;
+            }
+            
+            // Check by name and surname combination
+            if (studentName && studentSurname && 
+                student.studentName && student.studentSurname) {
+              const existingName = student.studentName.toString().trim().toLowerCase();
+              const existingSurname = student.studentSurname.toString().trim().toLowerCase();
+              
+              if (studentName === existingName && studentSurname === existingSurname) {
+                console.log('Duplicate found by name:', studentName, studentSurname);
+                return true;
+              }
+            }
+            
+            return false;
+          });
 
           if (existingStudentIndex !== -1) {
             // Merge duplicate - update existing student with new information
             const existingStudent = existingStudents[existingStudentIndex];
+            console.log('Merging duplicate student:', existingStudent.studentName, existingStudent.studentSurname);
+            
             const updatedStudent = {
               ...existingStudent,
-              // Update fields if new data is provided
-              studentTcNo: studentData['TC Kimlik No']?.toString() || existingStudent.studentTcNo,
+              // Update fields if new data is provided and not empty
+              studentTcNo: studentTcNo || existingStudent.studentTcNo,
               studentBirthDate: parsedBirthDate || existingStudent.studentBirthDate,
-              studentAge: studentData['Yaş']?.toString() || existingStudent.studentAge,
-              studentGender: studentData['Cinsiyet']?.toString() || existingStudent.studentGender,
-              // Merge sports branches
+              studentAge: studentData['Yaş']?.toString().trim() || existingStudent.studentAge,
+              studentGender: studentData['Cinsiyet']?.toString().trim() || existingStudent.studentGender,
+              studentSchool: studentData['Okul']?.toString().trim() || existingStudent.studentSchool,
+              studentClass: studentData['Sınıf']?.toString().trim() || existingStudent.studentClass,
+              // Merge sports branches (combine existing and new, remove duplicates)
               sportsBranches: [...new Set([...(existingStudent.sportsBranches || []), ...sportsBranches])],
-              // Update parent info if provided
-              parentName: studentData['Veli Adı']?.toString() || existingStudent.parentName,
-              parentSurname: studentData['Veli Soyadı']?.toString() || existingStudent.parentSurname,
-              parentTcNo: studentData['Veli TC Kimlik No']?.toString() || existingStudent.parentTcNo,
+              // Update parent info if provided and not empty
+              parentName: studentData['Veli Adı']?.toString().trim() || existingStudent.parentName,
+              parentSurname: studentData['Veli Soyadı']?.toString().trim() || existingStudent.parentSurname,
+              parentTcNo: studentData['Veli TC Kimlik No']?.toString().trim() || existingStudent.parentTcNo,
               parentPhone: parentPhone || existingStudent.parentPhone,
-              parentEmail: studentData['Veli Email']?.toString() || existingStudent.parentEmail,
-              parentRelation: studentData['Yakınlık Derecesi']?.toString() || existingStudent.parentRelation,
+              parentEmail: studentData['Veli Email']?.toString().trim() || existingStudent.parentEmail,
+              parentRelation: studentData['Yakınlık Derecesi']?.toString().trim() || existingStudent.parentRelation,
               updatedAt: new Date().toISOString()
             };
             
             // Update the existing student in the array
             existingStudents[existingStudentIndex] = updatedStudent;
             mergedCount++;
+            console.log('Successfully merged student:', updatedStudent.studentName, updatedStudent.studentSurname);
             continue;
           }
 
