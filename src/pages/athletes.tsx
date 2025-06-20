@@ -1616,13 +1616,125 @@ export default function Athletes() {
                               const jsonData = XLSX.utils.sheet_to_json(worksheet);
                               
                               console.log('Processing bulk upload data:', jsonData);
-                              alert(`${jsonData.length} sporcu kaydı işlendi!`);
+                              
+                              if (jsonData.length === 0) {
+                                alert('Excel dosyasında işlenecek veri bulunamadı!');
+                                return;
+                              }
+
+                              // Get existing students
+                              const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+                              const newStudents = [];
+                              let duplicateCount = 0;
+                              let errorCount = 0;
+
+                              for (const row of jsonData) {
+                                try {
+                                  const studentData = row as any;
+                                  
+                                  // Skip empty rows
+                                  if (!studentData['Öğrenci Adı'] || !studentData['Öğrenci Soyadı']) {
+                                    continue;
+                                  }
+
+                                  // Check for duplicates based on name and TC
+                                  const isDuplicate = existingStudents.some((student: any) => 
+                                    (student.studentName?.toLowerCase() === studentData['Öğrenci Adı']?.toString().toLowerCase() && 
+                                     student.studentSurname?.toLowerCase() === studentData['Öğrenci Soyadı']?.toString().toLowerCase()) ||
+                                    (studentData['TC Kimlik No'] && student.studentTcNo === studentData['TC Kimlik No']?.toString())
+                                  );
+
+                                  if (isDuplicate) {
+                                    duplicateCount++;
+                                    continue;
+                                  }
+
+                                  // Parse birth date
+                                  let parsedBirthDate = '';
+                                  if (studentData['Doğum Tarihi (DD/MM/YYYY)']) {
+                                    const birthDateStr = studentData['Doğum Tarihi (DD/MM/YYYY)'].toString();
+                                    if (birthDateStr.includes('/')) {
+                                      const parts = birthDateStr.split('/');
+                                      if (parts.length === 3) {
+                                        // Convert DD/MM/YYYY to YYYY-MM-DD
+                                        parsedBirthDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                      }
+                                    }
+                                  }
+
+                                  // Parse sports branches
+                                  let sportsBranches = [];
+                                  if (studentData['Spor Branşları (virgülle ayırın)']) {
+                                    sportsBranches = studentData['Spor Branşları (virgülle ayırın)']
+                                      .toString()
+                                      .split(',')
+                                      .map((branch: string) => branch.trim())
+                                      .filter((branch: string) => branch.length > 0);
+                                  }
+
+                                  const newStudent = {
+                                    id: Date.now() + Math.random(),
+                                    studentName: studentData['Öğrenci Adı']?.toString() || '',
+                                    studentSurname: studentData['Öğrenci Soyadı']?.toString() || '',
+                                    studentTcNo: studentData['TC Kimlik No']?.toString() || '',
+                                    studentBirthDate: parsedBirthDate,
+                                    studentAge: studentData['Yaş']?.toString() || '',
+                                    studentGender: studentData['Cinsiyet']?.toString() || '',
+                                    sportsBranches: sportsBranches,
+                                    parentName: studentData['Veli Adı']?.toString() || '',
+                                    parentSurname: studentData['Veli Soyadı']?.toString() || '',
+                                    parentTcNo: studentData['Veli TC Kimlik No']?.toString() || '',
+                                    parentPhone: studentData['Veli Telefon']?.toString() || '',
+                                    parentEmail: studentData['Veli Email']?.toString() || '',
+                                    parentRelation: studentData['Yakınlık Derecesi']?.toString() || 'Veli',
+                                    status: 'Aktif',
+                                    paymentStatus: 'Güncel',
+                                    registrationDate: new Date().toISOString(),
+                                    createdAt: new Date().toISOString(),
+                                    updatedAt: new Date().toISOString()
+                                  };
+
+                                  newStudents.push(newStudent);
+                                } catch (rowError) {
+                                  console.error('Error processing row:', rowError);
+                                  errorCount++;
+                                }
+                              }
+
+                              if (newStudents.length === 0) {
+                                let message = 'İşlenecek yeni sporcu bulunamadı.';
+                                if (duplicateCount > 0) {
+                                  message += ` ${duplicateCount} sporcu zaten sistemde mevcut.`;
+                                }
+                                if (errorCount > 0) {
+                                  message += ` ${errorCount} satırda hata oluştu.`;
+                                }
+                                alert(message);
+                                return;
+                              }
+
+                              // Save new students to localStorage
+                              const updatedStudents = [...existingStudents, ...newStudents];
+                              localStorage.setItem('students', JSON.stringify(updatedStudents));
+                              
+                              // Reload athletes to refresh the UI
+                              loadAthletes(userRole!, currentUser);
+                              
+                              let message = `✅ ${newStudents.length} sporcu başarıyla sisteme eklendi!`;
+                              if (duplicateCount > 0) {
+                                message += `\n⚠️ ${duplicateCount} sporcu zaten sistemde mevcut olduğu için atlandı.`;
+                              }
+                              if (errorCount > 0) {
+                                message += `\n❌ ${errorCount} satırda hata oluştu.`;
+                              }
+                              
+                              alert(message);
                               
                               setBulkUploadFile(null);
                               setIsBulkUploadDialogOpen(false);
                             } catch (error) {
                               console.error('Error processing bulk upload:', error);
-                              alert('Dosya işlenirken hata oluştu!');
+                              alert('Dosya işlenirken hata oluştu! Lütfen dosya formatını kontrol edin.\n\nHata: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
                             }
                           }}
                           className="w-full"
