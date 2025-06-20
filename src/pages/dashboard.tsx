@@ -33,7 +33,8 @@ import {
   DollarSign,
   TrendingUp,
   Activity,
-  Clock
+  Clock,
+  Heart
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -219,6 +220,8 @@ export default function Dashboard() {
     { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
     { icon: UserCheck, label: "Yoklama", href: "/attendance" },
     { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+    { icon: Trophy, label: "Etkinlikler", href: "/events-tournaments" },
+    { icon: Heart, label: "Sağlık Kayıtları", href: "/health-records" },
     { icon: BarChart3, label: "Performans", href: "/performance" },
     { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
     { icon: Camera, label: "Medya", href: "/media" },
@@ -465,7 +468,7 @@ export default function Dashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
@@ -489,6 +492,22 @@ export default function Dashboard() {
                     >
                       <Calendar className="h-6 w-6" />
                       <span className="text-sm">Antrenman Planla</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col space-y-2"
+                      onClick={() => router.push('/events-tournaments')}
+                    >
+                      <Trophy className="h-6 w-6" />
+                      <span className="text-sm">Yeni Etkinlik</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col space-y-2"
+                      onClick={() => router.push('/health-records')}
+                    >
+                      <Heart className="h-6 w-6" />
+                      <span className="text-sm">Sağlık Kaydı</span>
                     </Button>
                     <Button 
                       variant="outline" 
