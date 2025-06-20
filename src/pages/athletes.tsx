@@ -198,25 +198,70 @@ export default function Athletes() {
     return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
   };
 
-  const calculateAge = (birthDate: string) => {
-    if (!birthDate) return '';
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
+  const formatBirthDate = (birthDate: string) => {
+    if (!birthDate) return '-';
+    
+    try {
+      // Handle DD/MM/YYYY format from bulk uploads
+      if (birthDate.includes('/')) {
+        const parts = birthDate.split('/');
+        if (parts.length === 3) {
+          const [day, month, year] = parts;
+          if (day && month && year && !isNaN(parseInt(day)) && !isNaN(parseInt(month)) && !isNaN(parseInt(year))) {
+            return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+          }
+        }
+      }
+      
+      // Handle ISO date format
+      const date = new Date(birthDate);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('tr-TR');
+      }
+      
+      return birthDate;
+    } catch (error) {
+      console.error('Error formatting birth date:', error);
+      return birthDate;
     }
-    return age.toString();
   };
 
-  const formatBirthDate = (birthDate: string) => {
-    if (!birthDate) return '';
+  const calculateAge = (birthDate: string) => {
+    if (!birthDate) return '-';
+    
     try {
-      const date = new Date(birthDate);
-      return date.toLocaleDateString('tr-TR');
-    } catch {
-      return birthDate;
+      let date;
+      
+      // Handle DD/MM/YYYY format from bulk uploads
+      if (birthDate.includes('/')) {
+        const parts = birthDate.split('/');
+        if (parts.length === 3) {
+          const [day, month, year] = parts;
+          if (day && month && year && !isNaN(parseInt(day)) && !isNaN(parseInt(month)) && !isNaN(parseInt(year))) {
+            date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          }
+        }
+      } else {
+        // Handle ISO date format
+        date = new Date(birthDate);
+      }
+      
+      if (!date || isNaN(date.getTime())) {
+        return '-';
+      }
+      
+      const today = new Date();
+      let age = today.getFullYear() - date.getFullYear();
+      const monthDiff = today.getMonth() - date.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+        age--;
+      }
+      
+      return age >= 0 ? age.toString() : '-';
+    } catch (error) {
+      console.error('Error calculating age:', error);
+      return '-';
     }
   };
 
@@ -410,6 +455,21 @@ export default function Athletes() {
         'Yakınlık Derecesi': 'Baba'
       },
       {
+        'Öğrenci Adı': 'Elif',
+        'Öğrenci Soyadı': 'Demir',
+        'TC Kimlik No': '10987654321',
+        'Doğum Tarihi (DD/MM/YYYY)': '22/07/2012',
+        'Yaş': '12',
+        'Cinsiyet': 'Kız',
+        'Spor Branşları (virgülle ayırın)': 'Yüzme, Jimnastik',
+        'Veli Adı': 'Ayşe',
+        'Veli Soyadı': 'Demir',
+        'Veli TC Kimlik No': '19876543210',
+        'Veli Telefon': '05559876543',
+        'Veli Email': 'ayse.demir@email.com',
+        'Yakınlık Derecesi': 'Anne'
+      },
+      {
         'Öğrenci Adı': '',
         'Öğrenci Soyadı': '',
         'TC Kimlik No': '',
@@ -433,6 +493,14 @@ export default function Athletes() {
     // Set column widths
     const colWidths = Object.keys(templateData[0]).map(() => ({ wch: 20 }));
     ws['!cols'] = colWidths;
+    
+    // Format the birth date column as text to preserve DD/MM/YYYY format
+    const birthDateColIndex = Object.keys(templateData[0]).indexOf('Doğum Tarihi (DD/MM/YYYY)');
+    if (birthDateColIndex !== -1) {
+      // Set column format to text for birth date column
+      if (!ws['!cols']) ws['!cols'] = [];
+      ws['!cols'][birthDateColIndex] = { wch: 20, z: '@' }; // '@' means text format
+    }
     
     XLSX.writeFile(wb, 'Sporcu_Toplu_Yukleme_Sablonu.xlsx');
   };
@@ -1417,6 +1485,260 @@ export default function Athletes() {
                     }
                   </Button>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Athlete Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Edit className="h-5 w-5" />
+                  <span>Sporcu Düzenle - {selectedAthleteForEdit?.studentName} {selectedAthleteForEdit?.studentSurname}</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Sporcu bilgilerini düzenleyin
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedAthleteForEdit && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Sporcu Bilgileri */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Sporcu Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-student-name">Ad</Label>
+                            <Input
+                              id="edit-student-name"
+                              value={selectedAthleteForEdit.studentName || ''}
+                              onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, studentName: e.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-student-surname">Soyad</Label>
+                            <Input
+                              id="edit-student-surname"
+                              value={selectedAthleteForEdit.studentSurname || ''}
+                              onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, studentSurname: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-student-tc">TC Kimlik No</Label>
+                          <Input
+                            id="edit-student-tc"
+                            value={selectedAthleteForEdit.studentTcNo || ''}
+                            onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, studentTcNo: e.target.value }))}
+                            maxLength={11}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-student-birth">Doğum Tarihi</Label>
+                          <Input
+                            id="edit-student-birth"
+                            type="date"
+                            value={selectedAthleteForEdit.studentBirthDate ? 
+                              (selectedAthleteForEdit.studentBirthDate.includes('/') ? 
+                                (() => {
+                                  const [day, month, year] = selectedAthleteForEdit.studentBirthDate.split('/');
+                                  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                                })() : 
+                                selectedAthleteForEdit.studentBirthDate.split('T')[0]
+                              ) : ''
+                            }
+                            onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, studentBirthDate: e.target.value }))}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-student-gender">Cinsiyet</Label>
+                          <Select 
+                            value={selectedAthleteForEdit.studentGender || ''} 
+                            onValueChange={(value) => setSelectedAthleteForEdit(prev => ({ ...prev, studentGender: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Cinsiyet seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Erkek">Erkek</SelectItem>
+                              <SelectItem value="Kız">Kız</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Veli Bilgileri */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Veli Bilgileri</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-parent-name">Veli Adı</Label>
+                            <Input
+                              id="edit-parent-name"
+                              value={selectedAthleteForEdit.parentName || ''}
+                              onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, parentName: e.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-parent-surname">Veli Soyadı</Label>
+                            <Input
+                              id="edit-parent-surname"
+                              value={selectedAthleteForEdit.parentSurname || ''}
+                              onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, parentSurname: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-parent-phone">Telefon</Label>
+                          <Input
+                            id="edit-parent-phone"
+                            value={selectedAthleteForEdit.parentPhone || ''}
+                            onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, parentPhone: e.target.value }))}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-parent-email">Email</Label>
+                          <Input
+                            id="edit-parent-email"
+                            type="email"
+                            value={selectedAthleteForEdit.parentEmail || ''}
+                            onChange={(e) => setSelectedAthleteForEdit(prev => ({ ...prev, parentEmail: e.target.value }))}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-parent-relation">Yakınlık</Label>
+                          <Select 
+                            value={selectedAthleteForEdit.parentRelation || ''} 
+                            onValueChange={(value) => setSelectedAthleteForEdit(prev => ({ ...prev, parentRelation: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Yakınlık seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Anne">Anne</SelectItem>
+                              <SelectItem value="Baba">Baba</SelectItem>
+                              <SelectItem value="Vasi">Vasi</SelectItem>
+                              <SelectItem value="Büyükanne">Büyükanne</SelectItem>
+                              <SelectItem value="Büyükbaba">Büyükbaba</SelectItem>
+                              <SelectItem value="Diğer">Diğer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Spor Branşları */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Spor Branşları</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {/* Selected Sports Display */}
+                        {selectedAthleteForEdit.sportsBranches && selectedAthleteForEdit.sportsBranches.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedAthleteForEdit.sportsBranches.map((sport: string, idx: number) => (
+                              <Badge key={idx} variant="default" className="flex items-center gap-1">
+                                {sport}
+                                <X 
+                                  className="h-3 w-3 cursor-pointer" 
+                                  onClick={() => {
+                                    const updatedSports = selectedAthleteForEdit.sportsBranches.filter((s: string) => s !== sport);
+                                    setSelectedAthleteForEdit(prev => ({ ...prev, sportsBranches: updatedSports }));
+                                  }}
+                                />
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Sports Selection */}
+                        <div className="grid grid-cols-3 gap-3">
+                          {sports.map((sport) => (
+                            <div key={sport} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`edit-sport-${sport}`}
+                                checked={selectedAthleteForEdit.sportsBranches?.includes(sport) || false}
+                                onChange={(e) => {
+                                  const currentSports = selectedAthleteForEdit.sportsBranches || [];
+                                  if (e.target.checked) {
+                                    setSelectedAthleteForEdit(prev => ({ 
+                                      ...prev, 
+                                      sportsBranches: [...currentSports, sport] 
+                                    }));
+                                  } else {
+                                    setSelectedAthleteForEdit(prev => ({ 
+                                      ...prev, 
+                                      sportsBranches: currentSports.filter(s => s !== sport) 
+                                    }));
+                                  }
+                                }}
+                                className="rounded border-gray-300"
+                              />
+                              <Label htmlFor={`edit-sport-${sport}`} className="text-sm">{sport}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  İptal
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (!selectedAthleteForEdit) return;
+
+                    // Update athlete in localStorage
+                    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+                    const updatedStudents = allStudents.map((student: any) => 
+                      student.id === selectedAthleteForEdit.id 
+                        ? { 
+                            ...student, 
+                            ...selectedAthleteForEdit,
+                            updatedAt: new Date().toISOString()
+                          }
+                        : student
+                    );
+                    
+                    localStorage.setItem('students', JSON.stringify(updatedStudents));
+                    
+                    // Reload athletes to refresh the UI
+                    loadAthletes(userRole!, currentUser);
+                    
+                    setIsEditDialogOpen(false);
+                    setSelectedAthleteForEdit(null);
+                    
+                    alert(`${selectedAthleteForEdit.studentName} ${selectedAthleteForEdit.studentSurname} adlı sporcunun bilgileri başarıyla güncellendi.`);
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Kaydet
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
