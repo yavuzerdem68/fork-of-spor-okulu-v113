@@ -422,12 +422,3 @@ export interface PerformanceMetrics {
   timestamp: string
 }
 
-// Export commonly used enums
-export {
-  UserRole,
-  AthleteStatus,
-  PaymentStatus,
-  PaymentMethod,
-  AttendanceStatus,
-  AccountEntryType
-}
