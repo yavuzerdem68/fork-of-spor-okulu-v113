@@ -1139,9 +1139,9 @@ export default function Athletes() {
           const studentTcNo = studentData['TC Kimlik No']?.toString().trim();
           const parentName = studentData['Veli Adı']?.toString().trim();
           const parentSurname = studentData['Veli Soyadı']?.toString().trim();
-          const parentPhone = studentData['Veli Telefon']?.toString().trim();
+          const parentPhoneForDuplicateCheck = studentData['Veli Telefon']?.toString().trim();
           
-          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo, parentName, parentSurname, parentPhone });
+          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo, parentName, parentSurname, parentPhoneForDuplicateCheck });
           
           const existingStudentIndex = existingStudents.findIndex((student: any) => {
             // Priority 1: Check by TC number (most reliable)
@@ -1168,8 +1168,8 @@ export default function Athletes() {
             }
             
             // Priority 3: Check by parent phone number (if student names are similar)
-            if (parentPhone && student.parentPhone && studentName && studentSurname && student.studentName && student.studentSurname) {
-              const normalizedNewPhone = parentPhone.replace(/\D/g, '').slice(-10);
+            if (parentPhoneForDuplicateCheck && student.parentPhone && studentName && studentSurname && student.studentName && student.studentSurname) {
+              const normalizedNewPhone = parentPhoneForDuplicateCheck.replace(/\D/g, '').slice(-10);
               const normalizedExistingPhone = student.parentPhone.toString().replace(/\D/g, '').slice(-10);
               
               if (normalizedNewPhone === normalizedExistingPhone && normalizedNewPhone.length >= 10) {
@@ -1195,7 +1195,7 @@ export default function Athletes() {
                 );
                 
                 if (namesSimilar && surnamesSimilar) {
-                  console.log('Duplicate found by parent phone and similar names:', parentPhone, studentName, studentSurname);
+                  console.log('Duplicate found by parent phone and similar names:', parentPhoneForDuplicateCheck, studentName, studentSurname);
                   return true;
                 }
               }
