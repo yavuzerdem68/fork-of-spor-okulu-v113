@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 import { 
   Plus, 
   Zap, 
@@ -22,7 +23,11 @@ import {
   Phone, 
   Mail,
   Target,
-  ArrowLeft
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  UserPlus,
+  Save
 } from "lucide-react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -36,39 +41,88 @@ const fadeInUp = {
 
 const sportsBranches = [
   "Basketbol", "Futbol", "Voleybol", "Hentbol", "Yüzme", 
-  "Tenis", "Jimnastik", "Atletizm", "Satranç", "Zihin Oyunları"
+  "Tenis", "Jimnastik", "Atletizm", "Satranç", "Zihin Oyunları", "Hareket Antrenmanı"
+];
+
+const permissionModules = [
+  { key: "athletes", name: "Sporcu Yönetimi", description: "Sporcu kayıtları ve bilgileri" },
+  { key: "payments", name: "Ödeme Yönetimi", description: "Aidat ve fatura işlemleri" },
+  { key: "trainings", name: "Antrenman Yönetimi", description: "Antrenman programları ve takvim" },
+  { key: "attendance", name: "Yoklama Sistemi", description: "Devam durumu takibi" },
+  { key: "messages", name: "Mesajlaşma", description: "WhatsApp ve iletişim" },
+  { key: "media", name: "Medya Yönetimi", description: "Fotoğraf ve video paylaşımı" },
+  { key: "reports", name: "Raporlar", description: "Analitik ve raporlama" },
+  { key: "settings", name: "Sistem Ayarları", description: "Genel sistem konfigürasyonu" }
 ];
 
 export default function Coaches() {
   const router = useRouter();
   const [coaches, setCoaches] = useState<any[]>([]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCoach, setEditingCoach] = useState<any>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    surname: "",
     email: "",
     password: "",
     phone: "",
     specialization: "",
     experience: "",
-    sportsBranches: [] as string[]
+    sportsBranches: [] as string[],
+    permissions: {} as any
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const userRole = localStorage.getItem("userRole");
-    if (userRole !== "admin") {
+    if (userRole !== "admin" && userRole !== "super_admin") {
       router.push("/login");
       return;
     }
     loadCoaches();
+    loadAdminUsers();
   }, [router]);
 
   const loadCoaches = () => {
     const savedCoaches = JSON.parse(localStorage.getItem('coaches') || '[]');
     setCoaches(savedCoaches);
+  };
+
+  const loadAdminUsers = () => {
+    try {
+      const stored = localStorage.getItem("adminUsers");
+      if (stored) {
+        const parsedUsers = JSON.parse(stored);
+        setAdminUsers(parsedUsers);
+      }
+    } catch (error) {
+      console.error("Error loading admin users:", error);
+    }
+  };
+
+  const saveAdminUsers = (users: any[]) => {
+    try {
+      localStorage.setItem("adminUsers", JSON.stringify(users));
+      setAdminUsers(users);
+    } catch (error) {
+      console.error("Error saving admin users:", error);
+      setError("Kullanıcı bilgileri kaydedilirken hata oluştu");
+    }
+  };
+
+  const getDefaultCoachPermissions = () => {
+    return {
+      athletes: { view: true, create: false, edit: true, delete: false },
+      payments: { view: false, create: false, edit: false, delete: false },
+      trainings: { view: true, create: true, edit: true, delete: false },
+      attendance: { view: true, create: true, edit: true, delete: false },
+      messages: { view: true, create: true, edit: false, delete: false },
+      media: { view: true, create: true, edit: false, delete: false },
+      reports: { view: true, create: false, edit: false, delete: false },
+      settings: { view: false, create: false, edit: false, delete: false }
+    };
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -77,7 +131,7 @@ export default function Coaches() {
     setSuccess("");
 
     // Validation
-    if (!formData.name || !formData.surname || !formData.email || !formData.phone) {
+    if (!formData.name || !formData.email || !formData.phone) {
       setError("Lütfen tüm zorunlu alanları doldurun");
       return;
     }
@@ -92,71 +146,156 @@ export default function Coaches() {
       return;
     }
 
-    const newCoach = {
-      id: editingCoach ? editingCoach.id : Date.now().toString(),
-      ...formData,
-      trainingCount: editingCoach ? editingCoach.trainingCount || 0 : 0, // Başlangıçta sıfır antrenman
-      athleteCount: editingCoach ? editingCoach.athleteCount || 0 : 0,  // Başlangıçta sıfır sporcu
-      createdAt: editingCoach ? editingCoach.createdAt : new Date().toISOString()
-    };
-
-    let updatedCoaches;
-    if (editingCoach) {
-      updatedCoaches = coaches.map(coach => 
-        coach.id === editingCoach.id ? newCoach : coach
-      );
-      setSuccess("Antrenör başarıyla güncellendi");
-    } else {
-      // Check if email already exists
-      const existingCoach = coaches.find(coach => coach.email === formData.email);
-      if (existingCoach) {
-        setError("Bu email adresi zaten kullanılıyor");
-        return;
-      }
-      updatedCoaches = [...coaches, newCoach];
-      setSuccess("Antrenör başarıyla eklendi");
+    // Check if email already exists in admin users
+    const existingAdminUser = adminUsers.find(user => user.email === formData.email);
+    if (existingAdminUser && (!editingCoach || existingAdminUser.id !== editingCoach.adminUserId)) {
+      setError("Bu email adresi zaten kullanılıyor");
+      return;
     }
 
-    localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
-    setCoaches(updatedCoaches);
+    // Check if email already exists in coaches
+    const existingCoach = coaches.find(coach => coach.email === formData.email);
+    if (existingCoach && (!editingCoach || existingCoach.id !== editingCoach.id)) {
+      setError("Bu email adresi zaten kullanılıyor");
+      return;
+    }
+
+    if (editingCoach) {
+      // Update existing coach
+      const updatedCoaches = coaches.map(coach => 
+        coach.id === editingCoach.id ? {
+          ...coach,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          specialization: formData.specialization,
+          experience: formData.experience,
+          sportsBranches: formData.sportsBranches
+        } : coach
+      );
+
+      // Update admin user if exists
+      if (editingCoach.adminUserId) {
+        const updatedAdminUsers = adminUsers.map(user => 
+          user.id === editingCoach.adminUserId ? {
+            ...user,
+            name: formData.name,
+            email: formData.email,
+            ...(formData.password && { password: formData.password }),
+            permissions: formData.permissions
+          } : user
+        );
+        saveAdminUsers(updatedAdminUsers);
+      }
+
+      localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+      setCoaches(updatedCoaches);
+      setSuccess("Antrenör başarıyla güncellendi");
+    } else {
+      // Create new coach
+      const newCoachId = Date.now().toString();
+      const newAdminUserId = adminUsers.length > 0 ? Math.max(...adminUsers.map(u => u.id)) + 1 : 1;
+
+      // Create admin user account
+      const newAdminUser = {
+        id: newAdminUserId,
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: "coach",
+        permissions: formData.permissions || getDefaultCoachPermissions(),
+        isActive: true,
+        lastLogin: new Date().toISOString()
+      };
+
+      // Create coach record
+      const newCoach = {
+        id: newCoachId,
+        adminUserId: newAdminUserId,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        specialization: formData.specialization,
+        experience: formData.experience,
+        sportsBranches: formData.sportsBranches,
+        trainingCount: 0,
+        athleteCount: 0,
+        createdAt: new Date().toISOString()
+      };
+
+      // Save both records
+      const updatedAdminUsers = [...adminUsers, newAdminUser];
+      const updatedCoaches = [...coaches, newCoach];
+
+      saveAdminUsers(updatedAdminUsers);
+      localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+      setCoaches(updatedCoaches);
+      setSuccess("Antrenör başarıyla eklendi ve giriş hesabı oluşturuldu");
+    }
+
     resetForm();
     setIsDialogOpen(false);
   };
 
   const handleEdit = (coach: any) => {
     setEditingCoach(coach);
+    
+    // Find associated admin user
+    const adminUser = adminUsers.find(user => user.id === coach.adminUserId);
+    
     setFormData({
       name: coach.name,
-      surname: coach.surname,
       email: coach.email,
       password: "",
       phone: coach.phone,
       specialization: coach.specialization,
       experience: coach.experience,
-      sportsBranches: coach.sportsBranches || []
+      sportsBranches: coach.sportsBranches || [],
+      permissions: adminUser?.permissions || getDefaultCoachPermissions()
     });
     setIsDialogOpen(true);
   };
 
   const handleDelete = (coachId: string) => {
-    if (confirm("Bu antrenörü silmek istediğinizden emin misiniz?")) {
+    if (confirm("Bu antrenörü silmek istediğinizden emin misiniz? Giriş hesabı da silinecektir.")) {
+      const coachToDelete = coaches.find(coach => coach.id === coachId);
+      
+      // Remove coach
       const updatedCoaches = coaches.filter(coach => coach.id !== coachId);
       localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
       setCoaches(updatedCoaches);
-      setSuccess("Antrenör başarıyla silindi");
+
+      // Remove associated admin user
+      if (coachToDelete?.adminUserId) {
+        const updatedAdminUsers = adminUsers.filter(user => user.id !== coachToDelete.adminUserId);
+        saveAdminUsers(updatedAdminUsers);
+      }
+
+      setSuccess("Antrenör ve giriş hesabı başarıyla silindi");
+    }
+  };
+
+  const toggleCoachStatus = (coachId: string) => {
+    const coach = coaches.find(c => c.id === coachId);
+    if (coach?.adminUserId) {
+      const updatedAdminUsers = adminUsers.map(user => 
+        user.id === coach.adminUserId ? { ...user, isActive: !user.isActive } : user
+      );
+      saveAdminUsers(updatedAdminUsers);
+      setSuccess(`Antrenör ${updatedAdminUsers.find(u => u.id === coach.adminUserId)?.isActive ? 'aktif' : 'pasif'} edildi`);
     }
   };
 
   const resetForm = () => {
     setFormData({
       name: "",
-      surname: "",
       email: "",
       password: "",
       phone: "",
       specialization: "",
       experience: "",
-      sportsBranches: []
+      sportsBranches: [],
+      permissions: getDefaultCoachPermissions()
     });
     setEditingCoach(null);
     setError("");
@@ -176,8 +315,29 @@ export default function Coaches() {
     }
   };
 
-  const getInitials = (name: string, surname: string) => {
-    return `${name?.charAt(0) || ''}${surname?.charAt(0) || ''}`.toUpperCase();
+  const handlePermissionChange = (module: string, action: string, value: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions: {
+        ...prev.permissions,
+        [module]: {
+          ...prev.permissions[module],
+          [action]: value
+        }
+      }
+    }));
+  };
+
+  const getInitials = (name: string) => {
+    const names = name.split(' ');
+    return names.length > 1 
+      ? `${names[0].charAt(0)}${names[names.length - 1].charAt(0)}`.toUpperCase()
+      : `${names[0].charAt(0)}${names[0].charAt(1) || ''}`.toUpperCase();
+  };
+
+  const getCoachStatus = (coach: any) => {
+    const adminUser = adminUsers.find(user => user.id === coach.adminUserId);
+    return adminUser?.isActive ?? true;
   };
 
   return (
@@ -228,35 +388,25 @@ export default function Coaches() {
                   </DialogDescription>
                 </DialogHeader>
                 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-6">
                   {error && (
                     <Alert variant="destructive">
                       <AlertDescription>{error}</AlertDescription>
                     </Alert>
                   )}
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Basic Info */}
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="name">Ad *</Label>
+                      <Label htmlFor="name">Ad Soyad *</Label>
                       <Input
                         id="name"
                         value={formData.name}
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        placeholder="Antrenör adı ve soyadı"
                         required
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="surname">Soyad *</Label>
-                      <Input
-                        id="surname"
-                        value={formData.surname}
-                        onChange={(e) => setFormData({...formData, surname: e.target.value})}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="email">Email *</Label>
                       <Input
@@ -264,31 +414,57 @@ export default function Coaches() {
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        placeholder="email@example.com"
                         required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="password">
-                        {editingCoach ? "Şifre (Değiştirmek için doldurun)" : "Şifre *"}
-                      </Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({...formData, password: e.target.value})}
-                        required={!editingCoach}
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="password">
+                        {editingCoach ? "Şifre (Değiştirmek için doldurun)" : "Şifre *"}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          value={formData.password}
+                          onChange={(e) => setFormData({...formData, password: e.target.value})}
+                          placeholder="••••••••"
+                          required={!editingCoach}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
                     <div>
                       <Label htmlFor="phone">Telefon *</Label>
                       <Input
                         id="phone"
                         value={formData.phone}
                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        placeholder="0555 123 45 67"
                         required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="specialization">Uzmanlık Alanı</Label>
+                      <Input
+                        id="specialization"
+                        placeholder="Örn: Basketbol Antrenörü"
+                        value={formData.specialization}
+                        onChange={(e) => setFormData({...formData, specialization: e.target.value})}
                       />
                     </div>
                     <div>
@@ -300,16 +476,6 @@ export default function Coaches() {
                         onChange={(e) => setFormData({...formData, experience: e.target.value})}
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="specialization">Uzmanlık Alanı</Label>
-                    <Input
-                      id="specialization"
-                      placeholder="Örn: Basketbol Antrenörü"
-                      value={formData.specialization}
-                      onChange={(e) => setFormData({...formData, specialization: e.target.value})}
-                    />
                   </div>
 
                   <div>
@@ -332,15 +498,50 @@ export default function Coaches() {
                     </div>
                   </div>
 
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      İptal
-                    </Button>
-                    <Button type="submit">
-                      {editingCoach ? "Güncelle" : "Ekle"}
-                    </Button>
-                  </DialogFooter>
-                </form>
+                  {/* Permissions */}
+                  <div>
+                    <h4 className="font-semibold mb-4">Yetki Ayarları</h4>
+                    <div className="space-y-4">
+                      {permissionModules.map((module) => (
+                        <Card key={module.key}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h5 className="font-medium">{module.name}</h5>
+                                <p className="text-sm text-muted-foreground">{module.description}</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-4">
+                              {["view", "create", "edit", "delete"].map((action) => (
+                                <div key={action} className="flex items-center space-x-2">
+                                  <Switch
+                                    checked={formData.permissions[module.key]?.[action] || false}
+                                    onCheckedChange={(checked) => handlePermissionChange(module.key, action, checked)}
+                                  />
+                                  <Label className="text-sm capitalize">
+                                    {action === "view" ? "Görüntüle" : 
+                                     action === "create" ? "Oluştur" : 
+                                     action === "edit" ? "Düzenle" : "Sil"}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    İptal
+                  </Button>
+                  <Button onClick={handleSubmit}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {editingCoach ? "Güncelle" : "Antrenör Ekle"}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </motion.div>
@@ -427,6 +628,7 @@ export default function Coaches() {
                         <TableHead>İletişim</TableHead>
                         <TableHead>Spor Branşları</TableHead>
                         <TableHead>Antrenman/Sporcu</TableHead>
+                        <TableHead>Durum</TableHead>
                         <TableHead>İşlemler</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -437,11 +639,11 @@ export default function Coaches() {
                             <div className="flex items-center space-x-3">
                               <Avatar>
                                 <AvatarFallback>
-                                  {getInitials(coach.name, coach.surname)}
+                                  {getInitials(coach.name)}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <p className="font-medium">{coach.name} {coach.surname}</p>
+                                <p className="font-medium">{coach.name}</p>
                                 <p className="text-sm text-muted-foreground">
                                   {coach.specialization}
                                 </p>
@@ -485,6 +687,17 @@ export default function Coaches() {
                             </div>
                           </TableCell>
                           <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                checked={getCoachStatus(coach)}
+                                onCheckedChange={() => toggleCoachStatus(coach.id)}
+                              />
+                              <span className="text-sm">
+                                {getCoachStatus(coach) ? "Aktif" : "Pasif"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
                             <div className="flex space-x-2">
                               <Button
                                 size="sm"
@@ -497,6 +710,7 @@ export default function Coaches() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDelete(coach.id)}
+                                className="text-red-600 hover:text-red-700"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
