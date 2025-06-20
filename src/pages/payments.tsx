@@ -2010,77 +2010,119 @@ export default function Payments() {
                       </CardContent>
                     </Card>
 
-                    {/* Sibling Matches Section - Separated and Highlighted */}
+                    {/* Sibling Matches Section - HIGHLY VISIBLE with Animated Border */}
                     {matchResults.filter(result => result.multipleAthletes && result.multipleAthletes.length > 1).length > 0 && (
-                      <Card className="border-purple-200 bg-purple-50">
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2 text-purple-800">
-                            <Users className="h-5 w-5" />
-                            <span>Kardeş Eşleştirmeleri</span>
-                          </CardTitle>
-                          <CardDescription className="text-purple-700">
-                            Bu ödemeler birden fazla kardeş için yapılmış ve tutarlar eşit olarak bölünecek.
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            {matchResults
-                              .filter(result => result.multipleAthletes && result.multipleAthletes.length > 1)
-                              .map((result, index) => (
-                              <Card key={index} className="border-purple-300 bg-white">
-                                <CardContent className="p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Excel Data */}
-                                    <div>
-                                      <Label className="text-sm font-medium text-purple-700">Excel Verisi:</Label>
-                                      <div className="mt-1">
-                                        <p className="font-medium">{result.excelRow.description}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                          {result.excelRow.date} - ₺{result.excelRow.amount.toLocaleString()}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Match Result */}
-                                    <div>
-                                      <Label className="text-sm font-medium text-purple-700">Kardeş Eşleştirmesi:</Label>
-                                      <div className="mt-1">
+                      <div className="relative">
+                        {/* Animated attention-grabbing border */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 rounded-lg blur opacity-75 animate-pulse"></div>
+                        <Card className="relative border-4 border-red-500 bg-gradient-to-br from-red-50 via-yellow-50 to-orange-50 shadow-2xl">
+                          <CardHeader className="bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-t-lg">
+                            <CardTitle className="flex items-center space-x-3 text-xl">
+                              <div className="relative">
+                                <Users className="h-6 w-6 animate-bounce" />
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
+                              </div>
+                              <span className="font-bold">⚠️ ÇOKLU EŞLEŞTİRME - DİKKAT!</span>
+                              <div className="ml-auto">
+                                <Badge className="bg-yellow-400 text-black font-bold text-sm animate-pulse">
+                                  {matchResults.filter(result => result.multipleAthletes && result.multipleAthletes.length > 1).length} KARDEŞ ÖDEMESİ
+                                </Badge>
+                              </div>
+                            </CardTitle>
+                            <CardDescription className="text-yellow-100 font-medium">
+                              🚨 Bu ödemeler birden fazla kardeş için yapılmış! Tutarlar eşit olarak bölünecek - Lütfen dikkatli kontrol edin!
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="p-6">
+                            <div className="space-y-6">
+                              {matchResults
+                                .filter(result => result.multipleAthletes && result.multipleAthletes.length > 1)
+                                .map((result, index) => (
+                                <div key={index} className="relative">
+                                  {/* Individual sibling match with high visibility */}
+                                  <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-400 to-red-400 rounded-lg opacity-30"></div>
+                                  <Card className="relative border-3 border-orange-400 bg-white shadow-lg">
+                                    <CardContent className="p-6">
+                                      {/* Alert banner for each match */}
+                                      <div className="mb-4 p-3 bg-gradient-to-r from-yellow-100 to-orange-100 border-l-4 border-orange-500 rounded">
                                         <div className="flex items-center space-x-2">
-                                          <p className="font-medium text-purple-800">{result.athleteName}</p>
-                                          <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                                            {result.multipleAthletes?.length} Kardeş
+                                          <AlertTriangle className="h-5 w-5 text-orange-600 animate-pulse" />
+                                          <span className="font-bold text-orange-800">
+                                            KARDEŞ ÖDEMESİ #{index + 1} - {result.multipleAthletes?.length} SPORCU
+                                          </span>
+                                          <Badge className="bg-orange-500 text-white font-bold">
+                                            ₺{result.excelRow.amount.toLocaleString()} ÷ {result.multipleAthletes?.length} = ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
                                           </Badge>
                                         </div>
-                                        <p className="text-sm text-purple-600">
-                                          Her sporcu: ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
-                                        </p>
                                       </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Sibling Details */}
-                                  <div className="mt-4 pt-4 border-t border-purple-200">
-                                    <Label className="text-sm font-medium text-purple-700">Kardeş Listesi:</Label>
-                                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                      {result.multipleAthletes?.map(athleteId => {
-                                        const athlete = athletes.find(a => a.id.toString() === athleteId);
-                                        return athlete ? (
-                                          <div key={athleteId} className="flex items-center space-x-2 p-2 bg-purple-100 rounded">
-                                            <Users className="h-4 w-4 text-purple-600" />
-                                            <span className="text-sm font-medium text-purple-800">
-                                              {athlete.studentName} {athlete.studentSurname}
-                                            </span>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Excel Data with enhanced visibility */}
+                                        <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+                                          <Label className="text-sm font-bold text-blue-800 uppercase tracking-wide">📄 Excel Verisi:</Label>
+                                          <div className="mt-2">
+                                            <p className="font-bold text-lg text-blue-900">{result.excelRow.description}</p>
+                                            <p className="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded mt-1">
+                                              📅 {result.excelRow.date} - 💰 ₺{result.excelRow.amount.toLocaleString()}
+                                            </p>
                                           </div>
-                                        ) : null;
-                                      })}
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
+                                        </div>
+                                        
+                                        {/* Match Result with enhanced visibility */}
+                                        <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded">
+                                          <Label className="text-sm font-bold text-green-800 uppercase tracking-wide">👥 Kardeş Eşleştirmesi:</Label>
+                                          <div className="mt-2">
+                                            <div className="flex items-center space-x-2 mb-2">
+                                              <p className="font-bold text-lg text-green-900">{result.athleteName}</p>
+                                              <Badge className="bg-green-500 text-white font-bold animate-pulse">
+                                                {result.multipleAthletes?.length} KARDEŞ
+                                              </Badge>
+                                            </div>
+                                            <div className="bg-green-100 p-2 rounded">
+                                              <p className="text-sm font-bold text-green-800">
+                                                💰 Her sporcu: ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Sibling Details with maximum visibility */}
+                                      <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg">
+                                        <Label className="text-sm font-bold text-purple-800 uppercase tracking-wide flex items-center space-x-2">
+                                          <Users className="h-4 w-4" />
+                                          <span>👨‍👩‍👧‍👦 Kardeş Listesi:</span>
+                                        </Label>
+                                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                          {result.multipleAthletes?.map((athleteId, siblingIndex) => {
+                                            const athlete = athletes.find(a => a.id.toString() === athleteId);
+                                            return athlete ? (
+                                              <div key={athleteId} className="flex items-center space-x-3 p-3 bg-white border-2 border-purple-200 rounded-lg shadow-sm">
+                                                <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                                                  {siblingIndex + 1}
+                                                </div>
+                                                <div className="flex-1">
+                                                  <span className="font-bold text-purple-900 block">
+                                                    {athlete.studentName} {athlete.studentSurname}
+                                                  </span>
+                                                  <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                                                    ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
+                                                  </span>
+                                                </div>
+                                                <CheckCircle className="h-5 w-5 text-green-500" />
+                                              </div>
+                                            ) : null;
+                                          })}
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
                     )}
 
                     {/* Action Buttons */}

@@ -1141,109 +1141,168 @@ export default function Athletes() {
             }
           }
 
-          // Enhanced duplicate detection with multiple criteria
+          // Enhanced duplicate detection with multiple criteria and improved accuracy
           const studentName = studentData['Öğrenci Adı']?.toString().trim();
           const studentSurname = studentData['Öğrenci Soyadı']?.toString().trim();
           const studentTcNo = studentData['TC Kimlik No']?.toString().trim();
           const parentName = studentData['Veli Adı']?.toString().trim();
           const parentSurname = studentData['Veli Soyadı']?.toString().trim();
           const parentPhoneForDuplicateCheck = studentData['Veli Telefon']?.toString().trim();
+          const parentEmailForDuplicateCheck = studentData['Veli Email']?.toString().trim();
           
-          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo, parentName, parentSurname, parentPhoneForDuplicateCheck });
+          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo, parentName, parentSurname, parentPhoneForDuplicateCheck, parentEmailForDuplicateCheck });
+          
+          // Helper function to normalize Turkish text for comparison
+          const normalizeTurkishText = (text: string): string => {
+            if (!text) return '';
+            return text
+              .toLowerCase()
+              .replace(/ğ/g, 'g')
+              .replace(/ü/g, 'u')
+              .replace(/ş/g, 's')
+              .replace(/ı/g, 'i')
+              .replace(/ö/g, 'o')
+              .replace(/ç/g, 'c')
+              .replace(/[^\w\s]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+          };
+          
+          // Helper function to calculate string similarity
+          const calculateStringSimilarity = (str1: string, str2: string): number => {
+            if (!str1 || !str2) return 0;
+            const norm1 = normalizeTurkishText(str1);
+            const norm2 = normalizeTurkishText(str2);
+            
+            if (norm1 === norm2) return 100;
+            
+            // Levenshtein distance for similarity
+            const matrix = [];
+            for (let i = 0; i <= norm2.length; i++) {
+              matrix[i] = [i];
+            }
+            for (let j = 0; j <= norm1.length; j++) {
+              matrix[0][j] = j;
+            }
+            for (let i = 1; i <= norm2.length; i++) {
+              for (let j = 1; j <= norm1.length; j++) {
+                if (norm2.charAt(i - 1) === norm1.charAt(j - 1)) {
+                  matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                  matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                  );
+                }
+              }
+            }
+            
+            const maxLength = Math.max(norm1.length, norm2.length);
+            const similarity = ((maxLength - matrix[norm2.length][norm1.length]) / maxLength) * 100;
+            return Math.round(similarity);
+          };
           
           const existingStudentIndex = existingStudents.findIndex((student: any) => {
-            // Priority 1: Check by TC number (most reliable)
+            // Priority 1: Check by TC number (most reliable) - must be exact match
             if (studentTcNo && student.studentTcNo && studentTcNo.length >= 10) {
               const normalizedNewTc = studentTcNo.replace(/\D/g, '');
               const normalizedExistingTc = student.studentTcNo.toString().replace(/\D/g, '');
               if (normalizedNewTc === normalizedExistingTc && normalizedNewTc.length >= 10) {
-                console.log('Duplicate found by TC number:', studentTcNo);
+                console.log('DUPLICATE FOUND by TC number:', studentTcNo, '-> Existing student:', student.studentName, student.studentSurname);
                 return true;
               }
             }
             
-            // Priority 2: Check by exact name and surname match (case-insensitive)
+            // Priority 2: Check by exact name and surname match (Turkish-aware)
             if (studentName && studentSurname && student.studentName && student.studentSurname) {
-              const newNameLower = studentName.toLowerCase().trim();
-              const newSurnameLower = studentSurname.toLowerCase().trim();
-              const existingNameLower = student.studentName.toString().toLowerCase().trim();
-              const existingSurnameLower = student.studentSurname.toString().toLowerCase().trim();
+              const newNameNorm = normalizeTurkishText(studentName);
+              const newSurnameNorm = normalizeTurkishText(studentSurname);
+              const existingNameNorm = normalizeTurkishText(student.studentName.toString());
+              const existingSurnameNorm = normalizeTurkishText(student.studentSurname.toString());
               
-              if (newNameLower === existingNameLower && newSurnameLower === existingSurnameLower) {
-                console.log('Duplicate found by exact name match:', studentName, studentSurname);
+              if (newNameNorm === existingNameNorm && newSurnameNorm === existingSurnameNorm) {
+                console.log('DUPLICATE FOUND by exact name match:', studentName, studentSurname, '-> Existing student:', student.studentName, student.studentSurname);
                 return true;
               }
             }
             
-            // Priority 3: Check by parent phone number (if student names are similar)
-            if (parentPhoneForDuplicateCheck && student.parentPhone && studentName && studentSurname && student.studentName && student.studentSurname) {
+            // Priority 3: Check by parent email (exact match)
+            if (parentEmailForDuplicateCheck && student.parentEmail && 
+                parentEmailForDuplicateCheck.length > 5 && student.parentEmail.length > 5) {
+              const newEmailNorm = parentEmailForDuplicateCheck.toLowerCase().trim();
+              const existingEmailNorm = student.parentEmail.toString().toLowerCase().trim();
+              
+              if (newEmailNorm === existingEmailNorm) {
+                console.log('DUPLICATE FOUND by parent email:', parentEmailForDuplicateCheck, '-> Existing student:', student.studentName, student.studentSurname);
+                return true;
+              }
+            }
+            
+            // Priority 4: Check by parent phone number with high name similarity
+            if (parentPhoneForDuplicateCheck && student.parentPhone && 
+                studentName && studentSurname && student.studentName && student.studentSurname) {
               const normalizedNewPhone = parentPhoneForDuplicateCheck.replace(/\D/g, '').slice(-10);
               const normalizedExistingPhone = student.parentPhone.toString().replace(/\D/g, '').slice(-10);
               
               if (normalizedNewPhone === normalizedExistingPhone && normalizedNewPhone.length >= 10) {
-                // Check if student names are similar (allowing for minor differences)
-                const newNameLower = studentName.toLowerCase().trim();
-                const newSurnameLower = studentSurname.toLowerCase().trim();
-                const existingNameLower = student.studentName.toString().toLowerCase().trim();
-                const existingSurnameLower = student.studentSurname.toString().toLowerCase().trim();
+                // Calculate name similarity
+                const nameSimilarity = calculateStringSimilarity(studentName, student.studentName.toString());
+                const surnameSimilarity = calculateStringSimilarity(studentSurname, student.studentSurname.toString());
                 
-                // Calculate similarity for names
-                const namesSimilar = (
-                  newNameLower === existingNameLower ||
-                  (Math.abs(newNameLower.length - existingNameLower.length) <= 2 &&
-                   (newNameLower.includes(existingNameLower.substring(0, Math.min(3, existingNameLower.length))) ||
-                    existingNameLower.includes(newNameLower.substring(0, Math.min(3, newNameLower.length)))))
-                );
-                
-                const surnamesSimilar = (
-                  newSurnameLower === existingSurnameLower ||
-                  (Math.abs(newSurnameLower.length - existingSurnameLower.length) <= 2 &&
-                   (newSurnameLower.includes(existingSurnameLower.substring(0, Math.min(3, existingSurnameLower.length))) ||
-                    existingSurnameLower.includes(newSurnameLower.substring(0, Math.min(3, newSurnameLower.length)))))
-                );
-                
-                if (namesSimilar && surnamesSimilar) {
-                  console.log('Duplicate found by parent phone and similar names:', parentPhoneForDuplicateCheck, studentName, studentSurname);
+                // Require high similarity (85%+) for phone-based matching
+                if (nameSimilarity >= 85 && surnameSimilarity >= 85) {
+                  console.log('DUPLICATE FOUND by parent phone and high name similarity:', 
+                    parentPhoneForDuplicateCheck, studentName, studentSurname, 
+                    `(${nameSimilarity}%/${surnameSimilarity}% similarity)`,
+                    '-> Existing student:', student.studentName, student.studentSurname);
                   return true;
                 }
               }
             }
             
-            // Priority 4: Check by parent name combination with student name similarity
+            // Priority 5: Check by parent name combination with very high student name similarity
             if (parentName && parentSurname && student.parentName && student.parentSurname &&
                 studentName && studentSurname && student.studentName && student.studentSurname) {
               
-              const newParentNameLower = parentName.toLowerCase().trim();
-              const newParentSurnameLower = parentSurname.toLowerCase().trim();
-              const existingParentNameLower = student.parentName.toString().toLowerCase().trim();
-              const existingParentSurnameLower = student.parentSurname.toString().toLowerCase().trim();
+              const parentNameSimilarity = calculateStringSimilarity(parentName, student.parentName.toString());
+              const parentSurnameSimilarity = calculateStringSimilarity(parentSurname, student.parentSurname.toString());
               
-              // Check if parent names match exactly
-              if (newParentNameLower === existingParentNameLower && newParentSurnameLower === existingParentSurnameLower) {
-                // Check if student names are reasonably similar
-                const newNameLower = studentName.toLowerCase().trim();
-                const newSurnameLower = studentSurname.toLowerCase().trim();
-                const existingNameLower = student.studentName.toString().toLowerCase().trim();
-                const existingSurnameLower = student.studentSurname.toString().toLowerCase().trim();
+              // Require exact or very high parent name match
+              if (parentNameSimilarity >= 95 && parentSurnameSimilarity >= 95) {
+                const studentNameSimilarity = calculateStringSimilarity(studentName, student.studentName.toString());
+                const studentSurnameSimilarity = calculateStringSimilarity(studentSurname, student.studentSurname.toString());
                 
-                const namesSimilar = (
-                  newNameLower === existingNameLower ||
-                  (newNameLower.length >= 3 && existingNameLower.length >= 3 &&
-                   (newNameLower.includes(existingNameLower.substring(0, 3)) ||
-                    existingNameLower.includes(newNameLower.substring(0, 3))))
-                );
-                
-                const surnamesSimilar = (
-                  newSurnameLower === existingSurnameLower ||
-                  (newSurnameLower.length >= 3 && existingSurnameLower.length >= 3 &&
-                   (newSurnameLower.includes(existingSurnameLower.substring(0, 3)) ||
-                    existingSurnameLower.includes(newSurnameLower.substring(0, 3))))
-                );
-                
-                if (namesSimilar && surnamesSimilar) {
-                  console.log('Duplicate found by parent names and similar student names:', parentName, parentSurname, studentName, studentSurname);
+                // Require very high student name similarity (90%+) when parent names match
+                if (studentNameSimilarity >= 90 && studentSurnameSimilarity >= 90) {
+                  console.log('DUPLICATE FOUND by parent names and high student name similarity:', 
+                    parentName, parentSurname, studentName, studentSurname,
+                    `(Parent: ${parentNameSimilarity}%/${parentSurnameSimilarity}%, Student: ${studentNameSimilarity}%/${studentSurnameSimilarity}%)`,
+                    '-> Existing student:', student.studentName, student.studentSurname);
                   return true;
                 }
+              }
+            }
+            
+            // Priority 6: Check for very high overall similarity (potential typos)
+            if (studentName && studentSurname && student.studentName && student.studentSurname &&
+                parentName && parentSurname && student.parentName && student.parentSurname) {
+              
+              const studentNameSimilarity = calculateStringSimilarity(studentName, student.studentName.toString());
+              const studentSurnameSimilarity = calculateStringSimilarity(studentSurname, student.studentSurname.toString());
+              const parentNameSimilarity = calculateStringSimilarity(parentName, student.parentName.toString());
+              const parentSurnameSimilarity = calculateStringSimilarity(parentSurname, student.parentSurname.toString());
+              
+              // Calculate overall similarity
+              const overallSimilarity = (studentNameSimilarity + studentSurnameSimilarity + parentNameSimilarity + parentSurnameSimilarity) / 4;
+              
+              // Very high threshold (97%+) for overall similarity to catch typos
+              if (overallSimilarity >= 97) {
+                console.log('DUPLICATE FOUND by very high overall similarity:', 
+                  studentName, studentSurname, parentName, parentSurname,
+                  `(Overall: ${overallSimilarity.toFixed(1)}%)`,
+                  '-> Existing student:', student.studentName, student.studentSurname);
+                return true;
               }
             }
             
