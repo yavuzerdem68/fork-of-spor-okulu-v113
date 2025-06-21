@@ -25,7 +25,7 @@ import {
   TrendingDown,
   AlertTriangle,
   CheckCircle,
-  DollarSign,
+  Banknote,
   Users,
   Calendar,
   Eye,
@@ -593,7 +593,7 @@ export default function InventorySales() {
                     <p className="text-2xl font-bold">₺{todaySalesValue.toLocaleString('tr-TR')}</p>
                     <p className="text-xs text-muted-foreground">{todaySales.length} işlem</p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-purple-600" />
+                  <Banknote className="h-8 w-8 text-purple-600" />
                 </div>
               </CardContent>
             </Card>
@@ -1156,7 +1156,7 @@ export default function InventorySales() {
                         <p className="text-sm text-muted-foreground">Toplam Satış</p>
                         <p className="text-2xl font-bold">₺{totalSalesValue.toLocaleString('tr-TR')}</p>
                       </div>
-                      <DollarSign className="h-8 w-8 text-green-600" />
+                      <Banknote className="h-8 w-8 text-green-600" />
                     </div>
                     <div className="flex items-center justify-between p-4 bg-accent rounded-lg">
                       <div>

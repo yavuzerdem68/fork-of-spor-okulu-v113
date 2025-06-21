@@ -15,7 +15,7 @@ import {
   Download,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  Banknote,
   Activity,
   Target,
   LineChart,
@@ -281,7 +281,7 @@ export default function Reports() {
                           <span className="text-xs text-green-600">+{revenueGrowth}%</span>
                         </div>
                       </div>
-                      <DollarSign className="h-8 w-8 text-green-600" />
+                      <Banknote className="h-8 w-8 text-green-600" />
                     </div>
                   </CardContent>
                 </Card>

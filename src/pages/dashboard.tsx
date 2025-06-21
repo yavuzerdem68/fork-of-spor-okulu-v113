@@ -30,7 +30,7 @@ import {
   Settings,
   LogOut,
   Home,
-  DollarSign,
+  Banknote,
   TrendingUp,
   Activity,
   Clock,
@@ -75,7 +75,7 @@ export default function Dashboard() {
       value: "₺0",
       change: "0%",
       trend: "up",
-      icon: DollarSign,
+      icon: Banknote,
       color: "text-green-600"
     },
     {
@@ -176,7 +176,7 @@ export default function Dashboard() {
         value: `₺${Math.round(monthlyIncome).toLocaleString('tr-TR')}`,
         change: "0%",
         trend: "up",
-        icon: DollarSign,
+        icon: Banknote,
         color: "text-green-600"
       },
       {
