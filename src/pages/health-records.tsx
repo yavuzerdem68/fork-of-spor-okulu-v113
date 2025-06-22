@@ -38,10 +38,12 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
-  ArrowLeft
+  Bell,
+  Settings
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Sidebar from '@/components/Sidebar';
 
 interface HealthRecord {
   id: string;
@@ -91,6 +93,7 @@ interface HealthRecord {
 const HealthRecords = () => {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
   const [athletes, setAthletes] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -319,257 +322,252 @@ const HealthRecords = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-background flex">
+        {/* Sidebar */}
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/health-records" />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
           {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
-          >
-            <div className="flex items-center gap-4 mb-4">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Dashboard'a Dön
-              </Button>
-            </div>
+          <header className="bg-card border-b border-border p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-                  <Heart className="h-8 w-8 text-red-500" />
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <Heart className="h-6 w-6 text-red-500" />
                   Sağlık Kayıtları
                 </h1>
-                <p className="text-muted-foreground mt-2">
-                  Sporcu sağlık bilgileri ve tıbbi takip sistemi
-                </p>
+                <p className="text-muted-foreground">Sporcu sağlık bilgileri ve tıbbi takip sistemi</p>
               </div>
               
-              <div className="flex items-center gap-4">
-                <Dialog open={isAddRecordDialogOpen} onOpenChange={setIsAddRecordDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      Yeni Sağlık Kaydı
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Yeni Sağlık Kaydı Oluştur</DialogTitle>
-                      <DialogDescription>
-                        Sporcu için kapsamlı sağlık kaydı oluşturun
-                      </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="space-y-6">
-                      {/* Sporcu Seçimi */}
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input 
+                    placeholder="Sporcu adı ile ara..." 
+                    className="pl-10 w-64"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Button variant="outline" size="sm">
+                  <Bell className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => router.push('/system-settings')}>
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Dashboard Content */}
+          <main className="flex-1 p-6 space-y-6">
+            {/* Message */}
+            {message && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+                  <AlertDescription className={message.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                    {message.text}
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+
+            {/* Header Actions */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-end"
+            >
+              <Dialog open={isAddRecordDialogOpen} onOpenChange={setIsAddRecordDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Yeni Sağlık Kaydı
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Yeni Sağlık Kaydı Oluştur</DialogTitle>
+                    <DialogDescription>
+                      Sporcu için kapsamlı sağlık kaydı oluşturun
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-6">
+                    {/* Sporcu Seçimi */}
+                    <div className="space-y-2">
+                      <Label>Sporcu Seçin</Label>
+                      <Select 
+                        value={newRecord.athleteId} 
+                        onValueChange={(value) => setNewRecord(prev => ({ ...prev, athleteId: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sporcu seçiniz" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {athletes
+                            .filter(athlete => !healthRecords.some(record => record.athleteId === athlete.id))
+                            .map(athlete => (
+                            <SelectItem key={athlete.id} value={athlete.id}>
+                              {athlete.name} {athlete.surname}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Temel Bilgiler */}
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Sporcu Seçin</Label>
+                        <Label>Kan Grubu</Label>
                         <Select 
-                          value={newRecord.athleteId} 
-                          onValueChange={(value) => setNewRecord(prev => ({ ...prev, athleteId: value }))}
+                          value={newRecord.bloodType} 
+                          onValueChange={(value) => setNewRecord(prev => ({ ...prev, bloodType: value }))}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Sporcu seçiniz" />
+                            <SelectValue placeholder="Kan grubu seçiniz" />
                           </SelectTrigger>
                           <SelectContent>
-                            {athletes
-                              .filter(athlete => !healthRecords.some(record => record.athleteId === athlete.id))
-                              .map(athlete => (
-                              <SelectItem key={athlete.id} value={athlete.id}>
-                                {athlete.name} {athlete.surname}
-                              </SelectItem>
-                            ))}
+                            <SelectItem value="A+">A Rh+</SelectItem>
+                            <SelectItem value="A-">A Rh-</SelectItem>
+                            <SelectItem value="B+">B Rh+</SelectItem>
+                            <SelectItem value="B-">B Rh-</SelectItem>
+                            <SelectItem value="AB+">AB Rh+</SelectItem>
+                            <SelectItem value="AB-">AB Rh-</SelectItem>
+                            <SelectItem value="O+">O Rh+</SelectItem>
+                            <SelectItem value="O-">O Rh-</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
 
-                      {/* Temel Bilgiler */}
+                    {/* Acil Durum İletişim */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-semibold">Acil Durum İletişim</Label>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Kan Grubu</Label>
-                          <Select 
-                            value={newRecord.bloodType} 
-                            onValueChange={(value) => setNewRecord(prev => ({ ...prev, bloodType: value }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Kan grubu seçiniz" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="A+">A Rh+</SelectItem>
-                              <SelectItem value="A-">A Rh-</SelectItem>
-                              <SelectItem value="B+">B Rh+</SelectItem>
-                              <SelectItem value="B-">B Rh-</SelectItem>
-                              <SelectItem value="AB+">AB Rh+</SelectItem>
-                              <SelectItem value="AB-">AB Rh-</SelectItem>
-                              <SelectItem value="O+">O Rh+</SelectItem>
-                              <SelectItem value="O-">O Rh-</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Label>İsim</Label>
+                          <Input
+                            value={newRecord.emergencyContact?.name || ''}
+                            onChange={(e) => setNewRecord(prev => ({
+                              ...prev,
+                              emergencyContact: { ...prev.emergencyContact!, name: e.target.value }
+                            }))}
+                            placeholder="Acil durum kişisi"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Yakınlık</Label>
+                          <Input
+                            value={newRecord.emergencyContact?.relation || ''}
+                            onChange={(e) => setNewRecord(prev => ({
+                              ...prev,
+                              emergencyContact: { ...prev.emergencyContact!, relation: e.target.value }
+                            }))}
+                            placeholder="Anne, Baba, vb."
+                          />
                         </div>
                       </div>
+                      <div className="space-y-2">
+                        <Label>Telefon</Label>
+                        <Input
+                          value={newRecord.emergencyContact?.phone || ''}
+                          onChange={(e) => setNewRecord(prev => ({
+                            ...prev,
+                            emergencyContact: { ...prev.emergencyContact!, phone: e.target.value }
+                          }))}
+                          placeholder="+90 XXX XXX XX XX"
+                        />
+                      </div>
+                    </div>
 
-                      {/* Acil Durum İletişim */}
-                      <div className="space-y-4">
-                        <Label className="text-base font-semibold">Acil Durum İletişim</Label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>İsim</Label>
-                            <Input
-                              value={newRecord.emergencyContact?.name || ''}
-                              onChange={(e) => setNewRecord(prev => ({
-                                ...prev,
-                                emergencyContact: { ...prev.emergencyContact!, name: e.target.value }
-                              }))}
-                              placeholder="Acil durum kişisi"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Yakınlık</Label>
-                            <Input
-                              value={newRecord.emergencyContact?.relation || ''}
-                              onChange={(e) => setNewRecord(prev => ({
-                                ...prev,
-                                emergencyContact: { ...prev.emergencyContact!, relation: e.target.value }
-                              }))}
-                              placeholder="Anne, Baba, vb."
-                            />
-                          </div>
+                    {/* Doktor Bilgileri */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-semibold">Aile Doktoru Bilgileri</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Doktor Adı</Label>
+                          <Input
+                            value={newRecord.doctorInfo?.name || ''}
+                            onChange={(e) => setNewRecord(prev => ({
+                              ...prev,
+                              doctorInfo: { ...prev.doctorInfo!, name: e.target.value }
+                            }))}
+                            placeholder="Dr. Adı Soyadı"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Telefon</Label>
                           <Input
-                            value={newRecord.emergencyContact?.phone || ''}
+                            value={newRecord.doctorInfo?.phone || ''}
                             onChange={(e) => setNewRecord(prev => ({
                               ...prev,
-                              emergencyContact: { ...prev.emergencyContact!, phone: e.target.value }
+                              doctorInfo: { ...prev.doctorInfo!, phone: e.target.value }
                             }))}
                             placeholder="+90 XXX XXX XX XX"
                           />
                         </div>
                       </div>
-
-                      {/* Doktor Bilgileri */}
-                      <div className="space-y-4">
-                        <Label className="text-base font-semibold">Aile Doktoru Bilgileri</Label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Doktor Adı</Label>
-                            <Input
-                              value={newRecord.doctorInfo?.name || ''}
-                              onChange={(e) => setNewRecord(prev => ({
-                                ...prev,
-                                doctorInfo: { ...prev.doctorInfo!, name: e.target.value }
-                              }))}
-                              placeholder="Dr. Adı Soyadı"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Telefon</Label>
-                            <Input
-                              value={newRecord.doctorInfo?.phone || ''}
-                              onChange={(e) => setNewRecord(prev => ({
-                                ...prev,
-                                doctorInfo: { ...prev.doctorInfo!, phone: e.target.value }
-                              }))}
-                              placeholder="+90 XXX XXX XX XX"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Hastane/Klinik</Label>
-                          <Input
-                            value={newRecord.doctorInfo?.hospital || ''}
-                            onChange={(e) => setNewRecord(prev => ({
-                              ...prev,
-                              doctorInfo: { ...prev.doctorInfo!, hospital: e.target.value }
-                            }))}
-                            placeholder="Hastane veya klinik adı"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Alerjiler */}
-                      <div className="space-y-4">
-                        <Label className="text-base font-semibold">Alerjiler</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            value={newAllergy}
-                            onChange={(e) => setNewAllergy(e.target.value)}
-                            placeholder="Alerji ekleyin"
-                            onKeyPress={(e) => e.key === 'Enter' && addAllergy()}
-                          />
-                          <Button type="button" onClick={addAllergy}>Ekle</Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {newRecord.allergies?.map((allergy, index) => (
-                            <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                              {allergy}
-                              <X 
-                                className="h-3 w-3 cursor-pointer" 
-                                onClick={() => setNewRecord(prev => ({
-                                  ...prev,
-                                  allergies: prev.allergies?.filter((_, i) => i !== index)
-                                }))}
-                              />
-                            </Badge>
-                          ))}
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Hastane/Klinik</Label>
+                        <Input
+                          value={newRecord.doctorInfo?.hospital || ''}
+                          onChange={(e) => setNewRecord(prev => ({
+                            ...prev,
+                            doctorInfo: { ...prev.doctorInfo!, hospital: e.target.value }
+                          }))}
+                          placeholder="Hastane veya klinik adı"
+                        />
                       </div>
                     </div>
 
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsAddRecordDialogOpen(false)}>
-                        İptal
-                      </Button>
-                      <Button onClick={handleAddRecord}>
-                        Sağlık Kaydı Oluştur
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          </motion.div>
+                    {/* Alerjiler */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-semibold">Alerjiler</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newAllergy}
+                          onChange={(e) => setNewAllergy(e.target.value)}
+                          placeholder="Alerji ekleyin"
+                          onKeyPress={(e) => e.key === 'Enter' && addAllergy()}
+                        />
+                        <Button type="button" onClick={addAllergy}>Ekle</Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {newRecord.allergies?.map((allergy, index) => (
+                          <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                            {allergy}
+                            <X 
+                              className="h-3 w-3 cursor-pointer" 
+                              onClick={() => setNewRecord(prev => ({
+                                ...prev,
+                                allergies: prev.allergies?.filter((_, i) => i !== index)
+                              }))}
+                            />
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Message */}
-          {message && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6"
-            >
-              <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
-                <AlertDescription className={message.type === 'success' ? 'text-green-700' : 'text-red-700'}>
-                  {message.text}
-                </AlertDescription>
-              </Alert>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddRecordDialogOpen(false)}>
+                      İptal
+                    </Button>
+                    <Button onClick={handleAddRecord}>
+                      Sağlık Kaydı Oluştur
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </motion.div>
-          )}
 
-          {/* Search */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-6"
-          >
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Sporcu adı ile ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </motion.div>
-
-          {/* Content */}
-          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Content */}
+            <div className="grid lg:grid-cols-3 gap-6">
             {/* Records List */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -915,6 +913,7 @@ const HealthRecords = () => {
               )}
             </motion.div>
           </div>
+          </main>
         </div>
       </div>
     </>

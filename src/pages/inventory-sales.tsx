@@ -34,11 +34,13 @@ import {
   ShoppingBag,
   Shirt,
   Home,
-  ArrowLeft
+  Bell,
+  Settings
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/router";
 import { toast } from "sonner";
+import Sidebar from '@/components/Sidebar';
 
 interface Product {
   id: string;
@@ -112,6 +114,7 @@ const colors = ['Beyaz', 'Siyah', 'Kırmızı', 'Mavi', 'Yeşil', 'Sarı', 'Turu
 
 export default function InventorySales() {
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -495,51 +498,56 @@ export default function InventorySales() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="bg-card border-b border-border p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => router.push('/dashboard')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Geri
-              </Button>
+      <div className="min-h-screen bg-background flex">
+        {/* Sidebar */}
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/inventory-sales" />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <header className="bg-card border-b border-border p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground flex items-center">
-                  <Package className="h-6 w-6 mr-2" />
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <Package className="h-6 w-6 text-blue-600" />
                   Stok ve Satış Yönetimi
                 </h1>
                 <p className="text-muted-foreground">Envanter ve satış işlemleri</p>
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input 
-                  placeholder="Ürün ara..." 
-                  className="pl-10 w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input 
+                    placeholder="Ürün ara..." 
+                    className="pl-10 w-64"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tüm Kategoriler</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm">
+                  <Bell className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => router.push('/system-settings')}>
+                  <Settings className="h-4 w-4" />
+                </Button>
               </div>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tüm Kategoriler</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>{category}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Stats Cards */}
-        <div className="p-6">
+          {/* Main Dashboard Content */}
+          <main className="flex-1 p-6 space-y-6">
           <motion.div 
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6"
             variants={fadeInUp}
@@ -1208,6 +1216,7 @@ export default function InventorySales() {
               </div>
             </TabsContent>
           </Tabs>
+          </main>
         </div>
       </div>
     </>

@@ -35,16 +35,18 @@ import {
   CheckCircle,
   AlertCircle,
   Timer,
-  ArrowLeft,
   Filter,
   FileText,
   Camera,
-  Share2
+  Share2,
+  Bell,
+  Settings
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import Sidebar from '@/components/Sidebar';
 
 interface Event {
   id: string;
@@ -100,6 +102,7 @@ interface Event {
 const EventsTournaments = () => {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [athletes, setAthletes] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -361,35 +364,66 @@ const EventsTournaments = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-background flex">
+        {/* Sidebar */}
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/events-tournaments" />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
           {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
-          >
-            <div className="flex items-center gap-4 mb-4">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Dashboard'a Dön
-              </Button>
-            </div>
+          <header className="bg-card border-b border-border p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-                  <Trophy className="h-8 w-8 text-yellow-500" />
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <Trophy className="h-6 w-6 text-yellow-500" />
                   Etkinlik ve Turnuva Yönetimi
                 </h1>
-                <p className="text-muted-foreground mt-2">
-                  Spor etkinlikleri, turnuvalar ve müsabakaları yönetin
-                </p>
+                <p className="text-muted-foreground">Spor etkinlikleri, turnuvalar ve müsabakaları yönetin</p>
               </div>
               
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input 
+                    placeholder="Etkinlik ara..." 
+                    className="pl-10 w-64"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Button variant="outline" size="sm">
+                  <Bell className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => router.push('/system-settings')}>
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Dashboard Content */}
+          <main className="flex-1 p-6 space-y-6">
+            {/* Message */}
+            {message && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+                  <AlertDescription className={message.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                    {message.text}
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+
+            {/* Header Actions */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-end"
+            >
               <div className="flex items-center gap-4">
                 <Dialog open={isAddEventDialogOpen} onOpenChange={setIsAddEventDialogOpen}>
                   <DialogTrigger asChild>
@@ -1078,6 +1112,7 @@ const EventsTournaments = () => {
               )}
             </motion.div>
           </div>
+          </main>
         </div>
       </div>
     </>
