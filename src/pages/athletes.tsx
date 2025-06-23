@@ -1460,9 +1460,7 @@ export default function Athletes() {
                   <ArrowLeft className="w-4 h-4" />
                 </Link>
                 <Users className="w-6 h-6 text-primary" />
-                <h1 className="text-3xl font-bold">
-                  {userRole === 'coach' ? 'Sporcularım' : 'Sporcular'}
-                </h1>
+                <h1 className="text-3xl font-bold">Sporcular</h1>
               </div>
               <p className="text-muted-foreground">
                 {userRole === 'coach' 

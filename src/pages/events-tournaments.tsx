@@ -376,7 +376,7 @@ const EventsTournaments = () => {
               <div>
                 <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                   <Trophy className="h-6 w-6 text-yellow-500" />
-                  Etkinlik ve Turnuva Yönetimi
+                  Etkinlikler
                 </h1>
                 <p className="text-muted-foreground">Spor etkinlikleri, turnuvalar ve müsabakaları yönetin</p>
               </div>

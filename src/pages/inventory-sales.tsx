@@ -510,7 +510,7 @@ export default function InventorySales() {
               <div>
                 <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                   <Package className="h-6 w-6 text-blue-600" />
-                  Stok ve Satış Yönetimi
+                  Stok ve Satış
                 </h1>
                 <p className="text-muted-foreground">Envanter ve satış işlemleri</p>
               </div>
