@@ -56,6 +56,7 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
     studentGender: athlete?.studentGender || "",
     studentSchool: athlete?.studentSchool || "",
     studentClass: athlete?.studentClass || "",
+    licenseNumber: athlete?.licenseNumber || "",
     selectedSports: athlete?.sportsBranches || [],
     
     // Fiziksel Bilgiler
@@ -279,6 +280,7 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
         studentGender: formData.studentGender,
         studentSchool: formData.studentSchool,
         studentClass: formData.studentClass,
+        licenseNumber: formData.licenseNumber,
         sportsBranches: formData.selectedSports,
         
         // Physical info
@@ -539,6 +541,16 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
               placeholder="Öğrencinin devam ettiği okul"
               value={formData.studentSchool}
               onChange={(e) => handleInputChange("studentSchool", e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="licenseNumber">Lisans Numarası</Label>
+            <Input
+              id="licenseNumber"
+              placeholder="Sporcu lisans numarası (opsiyonel)"
+              value={formData.licenseNumber}
+              onChange={(e) => handleInputChange("licenseNumber", e.target.value)}
             />
           </div>
 

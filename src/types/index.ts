@@ -64,6 +64,7 @@ export interface Athlete {
   school?: string | null
   class?: string | null
   photo?: string | null
+  licenseNumber?: string | null
   status: AthleteStatus
   paymentStatus: PaymentStatus
   registrationDate: Date
@@ -221,6 +222,7 @@ export interface AthleteFormData {
   school?: string
   class?: string
   photo?: string
+  licenseNumber?: string
   sportsBranches: string[]
   parent: {
     firstName: string

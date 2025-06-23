@@ -1654,6 +1654,7 @@ export default function Athletes() {
                         </TableHead>
                         <TableHead>Doğum Tarihi</TableHead>
                         <TableHead>Yaş</TableHead>
+                        <TableHead>Lisans No</TableHead>
                         <TableHead>Branş</TableHead>
                         <TableHead>
                           <Button
@@ -1703,6 +1704,11 @@ export default function Athletes() {
                           <TableCell>
                             <div className="text-sm font-medium">
                               {athlete.studentAge || calculateAge(athlete.studentBirthDate)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {athlete.licenseNumber || '-'}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -2228,6 +2234,10 @@ export default function Athletes() {
                         <div>
                           <Label className="text-sm font-medium text-muted-foreground">Cinsiyet</Label>
                           <p className="font-medium">{selectedAthleteForView.studentGender || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Lisans Numarası</Label>
+                          <p className="font-medium">{selectedAthleteForView.licenseNumber || '-'}</p>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-muted-foreground">Spor Branşları</Label>

@@ -13,7 +13,8 @@ import {
   Eye,
   MoreVertical,
   UserCheck,
-  UserX
+  UserX,
+  CreditCard
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ interface Athlete {
   paymentStatus?: string;
   photo?: string;
   registrationDate?: string;
+  licenseNumber?: string;
 }
 
 interface AthleteCardProps {
@@ -166,6 +168,12 @@ const AthleteCard = memo(({
                   <p className="text-sm text-muted-foreground">
                     {athlete.studentAge} yaş
                   </p>
+                )}
+                {athlete.licenseNumber && (
+                  <div className="flex items-center text-sm text-muted-foreground mt-1">
+                    <CreditCard className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span className="truncate">Lisans: {athlete.licenseNumber}</span>
+                  </div>
                 )}
               </div>
 
