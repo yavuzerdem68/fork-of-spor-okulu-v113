@@ -219,7 +219,7 @@ interface ExcelRow {
   description: string;
   reference: string;
   rowIndex: number;
-  paymentType?: string; // Added for transaction type from "İşlem" column
+  paymentType?: string;
 }
 
 interface MatchResult {
@@ -229,7 +229,8 @@ interface MatchResult {
   parentName: string;
   similarity: number;
   isManual: boolean;
-  multipleAthletes?: string[]; // For multi-athlete payments
+  isSiblingPayment?: boolean; // New flag for sibling payments
+  siblingIds?: string[]; // Clean list of sibling IDs
 }
 
 const fadeInUp = {
@@ -394,7 +395,7 @@ export default function Payments() {
     }
   };
 
-  // Step 2: Process Excel file (parse only, no matching yet) - Fixed version with column header detection
+  // Step 2: Process Excel file (parse only, no matching yet)
   const processExcelFile = async () => {
     if (!uploadedFile) {
       toast.error("Lütfen önce bir dosya seçin");
@@ -482,14 +483,13 @@ export default function Payments() {
       const headerRow = jsonData[0] as any[];
       let dateColumnIndex = -1;
       let amountColumnIndex = -1;
-      let descriptionColumnIndex = -1; // "Açıklama" column for athlete/parent names
-      let transactionTypeColumnIndex = -1; // "İşlem" column for payment type
+      let descriptionColumnIndex = -1;
+      let transactionTypeColumnIndex = -1;
       let referenceColumnIndex = -1;
 
       console.log('Header row:', headerRow);
 
-      // Search for column headers (case-insensitive, Turkish character friendly)
-      // Use separate loops to avoid else-if conflicts and be more specific
+      // Search for column headers
       for (let i = 0; i < headerRow.length; i++) {
         const header = headerRow[i];
         if (!header || typeof header !== 'string') continue;
@@ -499,7 +499,7 @@ export default function Payments() {
         
         console.log(`Column ${i}: "${header}" -> normalized: "${normalizedHeader}"`);
         
-        // Date column patterns - be more specific to avoid conflicts
+        // Date column patterns
         if ((normalizedHeader.includes('tarih') && !normalizedHeader.includes('islem')) || 
             normalizedHeader.includes('date') ||
             originalHeader === 'İŞLEM TARİHİ' ||
@@ -508,14 +508,6 @@ export default function Payments() {
           dateColumnIndex = i;
           console.log(`Date column found at index ${i}: ${header}`);
         }
-      }
-      
-      for (let i = 0; i < headerRow.length; i++) {
-        const header = headerRow[i];
-        if (!header || typeof header !== 'string') continue;
-        
-        const normalizedHeader = normalizeTurkish(header.toLowerCase());
-        const originalHeader = header.toString().toUpperCase();
         
         // Amount column patterns
         if (normalizedHeader.includes('tutar') || 
@@ -527,16 +519,8 @@ export default function Payments() {
           amountColumnIndex = i;
           console.log(`Amount column found at index ${i}: ${header}`);
         }
-      }
-      
-      for (let i = 0; i < headerRow.length; i++) {
-        const header = headerRow[i];
-        if (!header || typeof header !== 'string') continue;
         
-        const normalizedHeader = normalizeTurkish(header.toLowerCase());
-        const originalHeader = header.toString().toUpperCase();
-        
-        // Description column - specifically look for "Açıklama"
+        // Description column
         if (normalizedHeader.includes('aciklama') || 
             normalizedHeader.includes('description') ||
             originalHeader === 'AÇIKLAMA' ||
@@ -544,16 +528,8 @@ export default function Payments() {
           descriptionColumnIndex = i;
           console.log(`Description column found at index ${i}: ${header}`);
         }
-      }
-      
-      for (let i = 0; i < headerRow.length; i++) {
-        const header = headerRow[i];
-        if (!header || typeof header !== 'string') continue;
         
-        const normalizedHeader = normalizeTurkish(header.toLowerCase());
-        const originalHeader = header.toString().toUpperCase();
-        
-        // Transaction type column - specifically look for "İşlem" but not "İşlem Tarihi"
+        // Transaction type column
         if ((normalizedHeader.includes('islem') && !normalizedHeader.includes('tarih')) || 
             normalizedHeader.includes('transaction') || 
             normalizedHeader.includes('type') || 
@@ -563,14 +539,6 @@ export default function Payments() {
           transactionTypeColumnIndex = i;
           console.log(`Transaction type column found at index ${i}: ${header}`);
         }
-      }
-      
-      for (let i = 0; i < headerRow.length; i++) {
-        const header = headerRow[i];
-        if (!header || typeof header !== 'string') continue;
-        
-        const normalizedHeader = normalizeTurkish(header.toLowerCase());
-        const originalHeader = header.toString().toUpperCase();
         
         // Reference column patterns
         if (normalizedHeader.includes('referans') || 
@@ -591,22 +559,6 @@ export default function Payments() {
         transactionType: transactionTypeColumnIndex,
         reference: referenceColumnIndex
       });
-
-      // Validate that we found the essential columns
-      if (dateColumnIndex === -1) {
-        console.warn('Date column not found. Available headers:', headerRow);
-        // Don't throw error, continue with fallback logic
-      }
-      
-      if (amountColumnIndex === -1) {
-        console.warn('Amount column not found. Available headers:', headerRow);
-        // Don't throw error, continue with fallback logic
-      }
-      
-      if (descriptionColumnIndex === -1) {
-        console.warn('Description column not found. Available headers:', headerRow);
-        // Don't throw error, continue with fallback logic
-      }
 
       // Process data rows
       for (let i = 1; i < jsonData.length; i++) {
@@ -642,7 +594,7 @@ export default function Payments() {
           amount = parseAmount(row[amountColumnIndex]);
         }
         
-        // Extract description from "Açıklama" column - this should contain athlete/parent names
+        // Extract description from "Açıklama" column
         if (descriptionColumnIndex >= 0 && row[descriptionColumnIndex]) {
           const descCell = row[descriptionColumnIndex];
           if (typeof descCell === 'string' && descCell.trim().length > 0) {
@@ -650,7 +602,7 @@ export default function Payments() {
           }
         }
         
-        // Extract transaction type from "İşlem" column - this should contain payment type (FAST, Havale, etc.)
+        // Extract transaction type from "İşlem" column
         if (transactionTypeColumnIndex >= 0 && row[transactionTypeColumnIndex]) {
           const typeCell = row[transactionTypeColumnIndex];
           if (typeof typeCell === 'string' && typeCell.trim().length > 0) {
@@ -714,22 +666,16 @@ export default function Payments() {
             description = `Ödeme - Satır ${i + 1}`;
           }
           
-          // Create enhanced description that includes transaction type if available
-          let enhancedDescription = description;
-          if (transactionType) {
-            enhancedDescription = `${description} (${transactionType})`;
-          }
-          
           parsedData.push({
             date: date,
             amount: amount,
-            description: description, // Use clean description for matching
+            description: description,
             reference: reference,
             rowIndex: i + 1,
-            paymentType: transactionType // Store payment type separately
+            paymentType: transactionType
           });
           
-          console.log(`Row ${i + 1}: Date=${date}, Amount=${amount}, Description=${enhancedDescription}, TransactionType=${transactionType}`);
+          console.log(`Row ${i + 1}: Date=${date}, Amount=${amount}, Description=${description}, TransactionType=${transactionType}`);
         } else {
           console.log(`Row ${i + 1} skipped: Date=${date}, Amount=${amount}, Description=${description}`);
         }
@@ -757,7 +703,7 @@ export default function Payments() {
     }
   };
 
-  // Step 3: Find matches for each Excel row
+  // Step 3: Find matches for each Excel row - CLEAN VERSION
   const findMatches = () => {
     const results: MatchResult[] = [];
     
@@ -771,14 +717,15 @@ export default function Payments() {
         athleteName: '',
         parentName: '',
         similarity: 0,
-        isManual: false
+        isManual: false,
+        isSiblingPayment: false
       };
       
       // First, check if we have a historical match for this description
       const normalizedDescription = normalizeTurkish(row.description);
       const historicalMatch = matchingHistory[normalizedDescription];
       
-      if (historicalMatch) {
+      if (historicalMatch && historicalMatch.athleteId) {
         // Find the athlete from historical match
         const athlete = athletes.find(a => a.id.toString() === historicalMatch.athleteId);
         if (athlete) {
@@ -787,9 +734,10 @@ export default function Payments() {
             athleteId: athlete.id.toString(),
             athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
             parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-            similarity: 100, // Historical matches get 100% similarity
+            similarity: 100,
             isManual: false,
-            multipleAthletes: historicalMatch.multipleAthletes
+            isSiblingPayment: historicalMatch.isSiblingPayment || false,
+            siblingIds: historicalMatch.siblingIds || []
           };
           
           console.log(`Historical match found: ${bestMatch.athleteName} for "${row.description}"`);
@@ -814,7 +762,8 @@ export default function Payments() {
               athleteName: athleteName,
               parentName: parentName,
               similarity: maxSimilarity,
-              isManual: false
+              isManual: false,
+              isSiblingPayment: false
             };
           }
         });
@@ -838,7 +787,7 @@ export default function Payments() {
     console.log(`Matching completed: Historical: ${historicalMatches}, High: ${highConfidenceMatches}, Medium: ${mediumConfidenceMatches}, Low: ${lowConfidenceMatches}`);
   };
 
-  // Manual match update
+  // Manual match update - CLEAN VERSION
   const updateManualMatch = (index: number, athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) return;
@@ -849,40 +798,125 @@ export default function Payments() {
       athleteId: athleteId,
       athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
       parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-      similarity: 100, // Manual match gets 100%
-      isManual: true
+      similarity: 100,
+      isManual: true,
+      isSiblingPayment: false, // Reset sibling payment flag
+      siblingIds: undefined // Clear sibling IDs
     };
     
     setMatchResults(updatedResults);
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // Multi-athlete match
-  const updateMultiAthleteMatch = (index: number, athleteIds: string[]) => {
-    if (athleteIds.length === 0) return;
+  // Find siblings - CLEAN AND ACCURATE VERSION
+  const findSiblings = (athleteId: string) => {
+    const athlete = athletes.find(a => a.id.toString() === athleteId);
+    if (!athlete) return [];
     
-    const selectedAthletes = athleteIds.map(id => 
-      athletes.find(a => a.id.toString() === id)
-    ).filter(Boolean);
+    // Use parent phone as primary identifier (most reliable)
+    const parentPhone = athlete.parentPhone && typeof athlete.parentPhone === 'string' ? 
+      athlete.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
     
-    if (selectedAthletes.length === 0) return;
+    // Fallback to parent name if phone not available
+    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim().toLowerCase();
     
+    if (!parentPhone && !parentName) return [];
+    
+    return athletes.filter(a => {
+      if (a.id === athlete.id) return false; // Exclude self
+      if (a.status !== 'Aktif' && a.status) return false; // Only active athletes
+      
+      const aParentPhone = a.parentPhone && typeof a.parentPhone === 'string' ? 
+        a.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
+      const aParentName = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
+      
+      // Primary match: phone number
+      if (parentPhone && aParentPhone && parentPhone === aParentPhone) {
+        return true;
+      }
+      
+      // Secondary match: exact parent name (only if both have names and no phone match)
+      if (!parentPhone && !aParentPhone && parentName && aParentName && parentName === aParentName) {
+        return true;
+      }
+      
+      return false;
+    });
+  };
+
+  // Sibling payment splitting - COMPLETELY REWRITTEN AND CLEAN
+  const enableSiblingPayment = (index: number) => {
+    const result = matchResults[index];
+    if (!result.athleteId) {
+      toast.error("Önce bir sporcu seçin");
+      return;
+    }
+
+    const siblings = findSiblings(result.athleteId);
+    if (siblings.length === 0) {
+      toast.error("Bu sporcu için kardeş bulunamadı");
+      return;
+    }
+
+    // Include the selected athlete in the sibling list
+    const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
+    if (!selectedAthlete) return;
+
+    const allSiblings = [selectedAthlete, ...siblings];
+    const siblingIds = allSiblings.map(s => s.id.toString());
+
+    // Verify they are actually siblings (same parent)
+    const firstParentPhone = selectedAthlete.parentPhone && typeof selectedAthlete.parentPhone === 'string' ? 
+      selectedAthlete.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
+    const firstParentName = `${selectedAthlete.parentName || ''} ${selectedAthlete.parentSurname || ''}`.trim().toLowerCase();
+
+    const areSiblings = allSiblings.every(athlete => {
+      const athleteParentPhone = athlete.parentPhone && typeof athlete.parentPhone === 'string' ? 
+        athlete.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
+      const athleteParentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim().toLowerCase();
+      
+      return (firstParentPhone && athleteParentPhone === firstParentPhone) ||
+             (!firstParentPhone && firstParentName && athleteParentName === firstParentName);
+    });
+
+    if (!areSiblings) {
+      toast.error("Seçilen sporcular aynı aileden değil!");
+      return;
+    }
+
     const updatedResults = [...matchResults];
     updatedResults[index] = {
       ...updatedResults[index],
-      athleteId: selectedAthletes[0].id.toString(), // Primary athlete
-      athleteName: selectedAthletes.map(a => `${a.studentName} ${a.studentSurname}`).join(', '),
-      parentName: `${selectedAthletes[0].parentName || ''} ${selectedAthletes[0].parentSurname || ''}`.trim(),
-      similarity: 100,
-      isManual: true,
-      multipleAthletes: athleteIds
+      isSiblingPayment: true,
+      siblingIds: siblingIds,
+      athleteName: allSiblings.map(a => `${a.studentName} ${a.studentSurname}`).join(', ')
     };
     
     setMatchResults(updatedResults);
-    toast.success(`Çoklu eşleştirme yapıldı: ${selectedAthletes.length} sporcu`);
+    toast.success(`${allSiblings.length} kardeş için çoklu ödeme aktifleştirildi`);
   };
 
-  // Step 4: Confirm and save matches
+  // Disable sibling payment
+  const disableSiblingPayment = (index: number) => {
+    const result = matchResults[index];
+    if (!result.athleteId) return;
+
+    const athlete = athletes.find(a => a.id.toString() === result.athleteId);
+    if (!athlete) return;
+
+    const updatedResults = [...matchResults];
+    updatedResults[index] = {
+      ...updatedResults[index],
+      isSiblingPayment: false,
+      siblingIds: undefined,
+      athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim()
+    };
+    
+    setMatchResults(updatedResults);
+    toast.success("Çoklu ödeme iptal edildi");
+  };
+
+  // Step 4: Confirm and save matches - CLEAN VERSION
   const confirmMatches = async () => {
     const validMatches = matchResults.filter(result => result.athleteId);
     
@@ -920,41 +954,42 @@ export default function Payments() {
           athleteId: match.athleteId,
           athleteName: match.athleteName,
           parentName: match.parentName,
-          multipleAthletes: match.multipleAthletes,
+          isSiblingPayment: match.isSiblingPayment || false,
+          siblingIds: match.siblingIds || [],
           lastUsed: new Date().toISOString(),
           usageCount: (matchingHistory[normalizedDescription]?.usageCount || 0) + 1
         };
         
-        if (match.multipleAthletes && match.multipleAthletes.length > 1) {
-          // Handle multi-athlete payments
-          const amountPerAthlete = Math.round((match.excelRow.amount / match.multipleAthletes.length) * 100) / 100;
+        if (match.isSiblingPayment && match.siblingIds && match.siblingIds.length > 1) {
+          // Handle sibling payments - split equally
+          const amountPerSibling = Math.round((match.excelRow.amount / match.siblingIds.length) * 100) / 100;
           
-          for (const athleteId of match.multipleAthletes) {
-            const athlete = athletes.find(a => a.id.toString() === athleteId);
+          for (const siblingId of match.siblingIds) {
+            const athlete = athletes.find(a => a.id.toString() === siblingId);
             if (!athlete) continue;
             
             // Check for duplicate
-            const paymentKey = `${athleteId}_${match.excelRow.reference}_${amountPerAthlete}`;
+            const paymentKey = `${siblingId}_${match.excelRow.reference}_${amountPerSibling}`;
             if (existingPaymentKeys.has(paymentKey)) {
-              console.log(`Skipping duplicate payment: ${paymentKey}`);
+              console.log(`Skipping duplicate sibling payment: ${paymentKey}`);
               continue;
             }
             
-            // Create payment record
+            // Create payment record for each sibling
             const newPayment = {
-              id: `multi_${athleteId}_${Date.now()}_${Math.random()}`,
+              id: `sibling_${siblingId}_${Date.now()}_${Math.random()}`,
               athleteId: athlete.id,
               athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
               parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-              amount: amountPerAthlete,
+              amount: amountPerSibling,
               status: "Ödendi",
               paymentDate: paymentDate,
               method: "Havale/EFT",
               reference: match.excelRow.reference,
               sport: athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel',
-              invoiceNumber: `MULTI-${Date.now()}-${athlete.id}`,
+              invoiceNumber: `SIBLING-${Date.now()}-${athlete.id}`,
               dueDate: paymentDate,
-              description: `Çoklu ödeme (${match.multipleAthletes.length} sporcu) - ${match.excelRow.description}`,
+              description: `Kardeş ödemesi (${match.siblingIds.length} sporcu) - ${match.excelRow.description}`,
               isGenerated: false
             };
             
@@ -967,11 +1002,11 @@ export default function Payments() {
               id: Date.now() + Math.random(),
               date: entryDate,
               month: entryDate.slice(0, 7),
-              description: `EFT/Havale Tahsilatı (Çoklu ${match.multipleAthletes.length} sporcu) - ${displayDate} - ₺${amountPerAthlete} - Ref: ${match.excelRow.reference}`,
-              amountExcludingVat: amountPerAthlete,
+              description: `Kardeş Ödemesi (${match.siblingIds.length} sporcu) - ${displayDate} - ₺${amountPerSibling} - Ref: ${match.excelRow.reference}`,
+              amountExcludingVat: amountPerSibling,
               vatRate: 0,
               vatAmount: 0,
-              amountIncludingVat: amountPerAthlete,
+              amountIncludingVat: amountPerSibling,
               unitCode: 'Adet',
               type: 'credit'
             };
@@ -1090,59 +1125,17 @@ export default function Payments() {
     }
   };
 
-  // Get available athletes for manual matching - with siblings at the end
-  const getAvailableAthletes = (currentAthleteId?: string) => {
-    const allAthletes = athletes
+  // Get available athletes for manual matching
+  const getAvailableAthletes = () => {
+    return athletes
       .filter(athlete => athlete.status === 'Aktif' || !athlete.status)
       .map(athlete => ({
         id: athlete.id,
         name: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
         parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-        sport: athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel',
-        isSibling: false
+        sport: athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel'
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'tr-TR'));
-
-    // If we have a current athlete, find siblings and mark them
-    if (currentAthleteId) {
-      const siblings = findSiblings(currentAthleteId);
-      const siblingIds = new Set(siblings.map(s => s.id.toString()));
-      
-      // Mark siblings and move them to the end
-      const regularAthletes = allAthletes.filter(a => !siblingIds.has(a.id.toString()));
-      const siblingAthletes = allAthletes
-        .filter(a => siblingIds.has(a.id.toString()))
-        .map(a => ({ ...a, isSibling: true }));
-      
-      return [...regularAthletes, ...siblingAthletes];
-    }
-
-    return allAthletes;
-  };
-
-  // Find siblings (athletes with same parent)
-  const findSiblings = (athleteId: string) => {
-    const athlete = athletes.find(a => a.id.toString() === athleteId);
-    if (!athlete) return [];
-    
-    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-    const parentPhone = athlete.parentPhone && typeof athlete.parentPhone === 'string' ? athlete.parentPhone.trim() : '';
-    const parentEmail = athlete.parentEmail && typeof athlete.parentEmail === 'string' ? athlete.parentEmail.trim() : '';
-    
-    if (!parentName && !parentPhone && !parentEmail) return [];
-    
-    return athletes.filter(a => {
-      if (a.id === athlete.id) return false;
-      
-      const aParentName = `${a.parentName || ''} ${a.parentSurname || ''}`.trim();
-      const aParentPhone = a.parentPhone && typeof a.parentPhone === 'string' ? a.parentPhone.trim() : '';
-      const aParentEmail = a.parentEmail && typeof a.parentEmail === 'string' ? a.parentEmail.trim() : '';
-      
-      // Match by parent name, phone, or email
-      return (parentName && aParentName === parentName) ||
-             (parentPhone && aParentPhone === parentPhone) ||
-             (parentEmail && aParentEmail === parentEmail);
-    });
   };
 
   // Save new payment function
@@ -1713,7 +1706,7 @@ export default function Payments() {
             </Tabs>
           </motion.div>
 
-          {/* Excel Upload Dialog - Completely Rebuilt */}
+          {/* Excel Upload Dialog - CLEAN VERSION */}
           <Dialog open={isUploadDialogOpen} onOpenChange={(open) => {
             setIsUploadDialogOpen(open);
             if (!open) {
@@ -1870,10 +1863,9 @@ export default function Payments() {
                   </Card>
                 )}
 
-                {/* Step 3: Confirm Matches */}
+                {/* Step 3: Confirm Matches - CLEAN VERSION */}
                 {step === 'confirm' && matchResults.length > 0 && (
                   <div className="space-y-6">
-                    {/* Regular Matches */}
                     <Card>
                       <CardHeader>
                         <CardTitle>Eşleştirme Sonuçları</CardTitle>
@@ -1883,11 +1875,40 @@ export default function Payments() {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
-                          {matchResults
-                            .filter(result => !result.multipleAthletes || result.multipleAthletes.length <= 1)
-                            .map((result, index) => (
-                            <Card key={index} className={`border ${result.similarity >= 80 ? 'border-green-200 bg-green-50' : result.similarity >= 50 ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}`}>
+                          {matchResults.map((result, index) => (
+                            <Card key={index} className={`border ${
+                              result.isSiblingPayment ? 'border-purple-300 bg-purple-50' :
+                              result.similarity >= 80 ? 'border-green-200 bg-green-50' : 
+                              result.similarity >= 50 ? 'border-yellow-200 bg-yellow-50' : 
+                              'border-red-200 bg-red-50'
+                            }`}>
                               <CardContent className="p-4">
+                                {/* Sibling Payment Banner */}
+                                {result.isSiblingPayment && (
+                                  <div className="mb-4 p-3 bg-purple-100 border border-purple-300 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-2">
+                                        <Users className="h-5 w-5 text-purple-600" />
+                                        <span className="font-bold text-purple-800">
+                                          KARDEŞ ÖDEMESİ - {result.siblingIds?.length || 0} SPORCU
+                                        </span>
+                                        <Badge className="bg-purple-600 text-white">
+                                          ₺{(result.excelRow.amount / (result.siblingIds?.length || 1)).toFixed(2)} / sporcu
+                                        </Badge>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => disableSiblingPayment(index)}
+                                        className="text-purple-700 border-purple-300"
+                                      >
+                                        <X className="h-4 w-4 mr-1" />
+                                        İptal Et
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   {/* Excel Data */}
                                   <div>
@@ -1922,225 +1943,137 @@ export default function Payments() {
                                 </div>
                                 
                                 {/* Manual Matching Options */}
-                                <div className="mt-4 pt-4 border-t">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Single Athlete Selection */}
-                                    <div>
-                                      <Label className="text-sm font-medium">Tekil Eşleştirme:</Label>
-                                      <Select 
-                                        value={result.athleteId || ""} 
-                                        onValueChange={(value) => updateManualMatch(index, value)}
-                                      >
-                                        <SelectTrigger className="mt-2">
-                                          <SelectValue placeholder="Sporcu seçin..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {getAvailableAthletes(result.athleteId || undefined).map(athlete => (
-                                            <SelectItem 
-                                              key={athlete.id} 
-                                              value={athlete.id.toString()}
-                                              className={athlete.isSibling ? "bg-purple-50 border-l-4 border-l-purple-400" : ""}
-                                            >
-                                              <div className="flex flex-col">
-                                                <div className="flex items-center space-x-2">
-                                                  <span className={`font-medium ${athlete.isSibling ? 'text-purple-800' : ''}`}>
-                                                    {athlete.name}
+                                {!result.isSiblingPayment && (
+                                  <div className="mt-4 pt-4 border-t">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      {/* Single Athlete Selection */}
+                                      <div>
+                                        <Label className="text-sm font-medium">Sporcu Seçimi:</Label>
+                                        <Select 
+                                          value={result.athleteId || ""} 
+                                          onValueChange={(value) => updateManualMatch(index, value)}
+                                        >
+                                          <SelectTrigger className="mt-2">
+                                            <SelectValue placeholder="Sporcu seçin..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {getAvailableAthletes().map(athlete => (
+                                              <SelectItem 
+                                                key={athlete.id} 
+                                                value={athlete.id.toString()}
+                                              >
+                                                <div className="flex flex-col">
+                                                  <span className="font-medium">{athlete.name}</span>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {athlete.parentName} - {athlete.sport}
                                                   </span>
-                                                  {athlete.isSibling && (
-                                                    <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-xs">
-                                                      Kardeş
-                                                    </Badge>
-                                                  )}
                                                 </div>
-                                                <span className={`text-xs ${athlete.isSibling ? 'text-purple-600' : 'text-muted-foreground'}`}>
-                                                  {athlete.parentName} - {athlete.sport}
-                                                </span>
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    
-                                    {/* Multi-Athlete Selection - Enhanced */}
-                                    <div>
-                                      <Label className="text-sm font-medium text-purple-700">🔄 Çoklu Eşleştirme (Kardeşler):</Label>
-                                      {result.athleteId && (
-                                        <div className="mt-2">
-                                          {(() => {
-                                            const siblings = findSiblings(result.athleteId);
-                                            if (siblings.length > 0) {
-                                              const allSiblings = [
-                                                athletes.find(a => a.id.toString() === result.athleteId),
-                                                ...siblings
-                                              ].filter(Boolean);
-                                              
-                                              return (
-                                                <div className="space-y-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                                                  <div className="flex items-center space-x-2">
-                                                    <Users className="h-4 w-4 text-purple-600" />
-                                                    <p className="text-sm font-medium text-purple-800">
-                                                      {allSiblings.length} kardeş bulundu
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      
+                                      {/* Sibling Payment Option */}
+                                      <div>
+                                        <Label className="text-sm font-medium text-purple-700">Kardeş Ödemesi:</Label>
+                                        {result.athleteId ? (
+                                          <div className="mt-2">
+                                            {(() => {
+                                              const siblings = findSiblings(result.athleteId);
+                                              if (siblings.length > 0) {
+                                                const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
+                                                const allSiblings = selectedAthlete ? [selectedAthlete, ...siblings] : siblings;
+                                                
+                                                return (
+                                                  <div className="space-y-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                                                    <div className="flex items-center space-x-2">
+                                                      <Users className="h-4 w-4 text-purple-600" />
+                                                      <p className="text-sm font-medium text-purple-800">
+                                                        {allSiblings.length} kardeş bulundu
+                                                      </p>
+                                                      <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                                        ₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} / sporcu
+                                                      </Badge>
+                                                    </div>
+                                                    <div className="text-xs text-purple-600 space-y-1">
+                                                      {allSiblings.map((sibling, idx) => (
+                                                        <div key={idx} className="flex items-center space-x-2">
+                                                          <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                                                          <span>{sibling.studentName} {sibling.studentSurname}</span>
+                                                        </div>
+                                                      ))}
+                                                    </div>
+                                                    <Button
+                                                      size="sm"
+                                                      className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                                      onClick={() => enableSiblingPayment(index)}
+                                                    >
+                                                      <Users className="h-4 w-4 mr-2" />
+                                                      Kardeşlere Böl
+                                                    </Button>
+                                                  </div>
+                                                );
+                                              } else {
+                                                return (
+                                                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                                    <p className="text-xs text-gray-600 flex items-center space-x-2">
+                                                      <AlertCircle className="h-3 w-3" />
+                                                      <span>Bu sporcu için kardeş bulunamadı</span>
                                                     </p>
-                                                    <Badge className="bg-purple-100 text-purple-800 text-xs">
-                                                      ₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} / sporcu
-                                                    </Badge>
                                                   </div>
-                                                  <div className="text-xs text-purple-600 space-y-1">
-                                                    {allSiblings.map((sibling, idx) => (
-                                                      <div key={idx} className="flex items-center space-x-2">
-                                                        <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                                                        <span>{sibling.studentName} {sibling.studentSurname}</span>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                  <Button
-                                                    size="sm"
-                                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                                                    onClick={() => updateMultiAthleteMatch(index, allSiblings.map(a => a.id.toString()))}
-                                                  >
-                                                    <Users className="h-4 w-4 mr-2" />
-                                                    💰 Tüm Kardeşlere Böl (₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} x {allSiblings.length})
-                                                  </Button>
-                                                </div>
-                                              );
-                                            } else {
-                                              return (
-                                                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                                  <p className="text-xs text-gray-600 flex items-center space-x-2">
-                                                    <AlertCircle className="h-3 w-3" />
-                                                    <span>Bu sporcu için kardeş bulunamadı</span>
-                                                  </p>
-                                                </div>
-                                              );
-                                            }
-                                          })()}
-                                        </div>
-                                      )}
+                                                );
+                                              }
+                                            })()}
+                                          </div>
+                                        ) : (
+                                          <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                            <p className="text-xs text-gray-600">
+                                              Önce bir sporcu seçin
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
+                                )}
+
+                                {/* Sibling Details */}
+                                {result.isSiblingPayment && result.siblingIds && (
+                                  <div className="mt-4 pt-4 border-t">
+                                    <Label className="text-sm font-bold text-purple-800 uppercase tracking-wide flex items-center space-x-2">
+                                      <Users className="h-4 w-4" />
+                                      <span>Kardeş Listesi:</span>
+                                    </Label>
+                                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      {result.siblingIds.map((athleteId, siblingIndex) => {
+                                        const athlete = athletes.find(a => a.id.toString() === athleteId);
+                                        return athlete ? (
+                                          <div key={athleteId} className="flex items-center space-x-3 p-3 bg-white border-2 border-purple-200 rounded-lg shadow-sm">
+                                            <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                                              {siblingIndex + 1}
+                                            </div>
+                                            <div className="flex-1">
+                                              <span className="font-bold text-purple-900 block">
+                                                {athlete.studentName} {athlete.studentSurname}
+                                              </span>
+                                              <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                                                ₺{(result.excelRow.amount / result.siblingIds.length).toFixed(2)}
+                                              </span>
+                                            </div>
+                                            <CheckCircle className="h-5 w-5 text-green-500" />
+                                          </div>
+                                        ) : null;
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                               </CardContent>
                             </Card>
                           ))}
                         </div>
                       </CardContent>
                     </Card>
-
-                    {/* Sibling Matches Section - HIGHLY VISIBLE with Animated Border */}
-                    {matchResults.filter(result => result.multipleAthletes && result.multipleAthletes.length > 1).length > 0 && (
-                      <div className="relative">
-                        {/* Animated attention-grabbing border */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 rounded-lg blur opacity-75 animate-pulse"></div>
-                        <Card className="relative border-4 border-red-500 bg-gradient-to-br from-red-50 via-yellow-50 to-orange-50 shadow-2xl">
-                          <CardHeader className="bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-t-lg">
-                            <CardTitle className="flex items-center space-x-3 text-xl">
-                              <div className="relative">
-                                <Users className="h-6 w-6 animate-bounce" />
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
-                              </div>
-                              <span className="font-bold">⚠️ ÇOKLU EŞLEŞTİRME - DİKKAT!</span>
-                              <div className="ml-auto">
-                                <Badge className="bg-yellow-400 text-black font-bold text-sm animate-pulse">
-                                  {matchResults.filter(result => result.multipleAthletes && result.multipleAthletes.length > 1).length} KARDEŞ ÖDEMESİ
-                                </Badge>
-                              </div>
-                            </CardTitle>
-                            <CardDescription className="text-yellow-100 font-medium">
-                              🚨 Bu ödemeler birden fazla kardeş için yapılmış! Tutarlar eşit olarak bölünecek - Lütfen dikkatli kontrol edin!
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="p-6">
-                            <div className="space-y-6">
-                              {matchResults
-                                .filter(result => result.multipleAthletes && result.multipleAthletes.length > 1)
-                                .map((result, index) => (
-                                <div key={index} className="relative">
-                                  {/* Individual sibling match with high visibility */}
-                                  <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-400 to-red-400 rounded-lg opacity-30"></div>
-                                  <Card className="relative border-3 border-orange-400 bg-white shadow-lg">
-                                    <CardContent className="p-6">
-                                      {/* Alert banner for each match */}
-                                      <div className="mb-4 p-3 bg-gradient-to-r from-yellow-100 to-orange-100 border-l-4 border-orange-500 rounded">
-                                        <div className="flex items-center space-x-2">
-                                          <AlertTriangle className="h-5 w-5 text-orange-600 animate-pulse" />
-                                          <span className="font-bold text-orange-800">
-                                            KARDEŞ ÖDEMESİ #{index + 1} - {result.multipleAthletes?.length} SPORCU
-                                          </span>
-                                          <Badge className="bg-orange-500 text-white font-bold">
-                                            ₺{result.excelRow.amount.toLocaleString()} ÷ {result.multipleAthletes?.length} = ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
-                                          </Badge>
-                                        </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Excel Data with enhanced visibility */}
-                                        <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
-                                          <Label className="text-sm font-bold text-blue-800 uppercase tracking-wide">📄 Excel Verisi:</Label>
-                                          <div className="mt-2">
-                                            <p className="font-bold text-lg text-blue-900">{result.excelRow.description}</p>
-                                            <p className="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded mt-1">
-                                              📅 {result.excelRow.date} - 💰 ₺{result.excelRow.amount.toLocaleString()}
-                                            </p>
-                                          </div>
-                                        </div>
-                                        
-                                        {/* Match Result with enhanced visibility */}
-                                        <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded">
-                                          <Label className="text-sm font-bold text-green-800 uppercase tracking-wide">👥 Kardeş Eşleştirmesi:</Label>
-                                          <div className="mt-2">
-                                            <div className="flex items-center space-x-2 mb-2">
-                                              <p className="font-bold text-lg text-green-900">{result.athleteName}</p>
-                                              <Badge className="bg-green-500 text-white font-bold animate-pulse">
-                                                {result.multipleAthletes?.length} KARDEŞ
-                                              </Badge>
-                                            </div>
-                                            <div className="bg-green-100 p-2 rounded">
-                                              <p className="text-sm font-bold text-green-800">
-                                                💰 Her sporcu: ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Sibling Details with maximum visibility */}
-                                      <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg">
-                                        <Label className="text-sm font-bold text-purple-800 uppercase tracking-wide flex items-center space-x-2">
-                                          <Users className="h-4 w-4" />
-                                          <span>👨‍👩‍👧‍👦 Kardeş Listesi:</span>
-                                        </Label>
-                                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                          {result.multipleAthletes?.map((athleteId, siblingIndex) => {
-                                            const athlete = athletes.find(a => a.id.toString() === athleteId);
-                                            return athlete ? (
-                                              <div key={athleteId} className="flex items-center space-x-3 p-3 bg-white border-2 border-purple-200 rounded-lg shadow-sm">
-                                                <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                                                  {siblingIndex + 1}
-                                                </div>
-                                                <div className="flex-1">
-                                                  <span className="font-bold text-purple-900 block">
-                                                    {athlete.studentName} {athlete.studentSurname}
-                                                  </span>
-                                                  <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-                                                    ₺{(result.excelRow.amount / (result.multipleAthletes?.length || 1)).toFixed(2)}
-                                                  </span>
-                                                </div>
-                                                <CheckCircle className="h-5 w-5 text-green-500" />
-                                              </div>
-                                            ) : null;
-                                          })}
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                </div>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
 
                     {/* Action Buttons */}
                     <div className="flex justify-between pt-4">
