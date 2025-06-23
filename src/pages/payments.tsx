@@ -1962,9 +1962,9 @@ export default function Payments() {
                                       </Select>
                                     </div>
                                     
-                                    {/* Multi-Athlete Selection */}
+                                    {/* Multi-Athlete Selection - Enhanced */}
                                     <div>
-                                      <Label className="text-sm font-medium">Çoklu Eşleştirme (Kardeşler):</Label>
+                                      <Label className="text-sm font-medium text-purple-700">🔄 Çoklu Eşleştirme (Kardeşler):</Label>
                                       {result.athleteId && (
                                         <div className="mt-2">
                                           {(() => {
@@ -1976,25 +1976,42 @@ export default function Payments() {
                                               ].filter(Boolean);
                                               
                                               return (
-                                                <div className="space-y-2">
-                                                  <p className="text-xs text-muted-foreground">
-                                                    {allSiblings.length} kardeş bulundu (₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} / sporcu)
-                                                  </p>
+                                                <div className="space-y-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                                                  <div className="flex items-center space-x-2">
+                                                    <Users className="h-4 w-4 text-purple-600" />
+                                                    <p className="text-sm font-medium text-purple-800">
+                                                      {allSiblings.length} kardeş bulundu
+                                                    </p>
+                                                    <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                                      ₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} / sporcu
+                                                    </Badge>
+                                                  </div>
+                                                  <div className="text-xs text-purple-600 space-y-1">
+                                                    {allSiblings.map((sibling, idx) => (
+                                                      <div key={idx} className="flex items-center space-x-2">
+                                                        <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                                                        <span>{sibling.studentName} {sibling.studentSurname}</span>
+                                                      </div>
+                                                    ))}
+                                                  </div>
                                                   <Button
                                                     size="sm"
-                                                    variant="outline"
+                                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
                                                     onClick={() => updateMultiAthleteMatch(index, allSiblings.map(a => a.id.toString()))}
                                                   >
                                                     <Users className="h-4 w-4 mr-2" />
-                                                    Tüm Kardeşlere Böl
+                                                    💰 Tüm Kardeşlere Böl (₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} x {allSiblings.length})
                                                   </Button>
                                                 </div>
                                               );
                                             } else {
                                               return (
-                                                <p className="text-xs text-muted-foreground mt-2">
-                                                  Kardeş bulunamadı
-                                                </p>
+                                                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                                  <p className="text-xs text-gray-600 flex items-center space-x-2">
+                                                    <AlertCircle className="h-3 w-3" />
+                                                    <span>Bu sporcu için kardeş bulunamadı</span>
+                                                  </p>
+                                                </div>
                                               );
                                             }
                                           })()}
