@@ -7,10 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trophy, ArrowLeft, Mail, CheckCircle, AlertTriangle, Copy } from "lucide-react";
+import { Trophy, ArrowLeft, Mail, CheckCircle, AlertTriangle, Send } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { hashPassword } from "@/utils/security";
 import { sanitizeInput } from "@/utils/security";
 
 const fadeInUp = {
@@ -25,17 +24,7 @@ export default function ForgotPassword() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
   const [userInfo, setUserInfo] = useState<any>(null);
-
-  const generateRandomPassword = () => {
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
-  };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,17 +85,28 @@ export default function ForgotPassword() {
         return;
       }
 
-      // Generate new password
-      const tempPassword = generateRandomPassword();
-      const hashedPassword = await hashPassword(tempPassword);
+      // Call API to send password reset email
+      const response = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: sanitizedEmail }),
+      });
 
-      // Update user password based on type
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Şifre sıfırlama e-postası gönderilirken bir hata oluştu');
+      }
+
+      // Update user password in localStorage with the hashed password from API
       if (userType === "admin") {
         const updatedAdmins = adminUsers.map((a: any) => 
           a.id === foundUser.id 
             ? { 
                 ...a, 
-                password: hashedPassword, 
+                password: data.hashedPassword, 
                 isTemporaryPassword: true,
                 passwordResetAt: new Date().toISOString() 
               }
@@ -119,7 +119,7 @@ export default function ForgotPassword() {
           c.id === foundUser.id 
             ? { 
                 ...c, 
-                password: hashedPassword, 
+                password: data.hashedPassword, 
                 isTemporaryPassword: true,
                 passwordResetAt: new Date().toISOString() 
               }
@@ -132,7 +132,7 @@ export default function ForgotPassword() {
           p.id === foundUser.id 
             ? { 
                 ...p, 
-                password: hashedPassword, 
+                password: data.hashedPassword, 
                 isTemporaryPassword: true,
                 passwordResetAt: new Date().toISOString() 
               }
@@ -141,8 +141,7 @@ export default function ForgotPassword() {
         localStorage.setItem('parentUsers', JSON.stringify(updatedParents));
       }
 
-      // Show success dialog with new password
-      setNewPassword(tempPassword);
+      // Show success dialog
       setUserInfo({
         name: foundUser.name || foundUser.firstName || 'Kullanıcı',
         surname: foundUser.surname || foundUser.lastName || '',
@@ -151,18 +150,12 @@ export default function ForgotPassword() {
       });
       setShowSuccessDialog(true);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Password reset error:', error);
-      setError("Şifre sıfırlama sırasında bir hata oluştu");
+      setError(error.message || "Şifre sıfırlama sırasında bir hata oluştu");
     }
     
     setLoading(false);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      // Could add a toast notification here
-    });
   };
 
   const handleBackToLogin = () => {
@@ -196,7 +189,7 @@ export default function ForgotPassword() {
               <span className="text-2xl font-bold text-primary">SportsCRM</span>
             </div>
             <h1 className="text-xl font-semibold text-foreground mb-2">Şifremi Unuttum</h1>
-            <p className="text-muted-foreground">Email adresinizi girin, yeni şifrenizi oluşturalım</p>
+            <p className="text-muted-foreground">Email adresinizi girin, yeni şifrenizi e-posta ile gönderelim</p>
           </div>
 
           <Card>
@@ -229,8 +222,15 @@ export default function ForgotPassword() {
                     </p>
                   </div>
 
+                  <Alert>
+                    <Send className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Güvenlik:</strong> Yeni şifreniz güvenli bir şekilde email adresinize gönderilecektir.
+                    </AlertDescription>
+                  </Alert>
+
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Şifre sıfırlanıyor..." : "Şifremi Sıfırla"}
+                    {loading ? "E-posta gönderiliyor..." : "Şifre Sıfırlama E-postası Gönder"}
                   </Button>
                 </div>
               </motion.form>
@@ -250,10 +250,10 @@ export default function ForgotPassword() {
             <DialogHeader>
               <DialogTitle className="flex items-center space-x-2">
                 <CheckCircle className="h-5 w-5 text-green-600" />
-                <span>Şifre Başarıyla Sıfırlandı</span>
+                <span>E-posta Başarıyla Gönderildi</span>
               </DialogTitle>
               <DialogDescription>
-                Yeni geçici şifreniz oluşturuldu. Güvenliğiniz için giriş yaptıktan sonra şifrenizi değiştirin.
+                Şifre sıfırlama e-postası gönderildi. E-posta kutunuzu kontrol edin.
               </DialogDescription>
             </DialogHeader>
 
@@ -278,30 +278,27 @@ export default function ForgotPassword() {
                 </div>
               </div>
 
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                <Label className="text-sm font-medium text-green-800 dark:text-green-200">Yeni Geçici Şifreniz</Label>
-                <div className="flex items-center space-x-2 mt-1">
-                  <code className="flex-1 p-2 bg-white dark:bg-gray-800 rounded border font-mono text-lg">
-                    {newPassword}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(newPassword)}
-                    className="shrink-0"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start space-x-2">
+                  <Mail className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">E-posta Gönderildi</Label>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      Yeni geçici şifreniz <strong>{userInfo?.email}</strong> adresine gönderildi.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-green-700 dark:text-green-300 mt-2">
-                  Bu şifreyi güvenli bir yerde saklayın ve giriş yaptıktan sonra değiştirin.
-                </p>
               </div>
 
               <Alert>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Önemli:</strong> Bu geçici şifredir. Güvenliğiniz için giriş yaptıktan sonra mutlaka değiştirin.
+                  <strong>Önemli Talimatlar:</strong>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    <li>• E-posta kutunuzu (gelen kutusu ve spam klasörü) kontrol edin</li>
+                    <li>• E-postadaki geçici şifre ile giriş yapın</li>
+                    <li>• Güvenliğiniz için giriş yaptıktan sonra mutlaka şifrenizi değiştirin</li>
+                  </ul>
                 </AlertDescription>
               </Alert>
 
