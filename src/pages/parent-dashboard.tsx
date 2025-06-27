@@ -19,7 +19,14 @@ import {
   Calendar,
   CreditCard,
   Phone,
-  Mail
+  Mail,
+  Clock,
+  MapPin,
+  UserCheck,
+  Image,
+  Video,
+  Download,
+  ChevronRight
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { hashPassword, verifyPassword } from "@/utils/security";
@@ -84,24 +91,18 @@ export default function ParentDashboard() {
     setLinkedAthletes(userAthletes);
   };
 
-  const getWeeklyTrainingCount = () => {
+  const getAthleteTrainings = () => {
     if (!linkedAthletes || linkedAthletes.length === 0) {
-      console.log('No linked athletes found');
-      return 0;
+      return [];
     }
 
-    // Load trainings from localStorage
     const storedTrainings = localStorage.getItem('trainings');
     if (!storedTrainings) {
-      console.log('No trainings found in localStorage');
-      return 0;
+      return [];
     }
 
     const allTrainings = JSON.parse(storedTrainings);
-    console.log('All trainings:', allTrainings);
-    
     const linkedAthleteIds = linkedAthletes.map(athlete => athlete.id.toString());
-    console.log('Linked athlete IDs:', linkedAthleteIds);
 
     // Get current week date range
     const now = new Date();
@@ -113,32 +114,23 @@ export default function ParentDashboard() {
     endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
     endOfWeek.setHours(23, 59, 59, 999);
 
-    console.log('Week range:', startOfWeek.toISOString(), 'to', endOfWeek.toISOString());
-
-    let weeklyTrainingCount = 0;
+    const athleteTrainings: any[] = [];
 
     // Check each training
     allTrainings.forEach((training: any) => {
-      console.log('Checking training:', training.title, 'assigned athletes:', training.assignedAthletes);
-      
       // Check if any linked athlete is assigned to this training
       const hasLinkedAthlete = training.assignedAthletes && 
-        training.assignedAthletes.some((athleteId: string) => {
-          const isLinked = linkedAthleteIds.includes(athleteId);
-          console.log(`Athlete ${athleteId} linked:`, isLinked);
-          return isLinked;
-        });
-
-      console.log('Training has linked athlete:', hasLinkedAthlete);
+        training.assignedAthletes.some((athleteId: string) => 
+          linkedAthleteIds.includes(athleteId)
+        );
 
       if (!hasLinkedAthlete) return;
 
       // Check if training occurs this week
       if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
-        console.log('Processing recurring training:', training.title, 'days:', training.recurringDays);
-        
         // For recurring trainings, check each day of the week
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayLabels = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
         
         training.recurringDays.forEach((dayName: string) => {
           const dayIndex = dayNames.indexOf(dayName);
@@ -152,30 +144,71 @@ export default function ParentDashboard() {
           const trainingStartDate = new Date(training.startDate || training.date);
           const trainingEndDate = training.endDate ? new Date(training.endDate) : trainingStartDate;
 
-          console.log(`Checking recurring day ${dayName}:`, trainingDate.toISOString(), 'training period:', trainingStartDate.toISOString(), 'to', trainingEndDate.toISOString());
-
           if (trainingDate >= trainingStartDate && trainingDate <= trainingEndDate && 
               trainingDate >= startOfWeek && trainingDate <= endOfWeek) {
-            weeklyTrainingCount++;
-            console.log('Added recurring training, count now:', weeklyTrainingCount);
+            athleteTrainings.push({
+              ...training,
+              actualDate: trainingDate,
+              dayLabel: dayLabels[dayIndex],
+              isRecurringInstance: true
+            });
           }
         });
       } else {
-        console.log('Processing single-day training:', training.title, 'date:', training.startDate || training.date);
-        
         // For single-day trainings
         const trainingDate = new Date(training.startDate || training.date);
-        console.log('Training date:', trainingDate.toISOString());
         
         if (trainingDate >= startOfWeek && trainingDate <= endOfWeek) {
-          weeklyTrainingCount++;
-          console.log('Added single-day training, count now:', weeklyTrainingCount);
+          const dayIndex = trainingDate.getDay();
+          const dayLabels = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+          
+          athleteTrainings.push({
+            ...training,
+            actualDate: trainingDate,
+            dayLabel: dayLabels[dayIndex],
+            isRecurringInstance: false
+          });
         }
       }
     });
 
-    console.log('Final weekly training count:', weeklyTrainingCount);
-    return weeklyTrainingCount;
+    // Sort by date and time
+    return athleteTrainings.sort((a, b) => {
+      const dateCompare = a.actualDate.getTime() - b.actualDate.getTime();
+      if (dateCompare !== 0) return dateCompare;
+      return a.startTime.localeCompare(b.startTime);
+    });
+  };
+
+  const getWeeklyTrainingCount = () => {
+    return getAthleteTrainings().length;
+  };
+
+  const getAttendanceData = () => {
+    // Load attendance data from localStorage
+    const storedAttendance = localStorage.getItem('attendance');
+    if (!storedAttendance) return [];
+
+    const allAttendance = JSON.parse(storedAttendance);
+    const linkedAthleteIds = linkedAthletes.map(athlete => athlete.id.toString());
+
+    return allAttendance.filter((record: any) => 
+      linkedAthleteIds.includes(record.athleteId?.toString())
+    );
+  };
+
+  const getTrainingMedia = () => {
+    // Load media data from localStorage
+    const storedMedia = localStorage.getItem('trainingMedia');
+    if (!storedMedia) return [];
+
+    const allMedia = JSON.parse(storedMedia);
+    const athleteTrainings = getAthleteTrainings();
+    const trainingIds = athleteTrainings.map(t => t.id);
+
+    return allMedia.filter((media: any) => 
+      trainingIds.includes(media.trainingId)
+    );
   };
 
   // Add a test function to create sample data for debugging
@@ -210,29 +243,137 @@ export default function ParentDashboard() {
       isTemporaryPassword: true
     };
     
-    // Create test training
-    const testTraining = {
-      id: 'test-training-1',
-      title: 'Test Basketbol Antrenmanı',
-      sport: 'Basketbol',
-      coach: 'Test Antrenör',
-      location: 'Ana Salon',
-      startDate: new Date().toISOString().split('T')[0], // Today
-      date: new Date().toISOString().split('T')[0], // Today
-      startTime: '10:00',
-      endTime: '11:00',
-      assignedAthletes: ['test-athlete-1'],
-      isRecurring: false,
-      status: 'Aktif'
-    };
+    // Create test trainings for this week
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+    
+    const testTrainings = [
+      {
+        id: 'test-training-1',
+        title: 'Basketbol Antrenmanı',
+        sport: 'Basketbol',
+        coach: 'Ahmet Yılmaz',
+        location: 'Ana Salon',
+        startDate: new Date(startOfWeek.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tuesday
+        date: new Date(startOfWeek.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        startTime: '16:00',
+        endTime: '17:30',
+        assignedAthletes: ['test-athlete-1'],
+        isRecurring: false,
+        status: 'Aktif'
+      },
+      {
+        id: 'test-training-2',
+        title: 'Basketbol Teknik Antrenman',
+        sport: 'Basketbol',
+        coach: 'Mehmet Demir',
+        location: 'Yan Salon',
+        startDate: new Date(startOfWeek.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Friday
+        date: new Date(startOfWeek.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        startTime: '18:00',
+        endTime: '19:30',
+        assignedAthletes: ['test-athlete-1'],
+        isRecurring: false,
+        status: 'Aktif'
+      },
+      {
+        id: 'test-training-3',
+        title: 'Haftalık Basketbol Antrenmanı',
+        sport: 'Basketbol',
+        coach: 'Ali Kaya',
+        location: 'Ana Salon',
+        startDate: startOfWeek.toISOString().split('T')[0],
+        endDate: new Date(startOfWeek.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Next month
+        startTime: '17:00',
+        endTime: '18:30',
+        assignedAthletes: ['test-athlete-1'],
+        isRecurring: true,
+        recurringDays: ['wednesday', 'saturday'],
+        status: 'Aktif'
+      }
+    ];
+    
+    // Create test attendance data
+    const testAttendance = [
+      {
+        id: 'att-1',
+        athleteId: 'test-athlete-1',
+        trainingId: 'test-training-1',
+        trainingTitle: 'Basketbol Antrenmanı',
+        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Last week
+        status: 'present'
+      },
+      {
+        id: 'att-2',
+        athleteId: 'test-athlete-1',
+        trainingId: 'test-training-2',
+        trainingTitle: 'Basketbol Teknik Antrenman',
+        date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+        status: 'present'
+      },
+      {
+        id: 'att-3',
+        athleteId: 'test-athlete-1',
+        trainingId: 'test-training-3',
+        trainingTitle: 'Haftalık Basketbol Antrenmanı',
+        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+        status: 'late'
+      },
+      {
+        id: 'att-4',
+        athleteId: 'test-athlete-1',
+        trainingId: 'test-training-1',
+        trainingTitle: 'Basketbol Antrenmanı',
+        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+        status: 'absent'
+      }
+    ];
+    
+    // Create test media data
+    const testMedia = [
+      {
+        id: 'media-1',
+        trainingId: 'test-training-1',
+        title: 'Antrenman Fotoğrafları',
+        type: 'image',
+        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        url: '/sample-image.jpg'
+      },
+      {
+        id: 'media-2',
+        trainingId: 'test-training-2',
+        title: 'Teknik Çalışma Videosu',
+        type: 'video',
+        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        url: '/sample-video.mp4'
+      },
+      {
+        id: 'media-3',
+        trainingId: 'test-training-3',
+        title: 'Maç Görüntüleri',
+        type: 'video',
+        date: new Date().toISOString(),
+        url: '/sample-match.mp4'
+      }
+    ];
     
     // Save test data
     localStorage.setItem('students', JSON.stringify(testAthletes));
     localStorage.setItem('parentUsers', JSON.stringify([testParentUser]));
-    localStorage.setItem('trainings', JSON.stringify([testTraining]));
+    localStorage.setItem('trainings', JSON.stringify(testTrainings));
+    localStorage.setItem('attendance', JSON.stringify(testAttendance));
+    localStorage.setItem('trainingMedia', JSON.stringify(testMedia));
     
-    console.log('Test data created:', { testAthletes, testParentUser, testTraining });
-    alert('Test verisi oluşturuldu! Şimdi test@test.com / TV1234 ile giriş yapabilirsiniz.');
+    console.log('Comprehensive test data created:', { 
+      testAthletes, 
+      testParentUser, 
+      testTrainings, 
+      testAttendance, 
+      testMedia 
+    });
+    
+    alert('Kapsamlı test verisi oluşturuldu! Şimdi test@test.com / TV1234 ile giriş yapabilirsiniz. Antrenman detayları, yoklama ve medya bölümleri test edilebilir.');
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -463,7 +604,7 @@ export default function ParentDashboard() {
 
           {/* Quick Stats */}
           <motion.div 
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
             variants={fadeInUp}
             initial="initial"
             animate="animate"
@@ -501,6 +642,176 @@ export default function ParentDashboard() {
                   </div>
                   <CreditCard className="h-8 w-8 text-purple-600" />
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Training Details Section */}
+          <motion.div 
+            className="space-y-6 mb-8"
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5" />
+                  <span>Bu Haftaki Antrenmanlar</span>
+                </CardTitle>
+                <CardDescription>
+                  Sporcunuzun bu hafta katılacağı antrenman programı
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {getAthleteTrainings().length > 0 ? (
+                  <div className="space-y-4">
+                    {getAthleteTrainings().map((training, index) => (
+                      <div key={`${training.id}-${index}`} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center">
+                            {training.sport.charAt(0)}
+                          </div>
+                          <div>
+                            <h3 className="font-medium">{training.title}</h3>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{training.dayLabel}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{training.startTime} - {training.endTime}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>{training.location}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <User className="h-3 w-3" />
+                                <span>{training.coach}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Bu hafta antrenman bulunmuyor</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Attendance and Media Section */}
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+          >
+            {/* Attendance Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <UserCheck className="h-5 w-5" />
+                  <span>Yoklama Durumu</span>
+                </CardTitle>
+                <CardDescription>
+                  Sporcunuzun antrenman katılım durumu
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {getAttendanceData().length > 0 ? (
+                  <div className="space-y-3">
+                    {getAttendanceData().slice(0, 5).map((attendance, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium text-sm">{attendance.trainingTitle || 'Antrenman'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(attendance.date).toLocaleDateString('tr-TR')}
+                          </p>
+                        </div>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                          attendance.status === 'present' 
+                            ? 'bg-green-100 text-green-800' 
+                            : attendance.status === 'absent'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {attendance.status === 'present' ? 'Katıldı' : 
+                           attendance.status === 'absent' ? 'Katılmadı' : 'Geç Kaldı'}
+                        </div>
+                      </div>
+                    ))}
+                    {getAttendanceData().length > 5 && (
+                      <Button variant="outline" size="sm" className="w-full">
+                        Tümünü Görüntüle ({getAttendanceData().length - 5} daha)
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Henüz yoklama kaydı bulunmuyor</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Media Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Image className="h-5 w-5" />
+                  <span>Antrenman Medyaları</span>
+                </CardTitle>
+                <CardDescription>
+                  Sporcunuzun katıldığı antrenmanlardan fotoğraf ve videolar
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {getTrainingMedia().length > 0 ? (
+                  <div className="space-y-3">
+                    {getTrainingMedia().slice(0, 4).map((media, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+                            {media.type === 'video' ? (
+                              <Video className="h-4 w-4 text-primary" />
+                            ) : (
+                              <Image className="h-4 w-4 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{media.title || 'Medya'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(media.date).toLocaleDateString('tr-TR')}
+                            </p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm">
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    {getTrainingMedia().length > 4 && (
+                      <Button variant="outline" size="sm" className="w-full">
+                        Tümünü Görüntüle ({getTrainingMedia().length - 4} daha)
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Image className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Henüz medya bulunmuyor</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
