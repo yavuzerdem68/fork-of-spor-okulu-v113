@@ -585,6 +585,8 @@ export default function Athletes() {
 
   // Download parent credentials as text file
   const downloadParentCredentials = () => {
+    // Get fresh data from localStorage to ensure we have the latest information
+    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
     const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
     
     if (parentUsers.length === 0) {
@@ -592,29 +594,61 @@ export default function Athletes() {
       return;
     }
 
+    // Sync parent users with current athlete data and update parent information
+    const updatedParentUsers = parentUsers.map((parent: any) => {
+      // Find athletes that match this parent by phone or email
+      const matchingAthletes = allStudents.filter((athlete: any) => {
+        const phoneMatch = athlete.parentPhone && parent.phone && 
+          athlete.parentPhone.replace(/\D/g, '').slice(-10) === parent.phone.replace(/\D/g, '').slice(-10);
+        const emailMatch = athlete.parentEmail && parent.email && 
+          athlete.parentEmail.toLowerCase().trim() === parent.email.toLowerCase().trim();
+        return phoneMatch || emailMatch;
+      });
+
+      if (matchingAthletes.length > 0) {
+        // Update parent information with the latest athlete data
+        const firstMatch = matchingAthletes[0];
+        return {
+          ...parent,
+          firstName: firstMatch.parentName || parent.firstName,
+          lastName: firstMatch.parentSurname || parent.lastName,
+          phone: firstMatch.parentPhone || parent.phone,
+          email: firstMatch.parentEmail || parent.email,
+          linkedAthletes: matchingAthletes.map(a => a.id),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return parent;
+    });
+
+    // Save the updated parent users back to localStorage
+    localStorage.setItem('parentUsers', JSON.stringify(updatedParentUsers));
+
     const textContent = [
       '=== VELİ KULLANICI ADI VE ŞİFRELERİ ===',
       `Oluşturulma Tarihi: ${new Date().toLocaleDateString('tr-TR')} ${new Date().toLocaleTimeString('tr-TR')}`,
-      `Toplam Veli Sayısı: ${parentUsers.length}`,
+      `Toplam Veli Sayısı: ${updatedParentUsers.length}`,
       '',
       '--- DETAYLAR ---'
     ];
 
-    parentUsers.forEach((parent: any, index: number) => {
-      // Find linked athlete name
-      const linkedAthlete = athletes.find(athlete => 
+    updatedParentUsers.forEach((parent: any, index: number) => {
+      // Find all linked athletes for this parent
+      const linkedAthletes = allStudents.filter(athlete => 
         parent.linkedAthletes && parent.linkedAthletes.includes(athlete.id)
       );
-      const athleteName = linkedAthlete ? 
-        `${linkedAthlete.studentName} ${linkedAthlete.studentSurname}` : 
+      
+      const athleteNames = linkedAthletes.length > 0 ? 
+        linkedAthletes.map(athlete => `${athlete.studentName} ${athlete.studentSurname}`).join(', ') : 
         'Bilinmeyen Sporcu';
 
       textContent.push(
-        `${index + 1}. ${parent.firstName} ${parent.lastName} (${athleteName})`,
+        `${index + 1}. ${parent.firstName} ${parent.lastName} (${athleteNames})`,
         `   Telefon: ${parent.phone}`,
         `   Email: ${parent.email}`,
         `   Kullanıcı Adı: ${parent.username}`,
         `   Şifre: ${parent.password}`,
+        `   Bağlı Sporcu Sayısı: ${linkedAthletes.length}`,
         ''
       );
     });
@@ -629,7 +663,7 @@ export default function Athletes() {
     link.click();
     document.body.removeChild(link);
 
-    alert(`${parentUsers.length} veli hesabının giriş bilgileri text dosyası olarak indirildi!`);
+    alert(`${updatedParentUsers.length} veli hesabının giriş bilgileri text dosyası olarak indirildi!\n\nNot: Veli bilgileri güncel sporcu verileriyle senkronize edildi.`);
   };
 
   // Action button functions
