@@ -594,19 +594,72 @@ export default function Athletes() {
       return;
     }
 
-    // Sync parent users with current athlete data and update parent information
+    // Enhanced parent-athlete matching with more precise algorithms
     const updatedParentUsers = parentUsers.map((parent: any) => {
-      // Find athletes that match this parent by phone or email
+      // Find athletes that match this parent with improved matching logic
       const matchingAthletes = allStudents.filter((athlete: any) => {
-        const phoneMatch = athlete.parentPhone && parent.phone && 
-          athlete.parentPhone.replace(/\D/g, '').slice(-10) === parent.phone.replace(/\D/g, '').slice(-10);
-        const emailMatch = athlete.parentEmail && parent.email && 
-          athlete.parentEmail.toLowerCase().trim() === parent.email.toLowerCase().trim();
-        return phoneMatch || emailMatch;
+        // Priority 1: Exact phone number match (most reliable)
+        if (athlete.parentPhone && parent.phone) {
+          const athletePhone = athlete.parentPhone.replace(/\D/g, '');
+          const parentPhone = parent.phone.replace(/\D/g, '');
+          
+          // Handle different phone formats (+90, 0, direct)
+          const normalizePhone = (phone: string) => {
+            // Remove all non-digits
+            let cleaned = phone.replace(/\D/g, '');
+            // Remove leading 90 if present
+            if (cleaned.startsWith('90') && cleaned.length === 12) {
+              cleaned = cleaned.substring(2);
+            }
+            // Remove leading 0 if present
+            if (cleaned.startsWith('0') && cleaned.length === 11) {
+              cleaned = cleaned.substring(1);
+            }
+            return cleaned;
+          };
+          
+          const normalizedAthletePhone = normalizePhone(athletePhone);
+          const normalizedParentPhone = normalizePhone(parentPhone);
+          
+          if (normalizedAthletePhone === normalizedParentPhone && normalizedAthletePhone.length === 10) {
+            return true;
+          }
+        }
+        
+        // Priority 2: Exact email match (case-insensitive)
+        if (athlete.parentEmail && parent.email) {
+          const athleteEmail = athlete.parentEmail.toLowerCase().trim();
+          const parentEmail = parent.email.toLowerCase().trim();
+          
+          if (athleteEmail === parentEmail && athleteEmail.length > 5) {
+            return true;
+          }
+        }
+        
+        // Priority 3: Combined name and phone partial match (for edge cases)
+        if (athlete.parentName && athlete.parentSurname && parent.firstName && parent.lastName && 
+            athlete.parentPhone && parent.phone) {
+          
+          const athleteFullName = `${athlete.parentName} ${athlete.parentSurname}`.toLowerCase().trim();
+          const parentFullName = `${parent.firstName} ${parent.lastName}`.toLowerCase().trim();
+          
+          // Check if names are very similar (exact match)
+          if (athleteFullName === parentFullName) {
+            // Also check if phone numbers are similar (last 7 digits)
+            const athletePhoneLast7 = athlete.parentPhone.replace(/\D/g, '').slice(-7);
+            const parentPhoneLast7 = parent.phone.replace(/\D/g, '').slice(-7);
+            
+            if (athletePhoneLast7 === parentPhoneLast7 && athletePhoneLast7.length === 7) {
+              return true;
+            }
+          }
+        }
+        
+        return false;
       });
 
       if (matchingAthletes.length > 0) {
-        // Update parent information with the latest athlete data
+        // Update parent information with the latest athlete data from the first match
         const firstMatch = matchingAthletes[0];
         return {
           ...parent,
@@ -618,29 +671,45 @@ export default function Athletes() {
           updatedAt: new Date().toISOString()
         };
       }
-      return parent;
+      
+      // If no matches found, keep the parent as is but clear linkedAthletes to avoid false matches
+      return {
+        ...parent,
+        linkedAthletes: [],
+        updatedAt: new Date().toISOString()
+      };
     });
+
+    // Filter out parents with no linked athletes to avoid confusion
+    const activeParentUsers = updatedParentUsers.filter(parent => 
+      parent.linkedAthletes && parent.linkedAthletes.length > 0
+    );
 
     // Save the updated parent users back to localStorage
     localStorage.setItem('parentUsers', JSON.stringify(updatedParentUsers));
 
+    if (activeParentUsers.length === 0) {
+      alert('Aktif sporcu ile eşleşen veli hesabı bulunamadı!\n\nLütfen veli hesaplarının telefon numarası ve email adreslerinin sporcu kayıtlarıyla uyumlu olduğundan emin olun.');
+      return;
+    }
+
     const textContent = [
       '=== VELİ KULLANICI ADI VE ŞİFRELERİ ===',
       `Oluşturulma Tarihi: ${new Date().toLocaleDateString('tr-TR')} ${new Date().toLocaleTimeString('tr-TR')}`,
-      `Toplam Veli Sayısı: ${updatedParentUsers.length}`,
+      `Toplam Aktif Veli Sayısı: ${activeParentUsers.length}`,
       '',
       '--- DETAYLAR ---'
     ];
 
-    updatedParentUsers.forEach((parent: any, index: number) => {
-      // Find all linked athletes for this parent
+    activeParentUsers.forEach((parent: any, index: number) => {
+      // Find all linked athletes for this parent using the updated linkedAthletes array
       const linkedAthletes = allStudents.filter(athlete => 
         parent.linkedAthletes && parent.linkedAthletes.includes(athlete.id)
       );
       
       const athleteNames = linkedAthletes.length > 0 ? 
         linkedAthletes.map(athlete => `${athlete.studentName} ${athlete.studentSurname}`).join(', ') : 
-        'Bilinmeyen Sporcu';
+        'Eşleşme Hatası';
 
       textContent.push(
         `${index + 1}. ${parent.firstName} ${parent.lastName} (${athleteNames})`,
@@ -653,6 +722,14 @@ export default function Athletes() {
       );
     });
 
+    textContent.push(
+      '--- NOTLAR ---',
+      '• Bu liste sadece aktif sporcu ile eşleşen veli hesaplarını içerir',
+      '• Eşleştirme telefon numarası ve email adresi ile yapılır',
+      '• Veli bilgileri güncel sporcu verileriyle otomatik senkronize edilmiştir',
+      ''
+    );
+
     const blob = new Blob([textContent.join('\n')], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -663,7 +740,7 @@ export default function Athletes() {
     link.click();
     document.body.removeChild(link);
 
-    alert(`${updatedParentUsers.length} veli hesabının giriş bilgileri text dosyası olarak indirildi!\n\nNot: Veli bilgileri güncel sporcu verileriyle senkronize edildi.`);
+    alert(`${activeParentUsers.length} aktif veli hesabının giriş bilgileri text dosyası olarak indirildi!\n\n✅ Veli-sporcu eşleştirmesi doğrulandı\n📱 Telefon numarası ve email ile eşleştirme yapıldı\n🔄 Veli bilgileri güncel sporcu verileriyle senkronize edildi`);
   };
 
   // Action button functions
