@@ -121,7 +121,6 @@ export default function Dashboard() {
 
     return () => clearTimeout(checkAuth);
   }, [router]);
-=======
 
   const loadDashboardData = () => {
     // Load athletes

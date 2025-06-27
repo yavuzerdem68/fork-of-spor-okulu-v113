@@ -55,7 +55,6 @@ export default function Login() {
 
     return () => clearTimeout(checkAuth);
   }, [router]);
-=======
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,8 +366,6 @@ export default function Login() {
                       </Button>
                     </div>
                   </motion.form>
-                  
-
                 </TabsContent>
 
                 {/* Coach Login */}
@@ -415,8 +412,6 @@ export default function Login() {
                       </Button>
                     </div>
                   </motion.form>
-                  
-
                 </TabsContent>
 
                 {/* Parent Login */}
@@ -463,8 +458,6 @@ export default function Login() {
                       </Button>
                     </div>
                   </motion.form>
-                  
-
                 </TabsContent>
               </Tabs>
 
