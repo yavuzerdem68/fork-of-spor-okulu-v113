@@ -48,9 +48,7 @@ export default function Document() {
         <meta name="twitter:image" content="/icons/icon-512x512.png" />
       </Head>
       <body>
-        <Script src="https://assets.co.dev/files/codevscript.js" strategy="afterInteractive" />
         <Main />
-        <Script src="https://assets.co.dev/files/codevscript.js" strategy="afterInteractive" />
         <NextScript />
       </body>
     </Html>
