@@ -149,7 +149,6 @@ export default function Dashboard() {
     // Load real data from localStorage
     loadDashboardData();
   }, [router]);
-=======
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -480,6 +479,7 @@ export default function Dashboard() {
                 </Alert>
               </motion.div>
             )}
+
             {/* Stats Cards */}
             <motion.div 
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
