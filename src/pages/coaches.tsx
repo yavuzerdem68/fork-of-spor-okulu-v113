@@ -39,10 +39,9 @@ const fadeInUp = {
   transition: { duration: 0.6 }
 };
 
-const sportsBranches = [
-  "Basketbol", "Futbol", "Voleybol", "Hentbol", "Yüzme", 
-  "Tenis", "Jimnastik", "Atletizm", "Satranç", "Zihin Oyunları", "Hareket Eğitimi"
-];
+import { getSportsBranches } from "@/lib/sports-branches";
+
+const sportsBranches = getSportsBranches();
 
 const permissionModules = [
   { key: "athletes", name: "Sporcu Yönetimi", description: "Sporcu kayıtları ve bilgileri" },

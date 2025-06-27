@@ -57,38 +57,42 @@ export default function CoachDashboard() {
 
   const loadMyStudents = (coach: any) => {
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    const allTrainings = JSON.parse(localStorage.getItem('trainings') || '[]');
     
-    // Filter students who are in coach's training groups or sports branches
-    const myStudents = allStudents.filter((student: any) => {
-      // Check if student is in any of the coach's training groups
-      if (coach.trainingGroups?.length > 0 && student.trainingGroups?.length > 0) {
-        const hasMatchingGroup = coach.trainingGroups.some((group: string) => 
-          student.trainingGroups.includes(group)
-        );
-        if (hasMatchingGroup) return true;
+    const coachName = `${coach.name || ''} ${coach.surname || ''}`.trim();
+    
+    console.log('Loading students for coach:', coachName);
+    
+    // Get all trainings assigned to this coach
+    const coachTrainings = allTrainings.filter((training: any) => training.coach === coachName);
+    
+    console.log('Coach trainings:', coachTrainings);
+    
+    // Collect all unique athlete IDs from coach's trainings
+    const athleteIds = new Set();
+    coachTrainings.forEach((training: any) => {
+      if (training.assignedAthletes && Array.isArray(training.assignedAthletes)) {
+        training.assignedAthletes.forEach((athleteId: string) => {
+          athleteIds.add(athleteId.toString());
+        });
       }
-      
-      // Check if student plays any of the coach's sports branches
-      if (coach.sportsBranches?.length > 0 && student.sportsBranches?.length > 0) {
-        const hasMatchingSport = coach.sportsBranches.some((branch: string) => 
-          student.sportsBranches.includes(branch)
-        );
-        if (hasMatchingSport) return true;
-      }
-      
-      // Also check selectedSports field (alternative field name)
-      if (coach.sportsBranches?.length > 0 && student.selectedSports?.length > 0) {
-        const hasMatchingSport = coach.sportsBranches.some((branch: string) => 
-          student.selectedSports.includes(branch)
-        );
-        if (hasMatchingSport) return true;
-      }
-      
-      return false;
     });
     
-    console.log('Coach:', coach);
-    console.log('All students:', allStudents);
+    console.log('Athlete IDs from trainings:', Array.from(athleteIds));
+    
+    // Filter students who are assigned to this coach's trainings
+    const myStudents = allStudents.filter((student: any) => {
+      const studentId = student.id?.toString();
+      const isAssigned = athleteIds.has(studentId);
+      
+      if (isAssigned) {
+        console.log('Found assigned student:', student.studentName, student.studentSurname, 'ID:', studentId);
+      }
+      
+      return isAssigned;
+    });
+    
+    console.log('Final coach students count:', myStudents.length);
     console.log('Coach students:', myStudents);
     
     setMyStudents(myStudents);
@@ -104,10 +108,19 @@ export default function CoachDashboard() {
     
     const coachName = `${coach.name || ''} ${coach.surname || ''}`.trim();
     
+    console.log('Coach name for filtering:', coachName);
+    console.log('All trainings:', allTrainings);
+    
     // Filter trainings assigned to this coach
     const coachTrainings = allTrainings.filter((training: any) => {
-      return training.coach === coachName;
+      const isAssigned = training.coach === coachName;
+      if (isAssigned) {
+        console.log('Found training for coach:', training.title, training.coach);
+      }
+      return isAssigned;
     });
+    
+    console.log('Coach trainings found:', coachTrainings.length);
     
     // Filter today's trainings
     const todaysTrainings = coachTrainings.filter((training: any) => {
@@ -138,6 +151,8 @@ export default function CoachDashboard() {
     
     // Sort by time
     todaysTrainings.sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''));
+    
+    console.log('Today trainings found:', todaysTrainings.length);
     
     setMyTrainings(coachTrainings);
     setTodayTrainings(todaysTrainings);

@@ -47,11 +47,9 @@ const loadTrainings = () => {
   return storedTrainings ? JSON.parse(storedTrainings) : [];
 };
 
-const sports = [
-  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
-  "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
-  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim", "Hareket Eğitimi"
-];
+import { getSportsBranches } from "@/lib/sports-branches";
+
+const sports = getSportsBranches();
 
 // Load coaches from localStorage
 const loadCoaches = () => {
@@ -141,6 +139,42 @@ export default function Trainings() {
   const activeTrainings = trainings.filter(t => t.status === "Aktif");
   const totalParticipants = trainings.reduce((sum, t) => sum + (t.assignedAthletes?.length || 0), 0);
 
+  const updateCoachStatistics = () => {
+    // Update coach statistics based on current trainings
+    const allTrainings = JSON.parse(localStorage.getItem('trainings') || '[]');
+    const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
+    
+    const updatedCoaches = coaches.map((coach: any) => {
+      const coachName = typeof coach === 'string' 
+        ? coach 
+        : `${coach.name || ''} ${coach.surname || ''}`.trim();
+      
+      // Count trainings for this coach
+      const coachTrainings = allTrainings.filter((training: any) => training.coach === coachName);
+      const trainingCount = coachTrainings.length;
+      
+      // Count unique athletes assigned to this coach's trainings
+      const athleteIds = new Set();
+      coachTrainings.forEach((training: any) => {
+        if (training.assignedAthletes) {
+          training.assignedAthletes.forEach((athleteId: string) => {
+            athleteIds.add(athleteId);
+          });
+        }
+      });
+      const athleteCount = athleteIds.size;
+      
+      return {
+        ...coach,
+        trainingCount,
+        athleteCount
+      };
+    });
+    
+    localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+    setCoaches(updatedCoaches);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -184,6 +218,9 @@ export default function Trainings() {
     const updatedTrainings = [...trainings, newTraining];
     setTrainings(updatedTrainings);
     localStorage.setItem('trainings', JSON.stringify(updatedTrainings));
+    
+    // Update coach statistics
+    updateCoachStatistics();
     
     setSuccess("Antrenman başarıyla eklendi");
     resetForm();
@@ -260,6 +297,9 @@ export default function Trainings() {
     setTrainings(updatedTrainings);
     localStorage.setItem('trainings', JSON.stringify(updatedTrainings));
     
+    // Update coach statistics
+    updateCoachStatistics();
+    
     setSuccess("Antrenman başarıyla güncellendi");
     resetForm();
     setIsEditDialogOpen(false);
@@ -276,6 +316,9 @@ export default function Trainings() {
       const updatedTrainings = trainings.filter(t => t.id !== training.id);
       setTrainings(updatedTrainings);
       localStorage.setItem('trainings', JSON.stringify(updatedTrainings));
+      
+      // Update coach statistics
+      updateCoachStatistics();
     }
   };
 
