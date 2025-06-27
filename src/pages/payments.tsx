@@ -808,7 +808,7 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // PERFECT SIBLING MATCHING SYSTEM - RESTORED AND ENHANCED
+  // ENHANCED SIBLING MATCHING SYSTEM - MULTIPLE CRITERIA
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) {
@@ -816,31 +816,63 @@ export default function Payments() {
       return [];
     }
     
-    // Use parent phone as the primary matching criteria
+    // Multiple matching criteria for more accurate sibling detection
     const parentPhone = athlete.parentPhone?.toString().replace(/\D/g, '') || '';
-    console.log('Finding siblings for athlete:', athlete.studentName, athlete.studentSurname, 'Parent phone:', parentPhone);
+    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim().toLowerCase();
+    const parentEmail = athlete.parentEmail?.toLowerCase() || '';
+    
+    console.log('Finding siblings for athlete:', athlete.studentName, athlete.studentSurname);
+    console.log('Parent criteria - Phone:', parentPhone, 'Name:', parentName, 'Email:', parentEmail);
     
     if (!parentPhone || parentPhone.length < 10) {
       console.log('Invalid parent phone for sibling matching:', parentPhone);
       return [];
     }
     
-    // Find all athletes with the same parent phone
+    if (!parentName || parentName.length < 3) {
+      console.log('Invalid parent name for sibling matching:', parentName);
+      return [];
+    }
+    
+    // Find all athletes with matching parent criteria
     const siblings = athletes.filter(a => {
       if (a.id === athlete.id) return false; // Exclude self
       if (a.status !== 'Aktif' && a.status) return false; // Only active athletes
       
       const siblingParentPhone = a.parentPhone?.toString().replace(/\D/g, '') || '';
-      const isMatch = siblingParentPhone === parentPhone;
+      const siblingParentName = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
+      const siblingParentEmail = a.parentEmail?.toLowerCase() || '';
+      
+      // Must match phone number
+      const phoneMatch = siblingParentPhone === parentPhone && siblingParentPhone.length >= 10;
+      
+      // Must match parent name (at least 80% similarity)
+      const nameMatch = siblingParentName === parentName || 
+                       (siblingParentName.length > 0 && parentName.length > 0 && 
+                        calculateSimilarity(siblingParentName, parentName) >= 80);
+      
+      // Email match (if both have emails)
+      const emailMatch = !parentEmail || !siblingParentEmail || 
+                        parentEmail === siblingParentEmail;
+      
+      const isMatch = phoneMatch && nameMatch && emailMatch;
       
       if (isMatch) {
-        console.log('Found sibling:', a.studentName, a.studentSurname, 'Phone:', siblingParentPhone);
+        console.log('Found sibling:', a.studentName, a.studentSurname);
+        console.log('  - Phone match:', phoneMatch, `(${siblingParentPhone} === ${parentPhone})`);
+        console.log('  - Name match:', nameMatch, `(${siblingParentName} vs ${parentName})`);
+        console.log('  - Email match:', emailMatch, `(${siblingParentEmail} vs ${parentEmail})`);
+      } else if (phoneMatch) {
+        console.log('Phone match but other criteria failed for:', a.studentName, a.studentSurname);
+        console.log('  - Phone match:', phoneMatch);
+        console.log('  - Name match:', nameMatch, `(${siblingParentName} vs ${parentName})`);
+        console.log('  - Email match:', emailMatch, `(${siblingParentEmail} vs ${parentEmail})`);
       }
       
       return isMatch;
     });
     
-    console.log(`Found ${siblings.length} siblings for ${athlete.studentName} ${athlete.studentSurname}`);
+    console.log(`Found ${siblings.length} verified siblings for ${athlete.studentName} ${athlete.studentSurname}`);
     return siblings;
   };
 
