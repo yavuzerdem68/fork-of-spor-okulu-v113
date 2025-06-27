@@ -307,6 +307,27 @@ export default function AdminSettings() {
 
       const updatedUsers = [...adminUsers, userToAdd];
       saveAdminUsers(updatedUsers);
+
+      // If role is coach, also create a coach record
+      if (newUser.role === "coach") {
+        const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
+        const newCoach = {
+          id: Date.now().toString(),
+          adminUserId: newId,
+          name: sanitizedName,
+          email: sanitizedEmail,
+          phone: "", // Will need to be filled later in coaches module
+          specialization: "",
+          experience: "",
+          sportsBranches: [],
+          trainingCount: 0,
+          athleteCount: 0,
+          createdAt: new Date().toISOString()
+        };
+        coaches.push(newCoach);
+        localStorage.setItem('coaches', JSON.stringify(coaches));
+      }
+
       setSuccess("Yeni kullanıcı başarıyla eklendi");
       setIsAddDialogOpen(false);
       setNewUser({ name: "", email: "", password: "", role: "staff", permissions: {} });
@@ -327,6 +348,15 @@ export default function AdminSettings() {
   };
 
   const handleDeleteUser = (userId: number) => {
+    const userToDelete = adminUsers.find(user => user.id === userId);
+    
+    // If deleting a coach, also remove from coaches module
+    if (userToDelete?.role === "coach") {
+      const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
+      const updatedCoaches = coaches.filter((coach: any) => coach.adminUserId !== userId);
+      localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+    }
+    
     const updatedUsers = adminUsers.filter(user => user.id !== userId);
     saveAdminUsers(updatedUsers);
     setSuccess("Kullanıcı başarıyla silindi");
