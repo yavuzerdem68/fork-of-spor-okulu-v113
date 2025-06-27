@@ -84,6 +84,73 @@ export default function ParentDashboard() {
     setLinkedAthletes(userAthletes);
   };
 
+  const getWeeklyTrainingCount = () => {
+    if (!linkedAthletes || linkedAthletes.length === 0) return 0;
+
+    // Load trainings from localStorage
+    const storedTrainings = localStorage.getItem('trainings');
+    if (!storedTrainings) return 0;
+
+    const allTrainings = JSON.parse(storedTrainings);
+    const linkedAthleteIds = linkedAthletes.map(athlete => athlete.id.toString());
+
+    // Get current week date range
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Monday
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    let weeklyTrainingCount = 0;
+
+    // Check each training
+    allTrainings.forEach((training: any) => {
+      // Check if any linked athlete is assigned to this training
+      const hasLinkedAthlete = training.assignedAthletes && 
+        training.assignedAthletes.some((athleteId: string) => 
+          linkedAthleteIds.includes(athleteId)
+        );
+
+      if (!hasLinkedAthlete) return;
+
+      // Check if training occurs this week
+      if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
+        // For recurring trainings, check each day of the week
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        
+        training.recurringDays.forEach((dayName: string) => {
+          const dayIndex = dayNames.indexOf(dayName);
+          if (dayIndex === -1) return;
+
+          // Calculate the date for this day in the current week
+          const trainingDate = new Date(startOfWeek);
+          trainingDate.setDate(startOfWeek.getDate() + (dayIndex === 0 ? 6 : dayIndex - 1)); // Adjust for Sunday
+
+          // Check if training period covers this week
+          const trainingStartDate = new Date(training.startDate || training.date);
+          const trainingEndDate = training.endDate ? new Date(training.endDate) : trainingStartDate;
+
+          if (trainingDate >= trainingStartDate && trainingDate <= trainingEndDate && 
+              trainingDate >= startOfWeek && trainingDate <= endOfWeek) {
+            weeklyTrainingCount++;
+          }
+        });
+      } else {
+        // For single-day trainings
+        const trainingDate = new Date(training.startDate || training.date);
+        if (trainingDate >= startOfWeek && trainingDate <= endOfWeek) {
+          weeklyTrainingCount++;
+        }
+      }
+    });
+
+    return weeklyTrainingCount;
+  };
+=======
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -331,7 +398,7 @@ export default function ParentDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Bu Hafta Antrenman</p>
-                    <p className="text-2xl font-bold">0</p>
+                    <p className="text-2xl font-bold">{getWeeklyTrainingCount()}</p>
                   </div>
                   <Calendar className="h-8 w-8 text-green-600" />
                 </div>
