@@ -149,7 +149,6 @@ export default function ParentDashboard() {
 
     return weeklyTrainingCount;
   };
-=======
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
