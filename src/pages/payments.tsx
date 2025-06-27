@@ -844,7 +844,7 @@ export default function Payments() {
     return siblings;
   };
 
-  // Show sibling selection dialog
+  // Show sibling selection dialog with enhanced feedback
   const showSiblingDialog = (index: number) => {
     const result = matchResults[index];
     if (!result.athleteId) {
@@ -852,9 +852,14 @@ export default function Payments() {
       return;
     }
 
+    console.log('=== SIBLING PAYMENT TEST ===');
+    console.log('Selected athlete ID:', result.athleteId);
+    
     const siblings = findSiblings(result.athleteId);
+    console.log('Found siblings:', siblings.length);
+    
     if (siblings.length === 0) {
-      toast.error("Bu sporcu için kardeş bulunamadı");
+      toast.error("Bu sporcu için kardeş bulunamadı. Kardeş ödemesi için aynı veli telefon numarasına sahip başka aktif sporcular olmalı.");
       return;
     }
 
@@ -864,8 +869,17 @@ export default function Payments() {
     const allSiblings = [selectedAthlete, ...siblings];
     const siblingNames = allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join('\n');
     
+    console.log('All siblings for payment split:', allSiblings.map(s => `${s.studentName} ${s.studentSurname}`));
+    
+    const amountPerSibling = (result.excelRow.amount / allSiblings.length).toFixed(2);
+    
     const confirmed = confirm(
-      `Bu ödeme ${allSiblings.length} kardeş arasında bölünecek:\n\n${siblingNames}\n\nHer sporcu için: ₺${(result.excelRow.amount / allSiblings.length).toFixed(2)}\n\nOnaylıyor musunuz?`
+      `🔄 KARDEŞ ÖDEMESİ BÖLÜNECEK\n\n` +
+      `Toplam Tutar: ₺${result.excelRow.amount.toLocaleString()}\n` +
+      `Sporcu Sayısı: ${allSiblings.length}\n` +
+      `Her sporcu için: ₺${amountPerSibling}\n\n` +
+      `Sporcular:\n${siblingNames}\n\n` +
+      `Bu ödemeyi ${allSiblings.length} kardeş arasında eşit olarak bölmek istediğinizden emin misiniz?`
     );
 
     if (confirmed) {
@@ -878,7 +892,9 @@ export default function Payments() {
       };
       
       setMatchResults(updatedResults);
-      toast.success(`${allSiblings.length} kardeş için ödeme bölündü`);
+      toast.success(`✅ ${allSiblings.length} kardeş için ödeme bölündü! Her sporcu: ₺${amountPerSibling}`);
+      
+      console.log('Sibling payment activated for:', allSiblings.map(s => `${s.studentName} ${s.studentSurname}`));
     }
   };
 
