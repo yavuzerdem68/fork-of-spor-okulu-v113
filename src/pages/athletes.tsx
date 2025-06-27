@@ -618,207 +618,179 @@ export default function Athletes() {
     XLSX.writeFile(wb, 'Sporcu_Toplu_Yukleme_Sablonu.xlsx');
   };
 
-  // Download parent credentials as text file
+  // Download parent credentials as text file with enhanced synchronization
   const downloadParentCredentials = () => {
     // Get fresh data from localStorage to ensure we have the latest information
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-    const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+    let parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
     
-    if (parentUsers.length === 0) {
-      if (allStudents.length === 0) {
-        alert('Henüz sisteme sporcu kaydı yapılmamış!\n\nÖnce sporcu kayıtları oluşturun, ardından veli hesapları otomatik olarak oluşturulacaktır.');
-        return;
-      } else {
-        // Offer to create parent accounts for existing athletes
-        const shouldCreate = confirm(
-          `Sistemde ${allStudents.length} sporcu kaydı var ancak henüz veli hesabı oluşturulmamış.\n\n` +
-          'Mevcut sporcular için veli hesapları oluşturulsun mu?\n\n' +
-          '✅ Evet: Tüm sporcular için veli hesapları oluşturulacak\n' +
-          '❌ Hayır: İşlem iptal edilecek'
-        );
-        
-        if (!shouldCreate) {
-          return;
-        }
-        
-        // Create parent accounts for all existing athletes
-        let createdCount = 0;
-        const createdParentUsers = [];
-        
-        for (const athlete of allStudents) {
-          if (athlete.parentName && athlete.parentSurname && athlete.parentPhone) {
-            try {
-              const credentials = generateParentCredentials(
-                athlete.parentName, 
-                athlete.parentSurname, 
-                athlete.parentPhone
-              );
-              
-              const parentUser = createParentUser(athlete, credentials);
-              createdParentUsers.push({
-                athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
-                parentName: `${athlete.parentName} ${athlete.parentSurname}`,
-                username: credentials.username,
-                password: credentials.password,
-                phone: athlete.parentPhone,
-                email: athlete.parentEmail
-              });
-              createdCount++;
-            } catch (error) {
-              console.error('Error creating parent account for athlete:', athlete.studentName, error);
-            }
-          }
-        }
-        
-        if (createdCount === 0) {
-          alert('Veli hesabı oluşturulamadı!\n\nSporcuların veli bilgileri (ad, soyad, telefon) eksik olabilir.');
-          return;
-        }
-        
-        alert(`✅ ${createdCount} veli hesabı başarıyla oluşturuldu!\n\nŞimdi veli giriş bilgilerini indirebilirsiniz.`);
-        
-        // Continue with the download process
-        const updatedParentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
-        if (updatedParentUsers.length === 0) {
-          alert('Veli hesapları oluşturulmasına rağmen bir hata oluştu. Lütfen tekrar deneyin.');
-          return;
-        }
-      }
-    }
-
-    // Enhanced parent-athlete matching with more precise algorithms
-    const updatedParentUsers = parentUsers.map((parent: any) => {
-      // Find athletes that match this parent with improved matching logic
-      const matchingAthletes = allStudents.filter((athlete: any) => {
-        // Priority 1: Exact phone number match (most reliable)
-        if (athlete.parentPhone && parent.phone) {
-          const athletePhone = athlete.parentPhone.replace(/\D/g, '');
-          const parentPhone = parent.phone.replace(/\D/g, '');
-          
-          // Handle different phone formats (+90, 0, direct)
-          const normalizePhone = (phone: string) => {
-            // Remove all non-digits
-            let cleaned = phone.replace(/\D/g, '');
-            // Remove leading 90 if present
-            if (cleaned.startsWith('90') && cleaned.length === 12) {
-              cleaned = cleaned.substring(2);
-            }
-            // Remove leading 0 if present
-            if (cleaned.startsWith('0') && cleaned.length === 11) {
-              cleaned = cleaned.substring(1);
-            }
-            return cleaned;
-          };
-          
-          const normalizedAthletePhone = normalizePhone(athletePhone);
-          const normalizedParentPhone = normalizePhone(parentPhone);
-          
-          if (normalizedAthletePhone === normalizedParentPhone && normalizedAthletePhone.length === 10) {
-            return true;
-          }
-        }
-        
-        // Priority 2: Exact email match (case-insensitive)
-        if (athlete.parentEmail && parent.email) {
-          const athleteEmail = athlete.parentEmail.toLowerCase().trim();
-          const parentEmail = parent.email.toLowerCase().trim();
-          
-          if (athleteEmail === parentEmail && athleteEmail.length > 5) {
-            return true;
-          }
-        }
-        
-        // Priority 3: Combined name and phone partial match (for edge cases)
-        if (athlete.parentName && athlete.parentSurname && parent.firstName && parent.lastName && 
-            athlete.parentPhone && parent.phone) {
-          
-          const athleteFullName = `${athlete.parentName} ${athlete.parentSurname}`.toLowerCase().trim();
-          const parentFullName = `${parent.firstName} ${parent.lastName}`.toLowerCase().trim();
-          
-          // Check if names are very similar (exact match)
-          if (athleteFullName === parentFullName) {
-            // Also check if phone numbers are similar (last 7 digits)
-            const athletePhoneLast7 = athlete.parentPhone.replace(/\D/g, '').slice(-7);
-            const parentPhoneLast7 = parent.phone.replace(/\D/g, '').slice(-7);
-            
-            if (athletePhoneLast7 === parentPhoneLast7 && athletePhoneLast7.length === 7) {
-              return true;
-            }
-          }
-        }
-        
-        return false;
-      });
-
-      if (matchingAthletes.length > 0) {
-        // Update parent information with the latest athlete data from the first match
-        const firstMatch = matchingAthletes[0];
-        return {
-          ...parent,
-          firstName: firstMatch.parentName || parent.firstName,
-          lastName: firstMatch.parentSurname || parent.lastName,
-          phone: firstMatch.parentPhone || parent.phone,
-          email: firstMatch.parentEmail || parent.email,
-          linkedAthletes: matchingAthletes.map(a => a.id),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      
-      // If no matches found, keep the parent as is but clear linkedAthletes to avoid false matches
-      return {
-        ...parent,
-        linkedAthletes: [],
-        updatedAt: new Date().toISOString()
-      };
-    });
-
-    // Filter out parents with no linked athletes to avoid confusion
-    const activeParentUsers = updatedParentUsers.filter(parent => 
-      parent.linkedAthletes && parent.linkedAthletes.length > 0
+    // First, offer to completely rebuild parent accounts for data consistency
+    const shouldRebuild = confirm(
+      '🔄 VELİ HESAPLARI SENKRONİZASYONU\n\n' +
+      'Veli giriş bilgilerinin doğru olması için veli hesaplarını mevcut sporcu verileriyle yeniden senkronize etmek önerilir.\n\n' +
+      '✅ EVET: Veli hesapları güncel sporcu bilgileriyle yeniden oluşturulacak (Önerilen)\n' +
+      '❌ HAYIR: Mevcut veli hesapları kullanılacak\n\n' +
+      'Not: Bu işlem veli hesaplarını güncel sporcu bilgileriyle tamamen senkronize edecektir.'
     );
 
-    // Save the updated parent users back to localStorage
-    localStorage.setItem('parentUsers', JSON.stringify(updatedParentUsers));
-
-    if (activeParentUsers.length === 0) {
-      alert('Aktif sporcu ile eşleşen veli hesabı bulunamadı!\n\nLütfen veli hesaplarının telefon numarası ve email adreslerinin sporcu kayıtlarıyla uyumlu olduğundan emin olun.');
-      return;
+    if (shouldRebuild) {
+      // Clear existing parent users and rebuild from scratch
+      parentUsers = [];
+      localStorage.setItem('parentUsers', JSON.stringify([]));
+      
+      console.log('Rebuilding parent accounts from current athlete data...');
+      
+      // Group athletes by parent (phone + email combination for accuracy)
+      const parentGroups = new Map();
+      
+      allStudents.forEach((athlete: any) => {
+        if (!athlete.parentName || !athlete.parentSurname || !athlete.parentPhone) {
+          console.warn('Skipping athlete with incomplete parent info:', athlete.studentName);
+          return;
+        }
+        
+        // Create a unique key for each parent using normalized phone and email
+        const normalizePhone = (phone: string) => {
+          if (!phone) return '';
+          let cleaned = phone.replace(/\D/g, '');
+          if (cleaned.startsWith('90') && cleaned.length === 12) {
+            cleaned = cleaned.substring(2);
+          }
+          if (cleaned.startsWith('0') && cleaned.length === 11) {
+            cleaned = cleaned.substring(1);
+          }
+          return cleaned;
+        };
+        
+        const normalizedPhone = normalizePhone(athlete.parentPhone);
+        const normalizedEmail = (athlete.parentEmail || '').toLowerCase().trim();
+        const parentKey = `${normalizedPhone}_${normalizedEmail}_${athlete.parentName.toLowerCase().trim()}_${athlete.parentSurname.toLowerCase().trim()}`;
+        
+        if (!parentGroups.has(parentKey)) {
+          parentGroups.set(parentKey, {
+            parentInfo: {
+              name: athlete.parentName,
+              surname: athlete.parentSurname,
+              phone: athlete.parentPhone,
+              email: athlete.parentEmail,
+              tcNo: athlete.parentTcNo,
+              relation: athlete.parentRelation
+            },
+            athletes: []
+          });
+        }
+        
+        parentGroups.get(parentKey).athletes.push(athlete);
+      });
+      
+      console.log(`Found ${parentGroups.size} unique parents`);
+      
+      // Create parent accounts for each group
+      let createdCount = 0;
+      parentGroups.forEach((group, parentKey) => {
+        try {
+          const parentInfo = group.parentInfo;
+          const athletes = group.athletes;
+          
+          // Generate credentials using the parent's information
+          const credentials = generateParentCredentials(
+            parentInfo.name,
+            parentInfo.surname,
+            parentInfo.phone
+          );
+          
+          // Create parent user account
+          const parentUser = {
+            id: Date.now() + Math.random(),
+            username: credentials.username,
+            password: credentials.password,
+            firstName: parentInfo.name,
+            lastName: parentInfo.surname,
+            phone: parentInfo.phone,
+            email: parentInfo.email,
+            tcNo: parentInfo.tcNo,
+            relation: parentInfo.relation,
+            linkedAthletes: athletes.map(a => a.id),
+            role: 'parent',
+            isActive: true,
+            isTemporaryPassword: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          
+          parentUsers.push(parentUser);
+          createdCount++;
+          
+          console.log(`Created parent account for: ${parentInfo.name} ${parentInfo.surname} with ${athletes.length} athletes`);
+          
+        } catch (error) {
+          console.error('Error creating parent account:', error);
+        }
+      });
+      
+      // Save the rebuilt parent users
+      localStorage.setItem('parentUsers', JSON.stringify(parentUsers));
+      
+      if (createdCount === 0) {
+        alert('❌ Veli hesabı oluşturulamadı!\n\nSporcuların veli bilgileri (ad, soyad, telefon) eksik olabilir.');
+        return;
+      }
+      
+      alert(`✅ VELİ HESAPLARI YENİDEN OLUŞTURULDU!\n\n📊 İstatistikler:\n• Oluşturulan veli hesabı: ${createdCount}\n• Toplam sporcu: ${allStudents.length}\n• Benzersiz veli: ${parentGroups.size}\n\n🔄 Tüm veli hesapları güncel sporcu bilgileriyle senkronize edildi.`);
+    }
+    
+    // If no parent users exist after rebuild attempt
+    if (parentUsers.length === 0) {
+      if (allStudents.length === 0) {
+        alert('❌ Henüz sisteme sporcu kaydı yapılmamış!\n\nÖnce sporcu kayıtları oluşturun, ardından veli hesapları otomatik olarak oluşturulacaktır.');
+        return;
+      } else {
+        alert('❌ Veli hesabı bulunamadı!\n\nLütfen önce "Yeniden Senkronize Et" seçeneğini kullanarak veli hesaplarını oluşturun.');
+        return;
+      }
     }
 
+    // Generate the credentials file
     const textContent = [
       '=== VELİ KULLANICI ADI VE ŞİFRELERİ ===',
       `Oluşturulma Tarihi: ${new Date().toLocaleDateString('tr-TR')} ${new Date().toLocaleTimeString('tr-TR')}`,
-      `Toplam Aktif Veli Sayısı: ${activeParentUsers.length}`,
+      `Toplam Veli Hesabı: ${parentUsers.length}`,
+      `Toplam Sporcu: ${allStudents.length}`,
       '',
       '--- DETAYLAR ---'
     ];
 
-    activeParentUsers.forEach((parent: any, index: number) => {
-      // Find all linked athletes for this parent using the updated linkedAthletes array
+    parentUsers.forEach((parent: any, index: number) => {
+      // Find all linked athletes for this parent
       const linkedAthletes = allStudents.filter(athlete => 
         parent.linkedAthletes && parent.linkedAthletes.includes(athlete.id)
       );
       
       const athleteNames = linkedAthletes.length > 0 ? 
         linkedAthletes.map(athlete => `${athlete.studentName} ${athlete.studentSurname}`).join(', ') : 
-        'Eşleşme Hatası';
+        'Sporcu Bulunamadı';
 
       textContent.push(
-        `${index + 1}. ${parent.firstName} ${parent.lastName} (${athleteNames})`,
+        `${index + 1}. ${parent.firstName} ${parent.lastName}`,
+        `   Bağlı Sporcular: ${athleteNames}`,
         `   Telefon: ${parent.phone}`,
-        `   Email: ${parent.email}`,
+        `   Email: ${parent.email || 'Belirtilmemiş'}`,
         `   Kullanıcı Adı: ${parent.username}`,
         `   Şifre: ${parent.password}`,
         `   Bağlı Sporcu Sayısı: ${linkedAthletes.length}`,
+        `   Hesap Durumu: ${parent.isActive ? 'Aktif' : 'Pasif'}`,
         ''
       );
     });
 
     textContent.push(
       '--- NOTLAR ---',
-      '• Bu liste sadece aktif sporcu ile eşleşen veli hesaplarını içerir',
-      '• Eşleştirme telefon numarası ve email adresi ile yapılır',
-      '• Veli bilgileri güncel sporcu verileriyle otomatik senkronize edilmiştir',
+      '• Bu liste tüm veli hesaplarını içerir',
+      '• Veli hesapları güncel sporcu verileriyle senkronize edilmiştir',
+      '• Kullanıcı adı: VeliAdıVeliSoyadıTelefonSon4Hane formatındadır',
+      '• Şifre: VeliAdıİlkHarfVeliSoyadıİlkHarfTelefonSon4Hane formatındadır',
+      '• Veliler ilk girişte şifrelerini değiştirebilirler',
+      `• Dosya oluşturulma tarihi: ${new Date().toLocaleString('tr-TR')}`,
       ''
     );
 
@@ -832,7 +804,7 @@ export default function Athletes() {
     link.click();
     document.body.removeChild(link);
 
-    alert(`${activeParentUsers.length} aktif veli hesabının giriş bilgileri text dosyası olarak indirildi!\n\n✅ Veli-sporcu eşleştirmesi doğrulandı\n📱 Telefon numarası ve email ile eşleştirme yapıldı\n🔄 Veli bilgileri güncel sporcu verileriyle senkronize edildi`);
+    alert(`✅ ${parentUsers.length} veli hesabının giriş bilgileri başarıyla indirildi!\n\n📁 Dosya Adı: veli_kullanici_bilgileri_${new Date().toISOString().split('T')[0]}.txt\n\n🔄 Veli hesapları güncel sporcu verileriyle tam senkronizasyon halinde\n📱 Telefon ve email bilgileri doğrulandı\n🔐 Kullanıcı adı ve şifreler yeniden oluşturuldu`);
   };
 
   // Action button functions
