@@ -457,8 +457,11 @@ export default function Login() {
                 </TabsContent>
               </Tabs>
 
-              <div className="mt-6 text-center">
-                <Link href="/parent-signup" className="text-sm text-primary hover:underline">
+              <div className="mt-6 text-center space-y-2">
+                <Link href="/forgot-password" className="text-sm text-primary hover:underline block">
+                  Şifremi Unuttum
+                </Link>
+                <Link href="/parent-signup" className="text-sm text-primary hover:underline block">
                   Hesabınız yok mu? Kayıt olun
                 </Link>
               </div>

@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Users, 
   CreditCard, 
@@ -36,12 +40,16 @@ import {
   Clock,
   Heart,
   Package,
-  ShoppingCart
+  ShoppingCart,
+  AlertTriangle,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { useRouter } from "next/router";
 import { SessionManager } from "@/utils/security";
+import { hashPassword, verifyPassword } from "@/utils/security";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -62,6 +70,19 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userRole, setUserRole] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState([
     {
       title: "Toplam Sporcu",
@@ -104,6 +125,7 @@ export default function Dashboard() {
     const { isValid, session } = SessionManager.validateSession();
     const role = localStorage.getItem("userRole");
     const email = localStorage.getItem("userEmail");
+    const user = localStorage.getItem("currentUser");
     
     if (!isValid || role !== "admin") {
       SessionManager.destroySession();
@@ -114,9 +136,106 @@ export default function Dashboard() {
     setUserRole(role);
     setUserEmail(email || "");
     
+    if (user) {
+      const userData = JSON.parse(user);
+      setCurrentUser(userData);
+      
+      // Check if user has temporary password
+      if (userData.isTemporaryPassword) {
+        setShowPasswordDialog(true);
+      }
+    }
+    
     // Load real data from localStorage
     loadDashboardData();
   }, [router]);
+=======
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    try {
+      // Validate form
+      if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+        setPasswordError('Lütfen tüm alanları doldurun');
+        setLoading(false);
+        return;
+      }
+
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        setPasswordError('Yeni şifreler eşleşmiyor');
+        setLoading(false);
+        return;
+      }
+
+      if (passwordForm.newPassword.length < 6) {
+        setPasswordError('Yeni şifre en az 6 karakter olmalıdır');
+        setLoading(false);
+        return;
+      }
+
+      // Verify current password
+      const isCurrentPasswordValid = currentUser.password && currentUser.password.length > 50
+        ? await verifyPassword(passwordForm.currentPassword, currentUser.password)
+        : passwordForm.currentPassword === currentUser.password;
+
+      if (!isCurrentPasswordValid) {
+        setPasswordError('Mevcut şifre yanlış');
+        setLoading(false);
+        return;
+      }
+
+      // Hash new password
+      const hashedNewPassword = await hashPassword(passwordForm.newPassword);
+
+      // Update user password
+      const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+      const updatedAdminUsers = adminUsers.map((admin: any) => 
+        admin.id === currentUser.id 
+          ? { 
+              ...admin, 
+              password: hashedNewPassword, 
+              isTemporaryPassword: false,
+              updatedAt: new Date().toISOString() 
+            }
+          : admin
+      );
+
+      localStorage.setItem('adminUsers', JSON.stringify(updatedAdminUsers));
+
+      // Update current user in localStorage
+      const updatedCurrentUser = {
+        ...currentUser,
+        password: hashedNewPassword,
+        isTemporaryPassword: false,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem('currentUser', JSON.stringify(updatedCurrentUser));
+      setCurrentUser(updatedCurrentUser);
+
+      setPasswordSuccess('Şifreniz başarıyla değiştirildi');
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      // Close dialog after success
+      setTimeout(() => {
+        setShowPasswordDialog(false);
+        setPasswordSuccess('');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Password change error:', error);
+      setPasswordError('Şifre değiştirme sırasında bir hata oluştu');
+    }
+    
+    setLoading(false);
+  };
 
   const loadDashboardData = () => {
     // Load athletes
@@ -338,6 +457,29 @@ export default function Dashboard() {
 
           {/* Main Dashboard Content */}
           <main className="flex-1 p-6 space-y-6">
+            {/* Temporary Password Warning */}
+            {currentUser?.isTemporaryPassword && (
+              <motion.div 
+                className="mb-6"
+                variants={fadeInUp}
+                initial="initial"
+                animate="animate"
+              >
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Güvenlik Uyarısı:</strong> Geçici şifre kullanıyorsunuz. Güvenliğiniz için lütfen şifrenizi değiştirin.
+                    <Button 
+                      variant="link" 
+                      className="p-0 ml-2 h-auto"
+                      onClick={() => setShowPasswordDialog(true)}
+                    >
+                      Şifreyi Değiştir
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
             {/* Stats Cards */}
             <motion.div 
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
@@ -536,6 +678,124 @@ export default function Dashboard() {
             </motion.div>
           </main>
         </div>
+
+        {/* Password Change Dialog */}
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Lock className="h-5 w-5" />
+                <span>Şifre Değiştir</span>
+              </DialogTitle>
+              <DialogDescription>
+                {currentUser?.isTemporaryPassword 
+                  ? "Güvenliğiniz için geçici şifrenizi değiştirin"
+                  : "Yeni şifrenizi belirleyin"
+                }
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              {passwordError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{passwordError}</AlertDescription>
+                </Alert>
+              )}
+
+              {passwordSuccess && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>{passwordSuccess}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Mevcut Şifre</Label>
+                <div className="relative">
+                  <Input
+                    id="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Yeni Şifre</Label>
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    type={showNewPassword ? "text" : "password"}
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                    required
+                    minLength={6}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">En az 6 karakter olmalıdır</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Yeni Şifre (Tekrar)</Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                {!currentUser?.isTemporaryPassword && (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowPasswordDialog(false)}
+                    disabled={loading}
+                  >
+                    İptal
+                  </Button>
+                )}
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Değiştiriliyor..." : "Şifreyi Değiştir"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );
