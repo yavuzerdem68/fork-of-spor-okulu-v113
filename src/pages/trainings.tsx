@@ -318,10 +318,62 @@ export default function Trainings() {
   const getFilteredAthletes = () => {
     if (!formData.sport || formData.sport === "") return athletes;
     
-    return athletes.filter(athlete => 
+    // First filter by sport branch
+    let filteredAthletes = athletes.filter(athlete => 
       athlete.sportsBranches?.includes(formData.sport) || 
       athlete.selectedSports?.includes(formData.sport)
     );
+
+    // If age group is selected, filter by age compatibility
+    if (formData.ageGroup && formData.ageGroup !== "") {
+      filteredAthletes = filteredAthletes.filter(athlete => {
+        const athleteAge = parseInt(athlete.studentAge) || 0;
+        
+        // Age group compatibility logic
+        switch (formData.ageGroup) {
+          case "U8":
+            return athleteAge <= 8;
+          case "U10":
+            return athleteAge <= 10;
+          case "U12":
+            return athleteAge <= 12;
+          case "U14":
+            return athleteAge <= 14;
+          case "U16":
+            return athleteAge <= 16;
+          case "U18":
+            return athleteAge <= 18;
+          case "Yetişkin":
+            return athleteAge >= 18;
+          default:
+            return true; // "Genel" or other cases
+        }
+      });
+    }
+
+    // Exclude athletes who are already assigned to other trainings of the same sport but different age groups
+    if (formData.ageGroup && formData.ageGroup !== "") {
+      const otherTrainings = trainings.filter(training => 
+        training.sport === formData.sport && 
+        training.ageGroup !== formData.ageGroup &&
+        training.id !== selectedTraining?.id // Exclude current training when editing
+      );
+
+      const assignedAthleteIds = new Set();
+      otherTrainings.forEach(training => {
+        if (training.assignedAthletes) {
+          training.assignedAthletes.forEach((athleteId: string) => {
+            assignedAthleteIds.add(athleteId);
+          });
+        }
+      });
+
+      filteredAthletes = filteredAthletes.filter(athlete => 
+        !assignedAthleteIds.has(athlete.id.toString())
+      );
+    }
+
+    return filteredAthletes;
   };
 
   const getAthleteById = (id: string) => {
