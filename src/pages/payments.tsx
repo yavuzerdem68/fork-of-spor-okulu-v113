@@ -361,10 +361,15 @@ export default function Payments() {
     return matchesSearch && matchesStatus;
   });
 
-  const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const paidAmount = payments.filter(p => p.status === "Ödendi").reduce((sum, payment) => sum + payment.amount, 0);
-  const pendingAmount = payments.filter(p => p.status === "Bekliyor").reduce((sum, payment) => sum + payment.amount, 0);
-  const overdueAmount = payments.filter(p => p.status === "Gecikmiş").reduce((sum, payment) => sum + payment.amount, 0);
+  // Helper function for proper amount formatting
+  const formatAmount = (amount: number): number => {
+    return Math.round(amount * 100) / 100;
+  };
+
+  const totalAmount = formatAmount(payments.reduce((sum, payment) => sum + payment.amount, 0));
+  const paidAmount = formatAmount(payments.filter(p => p.status === "Ödendi").reduce((sum, payment) => sum + payment.amount, 0));
+  const pendingAmount = formatAmount(payments.filter(p => p.status === "Bekliyor").reduce((sum, payment) => sum + payment.amount, 0));
+  const overdueAmount = formatAmount(payments.filter(p => p.status === "Gecikmiş").reduce((sum, payment) => sum + payment.amount, 0));
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -808,7 +813,7 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // ENHANCED SIBLING MATCHING SYSTEM - MULTIPLE CRITERIA
+  // IMPROVED SIBLING MATCHING SYSTEM - SIMPLIFIED AND MORE ACCURATE
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) {
@@ -816,63 +821,49 @@ export default function Payments() {
       return [];
     }
     
-    // Multiple matching criteria for more accurate sibling detection
+    // Primary matching criteria - phone number is the most reliable
     const parentPhone = athlete.parentPhone?.toString().replace(/\D/g, '') || '';
-    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim().toLowerCase();
-    const parentEmail = athlete.parentEmail?.toLowerCase() || '';
+    const parentSurname = (athlete.parentSurname || '').trim().toLowerCase();
     
-    console.log('Finding siblings for athlete:', athlete.studentName, athlete.studentSurname);
-    console.log('Parent criteria - Phone:', parentPhone, 'Name:', parentName, 'Email:', parentEmail);
+    console.log('=== SIBLING SEARCH ===');
+    console.log('Searching siblings for:', athlete.studentName, athlete.studentSurname);
+    console.log('Parent phone:', parentPhone);
+    console.log('Parent surname:', parentSurname);
     
     if (!parentPhone || parentPhone.length < 10) {
-      console.log('Invalid parent phone for sibling matching:', parentPhone);
+      console.log('❌ Invalid parent phone for sibling matching:', parentPhone);
       return [];
     }
     
-    if (!parentName || parentName.length < 3) {
-      console.log('Invalid parent name for sibling matching:', parentName);
-      return [];
-    }
-    
-    // Find all athletes with matching parent criteria
+    // Find all athletes with matching parent phone
     const siblings = athletes.filter(a => {
       if (a.id === athlete.id) return false; // Exclude self
       if (a.status !== 'Aktif' && a.status) return false; // Only active athletes
       
       const siblingParentPhone = a.parentPhone?.toString().replace(/\D/g, '') || '';
-      const siblingParentName = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
-      const siblingParentEmail = a.parentEmail?.toLowerCase() || '';
+      const siblingParentSurname = (a.parentSurname || '').trim().toLowerCase();
       
-      // Must match phone number
+      // Primary criteria: Phone number must match exactly
       const phoneMatch = siblingParentPhone === parentPhone && siblingParentPhone.length >= 10;
       
-      // Must match parent name (at least 80% similarity)
-      const nameMatch = siblingParentName === parentName || 
-                       (siblingParentName.length > 0 && parentName.length > 0 && 
-                        calculateSimilarity(siblingParentName, parentName) >= 80);
+      // Secondary criteria: Parent surname should be similar (more flexible)
+      const surnameMatch = !parentSurname || !siblingParentSurname || 
+                          parentSurname === siblingParentSurname ||
+                          calculateSimilarity(parentSurname, siblingParentSurname) >= 70;
       
-      // Email match (if both have emails)
-      const emailMatch = !parentEmail || !siblingParentEmail || 
-                        parentEmail === siblingParentEmail;
+      const isMatch = phoneMatch && surnameMatch;
       
-      const isMatch = phoneMatch && nameMatch && emailMatch;
-      
-      if (isMatch) {
-        console.log('Found sibling:', a.studentName, a.studentSurname);
-        console.log('  - Phone match:', phoneMatch, `(${siblingParentPhone} === ${parentPhone})`);
-        console.log('  - Name match:', nameMatch, `(${siblingParentName} vs ${parentName})`);
-        console.log('  - Email match:', emailMatch, `(${siblingParentEmail} vs ${parentEmail})`);
-      } else if (phoneMatch) {
-        console.log('Phone match but other criteria failed for:', a.studentName, a.studentSurname);
-        console.log('  - Phone match:', phoneMatch);
-        console.log('  - Name match:', nameMatch, `(${siblingParentName} vs ${parentName})`);
-        console.log('  - Email match:', emailMatch, `(${siblingParentEmail} vs ${parentEmail})`);
-      }
+      console.log(`Checking ${a.studentName} ${a.studentSurname}:`);
+      console.log(`  - Phone: ${siblingParentPhone} vs ${parentPhone} = ${phoneMatch}`);
+      console.log(`  - Surname: ${siblingParentSurname} vs ${parentSurname} = ${surnameMatch}`);
+      console.log(`  - Final match: ${isMatch}`);
       
       return isMatch;
     });
     
-    console.log(`Found ${siblings.length} verified siblings for ${athlete.studentName} ${athlete.studentSurname}`);
+    console.log(`✅ Found ${siblings.length} siblings for ${athlete.studentName} ${athlete.studentSurname}`);
+    siblings.forEach(s => console.log(`  - ${s.studentName} ${s.studentSurname}`));
+    
     return siblings;
   };
 
@@ -1601,7 +1592,7 @@ export default function Payments() {
                                 </div>
                               </TableCell>
                               <TableCell>{payment.parentName}</TableCell>
-                              <TableCell className="font-medium">₺{payment.amount}</TableCell>
+                              <TableCell className="font-medium">₺{formatAmount(payment.amount).toLocaleString()}</TableCell>
                               <TableCell>{new Date(payment.dueDate).toLocaleDateString('tr-TR')}</TableCell>
                               <TableCell>
                                 {payment.paymentDate 
