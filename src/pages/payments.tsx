@@ -808,113 +808,74 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // Find siblings - CLEAN AND ACCURATE VERSION
+  // Find siblings - SIMPLE AND RELIABLE VERSION
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) return [];
     
-    // Use parent phone as primary identifier (most reliable)
-    const parentPhone = athlete.parentPhone && typeof athlete.parentPhone === 'string' ? 
-      athlete.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
+    const parentPhone = athlete.parentPhone?.toString().replace(/\D/g, '') || '';
     
-    // Fallback to parent name if phone not available
-    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim().toLowerCase();
-    
-    if (!parentPhone && !parentName) return [];
+    if (!parentPhone) return [];
     
     return athletes.filter(a => {
-      if (a.id === athlete.id) return false; // Exclude self
-      if (a.status !== 'Aktif' && a.status) return false; // Only active athletes
+      if (a.id === athlete.id) return false;
+      if (a.status !== 'Aktif' && a.status) return false;
       
-      const aParentPhone = a.parentPhone && typeof a.parentPhone === 'string' ? 
-        a.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
-      const aParentName = `${a.parentName || ''} ${a.parentSurname || ''}`.trim().toLowerCase();
-      
-      // Primary match: phone number
-      if (parentPhone && aParentPhone && parentPhone === aParentPhone) {
-        return true;
-      }
-      
-      // Secondary match: exact parent name (only if both have names and no phone match)
-      if (!parentPhone && !aParentPhone && parentName && aParentName && parentName === aParentName) {
-        return true;
-      }
-      
-      return false;
+      const aParentPhone = a.parentPhone?.toString().replace(/\D/g, '') || '';
+      return parentPhone && aParentPhone && parentPhone === aParentPhone;
     });
   };
 
-  // Sibling payment splitting - COMPLETELY REWRITTEN AND CLEAN
-  const enableSiblingPayment = (index: number) => {
+  // Toggle sibling payment - SIMPLE VERSION
+  const toggleSiblingPayment = (index: number) => {
     const result = matchResults[index];
     if (!result.athleteId) {
       toast.error("Önce bir sporcu seçin");
       return;
     }
 
-    const siblings = findSiblings(result.athleteId);
-    if (siblings.length === 0) {
-      toast.error("Bu sporcu için kardeş bulunamadı");
-      return;
-    }
+    if (result.isSiblingPayment) {
+      // Disable sibling payment
+      const athlete = athletes.find(a => a.id.toString() === result.athleteId);
+      if (!athlete) return;
 
-    // Include the selected athlete in the sibling list
-    const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
-    if (!selectedAthlete) return;
-
-    const allSiblings = [selectedAthlete, ...siblings];
-    const siblingIds = allSiblings.map(s => s.id.toString());
-
-    // Verify they are actually siblings (same parent)
-    const firstParentPhone = selectedAthlete.parentPhone && typeof selectedAthlete.parentPhone === 'string' ? 
-      selectedAthlete.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
-    const firstParentName = `${selectedAthlete.parentName || ''} ${selectedAthlete.parentSurname || ''}`.trim().toLowerCase();
-
-    const areSiblings = allSiblings.every(athlete => {
-      const athleteParentPhone = athlete.parentPhone && typeof athlete.parentPhone === 'string' ? 
-        athlete.parentPhone.replace(/\s+/g, '').replace(/[^\d+]/g, '') : '';
-      const athleteParentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim().toLowerCase();
+      const updatedResults = [...matchResults];
+      updatedResults[index] = {
+        ...updatedResults[index],
+        isSiblingPayment: false,
+        siblingIds: undefined,
+        athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim()
+      };
       
-      return (firstParentPhone && athleteParentPhone === firstParentPhone) ||
-             (!firstParentPhone && firstParentName && athleteParentName === firstParentName);
-    });
+      setMatchResults(updatedResults);
+      toast.success("Tekil ödeme olarak ayarlandı");
+    } else {
+      // Enable sibling payment
+      const siblings = findSiblings(result.athleteId);
+      if (siblings.length === 0) {
+        toast.error("Bu sporcu için kardeş bulunamadı");
+        return;
+      }
 
-    if (!areSiblings) {
-      toast.error("Seçilen sporcular aynı aileden değil!");
-      return;
+      const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
+      if (!selectedAthlete) return;
+
+      const allSiblings = [selectedAthlete, ...siblings];
+      const siblingIds = allSiblings.map(s => s.id.toString());
+
+      const updatedResults = [...matchResults];
+      updatedResults[index] = {
+        ...updatedResults[index],
+        isSiblingPayment: true,
+        siblingIds: siblingIds,
+        athleteName: allSiblings.map(a => `${a.studentName} ${a.studentSurname}`).join(' + ')
+      };
+      
+      setMatchResults(updatedResults);
+      toast.success(`${allSiblings.length} kardeş için bölünecek`);
     }
-
-    const updatedResults = [...matchResults];
-    updatedResults[index] = {
-      ...updatedResults[index],
-      isSiblingPayment: true,
-      siblingIds: siblingIds,
-      athleteName: allSiblings.map(a => `${a.studentName} ${a.studentSurname}`).join(', ')
-    };
-    
-    setMatchResults(updatedResults);
-    toast.success(`${allSiblings.length} kardeş için çoklu ödeme aktifleştirildi`);
   };
-
-  // Disable sibling payment
-  const disableSiblingPayment = (index: number) => {
-    const result = matchResults[index];
-    if (!result.athleteId) return;
-
-    const athlete = athletes.find(a => a.id.toString() === result.athleteId);
-    if (!athlete) return;
-
-    const updatedResults = [...matchResults];
-    updatedResults[index] = {
-      ...updatedResults[index],
-      isSiblingPayment: false,
-      siblingIds: undefined,
-      athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim()
-    };
-    
-    setMatchResults(updatedResults);
-    toast.success("Çoklu ödeme iptal edildi");
-  };
+=======
 
   // Step 4: Confirm and save matches - CLEAN VERSION
   const confirmMatches = async () => {
@@ -1942,132 +1903,100 @@ export default function Payments() {
                                   </div>
                                 </div>
                                 
-                                {/* Manual Matching Options */}
-                                {!result.isSiblingPayment && (
-                                  <div className="mt-4 pt-4 border-t">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      {/* Single Athlete Selection */}
-                                      <div>
-                                        <Label className="text-sm font-medium">Sporcu Seçimi:</Label>
-                                        <Select 
-                                          value={result.athleteId || ""} 
-                                          onValueChange={(value) => updateManualMatch(index, value)}
-                                        >
-                                          <SelectTrigger className="mt-2">
-                                            <SelectValue placeholder="Sporcu seçin..." />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {getAvailableAthletes().map(athlete => (
-                                              <SelectItem 
-                                                key={athlete.id} 
-                                                value={athlete.id.toString()}
-                                              >
-                                                <div className="flex flex-col">
-                                                  <span className="font-medium">{athlete.name}</span>
-                                                  <span className="text-xs text-muted-foreground">
-                                                    {athlete.parentName} - {athlete.sport}
-                                                  </span>
-                                                </div>
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      
-                                      {/* Sibling Payment Option */}
-                                      <div>
-                                        <Label className="text-sm font-medium text-purple-700">Kardeş Ödemesi:</Label>
-                                        {result.athleteId ? (
-                                          <div className="mt-2">
-                                            {(() => {
-                                              const siblings = findSiblings(result.athleteId);
-                                              if (siblings.length > 0) {
-                                                const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
-                                                const allSiblings = selectedAthlete ? [selectedAthlete, ...siblings] : siblings;
-                                                
-                                                return (
-                                                  <div className="space-y-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                                                    <div className="flex items-center space-x-2">
-                                                      <Users className="h-4 w-4 text-purple-600" />
-                                                      <p className="text-sm font-medium text-purple-800">
-                                                        {allSiblings.length} kardeş bulundu
-                                                      </p>
-                                                      <Badge className="bg-purple-100 text-purple-800 text-xs">
-                                                        ₺{(result.excelRow.amount / allSiblings.length).toFixed(2)} / sporcu
-                                                      </Badge>
-                                                    </div>
-                                                    <div className="text-xs text-purple-600 space-y-1">
-                                                      {allSiblings.map((sibling, idx) => (
-                                                        <div key={idx} className="flex items-center space-x-2">
-                                                          <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                                                          <span>{sibling.studentName} {sibling.studentSurname}</span>
-                                                        </div>
-                                                      ))}
-                                                    </div>
-                                                    <Button
-                                                      size="sm"
-                                                      className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                                                      onClick={() => enableSiblingPayment(index)}
-                                                    >
-                                                      <Users className="h-4 w-4 mr-2" />
-                                                      Kardeşlere Böl
-                                                    </Button>
-                                                  </div>
-                                                );
-                                              } else {
-                                                return (
-                                                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                                    <p className="text-xs text-gray-600 flex items-center space-x-2">
-                                                      <AlertCircle className="h-3 w-3" />
-                                                      <span>Bu sporcu için kardeş bulunamadı</span>
-                                                    </p>
-                                                  </div>
-                                                );
-                                              }
-                                            })()}
-                                          </div>
-                                        ) : (
-                                          <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                            <p className="text-xs text-gray-600">
-                                              Önce bir sporcu seçin
-                                            </p>
-                                          </div>
-                                        )}
-                                      </div>
+                                {/* Manual Matching - SIMPLIFIED */}
+                                <div className="mt-4 pt-4 border-t">
+                                  <div className="flex flex-col md:flex-row gap-4">
+                                    {/* Athlete Selection */}
+                                    <div className="flex-1">
+                                      <Label className="text-sm font-medium">Sporcu Seçimi:</Label>
+                                      <Select 
+                                        value={result.athleteId || ""} 
+                                        onValueChange={(value) => updateManualMatch(index, value)}
+                                      >
+                                        <SelectTrigger className="mt-2">
+                                          <SelectValue placeholder="Sporcu seçin..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {getAvailableAthletes().map(athlete => (
+                                            <SelectItem 
+                                              key={athlete.id} 
+                                              value={athlete.id.toString()}
+                                            >
+                                              <div className="flex flex-col">
+                                                <span className="font-medium">{athlete.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                  {athlete.parentName} - {athlete.sport}
+                                                </span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
                                     </div>
+                                    
+                                    {/* Sibling Toggle */}
+                                    {result.athleteId && (
+                                      <div className="flex flex-col justify-end">
+                                        {(() => {
+                                          const siblings = findSiblings(result.athleteId);
+                                          if (siblings.length > 0) {
+                                            const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
+                                            const totalSiblings = selectedAthlete ? siblings.length + 1 : siblings.length;
+                                            
+                                            return (
+                                              <Button
+                                                size="sm"
+                                                variant={result.isSiblingPayment ? "destructive" : "default"}
+                                                onClick={() => toggleSiblingPayment(index)}
+                                                className={result.isSiblingPayment ? 
+                                                  "bg-red-600 hover:bg-red-700" : 
+                                                  "bg-purple-600 hover:bg-purple-700"
+                                                }
+                                              >
+                                                <Users className="h-4 w-4 mr-2" />
+                                                {result.isSiblingPayment ? 
+                                                  "Kardeş Ödemesini İptal Et" : 
+                                                  `${totalSiblings} Kardeşe Böl`
+                                                }
+                                              </Button>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-
-                                {/* Sibling Details */}
-                                {result.isSiblingPayment && result.siblingIds && (
-                                  <div className="mt-4 pt-4 border-t">
-                                    <Label className="text-sm font-bold text-purple-800 uppercase tracking-wide flex items-center space-x-2">
-                                      <Users className="h-4 w-4" />
-                                      <span>Kardeş Listesi:</span>
-                                    </Label>
-                                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      {result.siblingIds.map((athleteId, siblingIndex) => {
-                                        const athlete = athletes.find(a => a.id.toString() === athleteId);
-                                        return athlete ? (
-                                          <div key={athleteId} className="flex items-center space-x-3 p-3 bg-white border-2 border-purple-200 rounded-lg shadow-sm">
-                                            <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                                              {siblingIndex + 1}
-                                            </div>
-                                            <div className="flex-1">
-                                              <span className="font-bold text-purple-900 block">
+                                  
+                                  {/* Show sibling list if enabled */}
+                                  {result.isSiblingPayment && result.siblingIds && (
+                                    <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                                      <div className="flex items-center space-x-2 mb-3">
+                                        <Users className="h-5 w-5 text-purple-600" />
+                                        <span className="font-bold text-purple-800">
+                                          Kardeş Ödemesi - {result.siblingIds.length} Sporcu
+                                        </span>
+                                        <Badge className="bg-purple-600 text-white">
+                                          ₺{(result.excelRow.amount / result.siblingIds.length).toFixed(2)} / sporcu
+                                        </Badge>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {result.siblingIds.map((athleteId, idx) => {
+                                          const athlete = athletes.find(a => a.id.toString() === athleteId);
+                                          return athlete ? (
+                                            <div key={athleteId} className="flex items-center space-x-2 p-2 bg-white rounded border">
+                                              <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                                {idx + 1}
+                                              </div>
+                                              <span className="text-sm font-medium">
                                                 {athlete.studentName} {athlete.studentSurname}
                                               </span>
-                                              <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-                                                ₺{(result.excelRow.amount / result.siblingIds.length).toFixed(2)}
-                                              </span>
                                             </div>
-                                            <CheckCircle className="h-5 w-5 text-green-500" />
-                                          </div>
-                                        ) : null;
-                                      })}
+                                          ) : null;
+                                        })}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </CardContent>
                             </Card>
                           ))}
