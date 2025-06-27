@@ -808,76 +808,67 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // Find siblings - SIMPLE AND RELIABLE VERSION
+  // PERFECT SIBLING MATCHING SYSTEM - RESTORED
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) return [];
     
+    // Use parent phone as the primary matching criteria
     const parentPhone = athlete.parentPhone?.toString().replace(/\D/g, '') || '';
+    if (!parentPhone || parentPhone.length < 10) return [];
     
-    if (!parentPhone) return [];
-    
-    return athletes.filter(a => {
-      if (a.id === athlete.id) return false;
-      if (a.status !== 'Aktif' && a.status) return false;
+    // Find all athletes with the same parent phone
+    const siblings = athletes.filter(a => {
+      if (a.id === athlete.id) return false; // Exclude self
+      if (a.status !== 'Aktif' && a.status) return false; // Only active athletes
       
-      const aParentPhone = a.parentPhone?.toString().replace(/\D/g, '') || '';
-      return parentPhone && aParentPhone && parentPhone === aParentPhone;
+      const siblingParentPhone = a.parentPhone?.toString().replace(/\D/g, '') || '';
+      return siblingParentPhone === parentPhone;
     });
+    
+    return siblings;
   };
 
-  // Toggle sibling payment - SIMPLE VERSION
-  const toggleSiblingPayment = (index: number) => {
+  // Show sibling selection dialog
+  const showSiblingDialog = (index: number) => {
     const result = matchResults[index];
     if (!result.athleteId) {
       toast.error("Önce bir sporcu seçin");
       return;
     }
 
-    if (result.isSiblingPayment) {
-      // Disable sibling payment
-      const athlete = athletes.find(a => a.id.toString() === result.athleteId);
-      if (!athlete) return;
+    const siblings = findSiblings(result.athleteId);
+    if (siblings.length === 0) {
+      toast.error("Bu sporcu için kardeş bulunamadı");
+      return;
+    }
 
-      const updatedResults = [...matchResults];
-      updatedResults[index] = {
-        ...updatedResults[index],
-        isSiblingPayment: false,
-        siblingIds: undefined,
-        athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim()
-      };
-      
-      setMatchResults(updatedResults);
-      toast.success("Tekil ödeme olarak ayarlandı");
-    } else {
-      // Enable sibling payment
-      const siblings = findSiblings(result.athleteId);
-      if (siblings.length === 0) {
-        toast.error("Bu sporcu için kardeş bulunamadı");
-        return;
-      }
+    const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
+    if (!selectedAthlete) return;
 
-      const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
-      if (!selectedAthlete) return;
+    const allSiblings = [selectedAthlete, ...siblings];
+    const siblingNames = allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join('\n');
+    
+    const confirmed = confirm(
+      `Bu ödeme ${allSiblings.length} kardeş arasında bölünecek:\n\n${siblingNames}\n\nHer sporcu için: ₺${(result.excelRow.amount / allSiblings.length).toFixed(2)}\n\nOnaylıyor musunuz?`
+    );
 
-      const allSiblings = [selectedAthlete, ...siblings];
-      const siblingIds = allSiblings.map(s => s.id.toString());
-
+    if (confirmed) {
       const updatedResults = [...matchResults];
       updatedResults[index] = {
         ...updatedResults[index],
         isSiblingPayment: true,
-        siblingIds: siblingIds,
-        athleteName: allSiblings.map(a => `${a.studentName} ${a.studentSurname}`).join(' + ')
+        siblingIds: allSiblings.map(s => s.id.toString()),
+        athleteName: allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join(' + ')
       };
       
       setMatchResults(updatedResults);
-      toast.success(`${allSiblings.length} kardeş için bölünecek`);
+      toast.success(`${allSiblings.length} kardeş için ödeme bölündü`);
     }
   };
 
-  // Disable sibling payment - for the cancel button
-  const disableSiblingPayment = (index: number) => {
+  // Cancel sibling payment
+  const cancelSiblingPayment = (index: number) => {
     const result = matchResults[index];
     if (!result.athleteId) return;
 
@@ -1880,7 +1871,7 @@ export default function Payments() {
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => disableSiblingPayment(index)}
+                                        onClick={() => cancelSiblingPayment(index)}
                                         className="text-purple-700 border-purple-300"
                                       >
                                         <X className="h-4 w-4 mr-1" />
@@ -1954,7 +1945,7 @@ export default function Payments() {
                                       </Select>
                                     </div>
                                     
-                                    {/* Sibling Toggle */}
+                                    {/* Sibling Toggle - PERFECT VERSION */}
                                     {result.athleteId && (
                                       <div className="flex flex-col justify-end">
                                         {(() => {
@@ -1967,7 +1958,7 @@ export default function Payments() {
                                               <Button
                                                 size="sm"
                                                 variant={result.isSiblingPayment ? "destructive" : "default"}
-                                                onClick={() => toggleSiblingPayment(index)}
+                                                onClick={() => result.isSiblingPayment ? cancelSiblingPayment(index) : showSiblingDialog(index)}
                                                 className={result.isSiblingPayment ? 
                                                   "bg-red-600 hover:bg-red-700" : 
                                                   "bg-purple-600 hover:bg-purple-700"
