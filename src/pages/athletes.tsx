@@ -452,13 +452,26 @@ export default function Athletes() {
 
   // Generate username and password for parent
   const generateParentCredentials = (parentName: string, parentSurname: string, parentPhone: string) => {
-    // Generate username from name and surname
-    const cleanName = parentName.toLowerCase().replace(/[^a-z]/g, '');
-    const cleanSurname = parentSurname.toLowerCase().replace(/[^a-z]/g, '');
-    const phoneLastFour = parentPhone.slice(-4);
+    // Clean and normalize Turkish characters for username generation
+    const turkishToEnglish = (text: string) => {
+      return text
+        .toLowerCase()
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ı/g, 'i')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c')
+        .replace(/[^a-z]/g, '');
+    };
+
+    // Generate username from THIS parent's name and surname only
+    const cleanName = turkishToEnglish(parentName.trim());
+    const cleanSurname = turkishToEnglish(parentSurname.trim());
+    const phoneLastFour = parentPhone.replace(/\D/g, '').slice(-4);
     const username = `${cleanName}${cleanSurname}${phoneLastFour}`;
     
-    // Generate a simple password
+    // Generate a simple password using the same parent's info
     const password = `${cleanName.charAt(0).toUpperCase()}${cleanSurname.charAt(0).toUpperCase()}${phoneLastFour}`;
     
     return { username, password };
@@ -466,30 +479,33 @@ export default function Athletes() {
 
   // Create parent user account
   const createParentUser = (athlete: any, credentials: any) => {
-    const parentUser = {
-      id: Date.now() + Math.random(),
-      username: credentials.username,
-      password: credentials.password,
-      firstName: athlete.parentName,
-      lastName: athlete.parentSurname,
-      phone: athlete.parentPhone,
-      email: athlete.parentEmail,
-      tcNo: athlete.parentTcNo,
-      relation: athlete.parentRelation,
-      linkedAthletes: [athlete.id],
-      role: 'parent',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
     // Get existing parent users
     const existingParentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
     
+    // Normalize phone numbers for comparison
+    const normalizePhone = (phone: string) => {
+      if (!phone) return '';
+      let cleaned = phone.replace(/\D/g, '');
+      if (cleaned.startsWith('90') && cleaned.length === 12) {
+        cleaned = cleaned.substring(2);
+      }
+      if (cleaned.startsWith('0') && cleaned.length === 11) {
+        cleaned = cleaned.substring(1);
+      }
+      return cleaned;
+    };
+
+    const athletePhoneNormalized = normalizePhone(athlete.parentPhone);
+    const athleteEmailNormalized = athlete.parentEmail?.toLowerCase().trim();
+
     // Check if parent already exists (by phone or email)
-    const existingParent = existingParentUsers.find((parent: any) => 
-      parent.phone === athlete.parentPhone || parent.email === athlete.parentEmail
-    );
+    const existingParent = existingParentUsers.find((parent: any) => {
+      const parentPhoneNormalized = normalizePhone(parent.phone);
+      const parentEmailNormalized = parent.email?.toLowerCase().trim();
+      
+      return (athletePhoneNormalized && parentPhoneNormalized === athletePhoneNormalized) ||
+             (athleteEmailNormalized && parentEmailNormalized === athleteEmailNormalized);
+    });
 
     if (existingParent) {
       // Add athlete to existing parent's linked athletes if not already linked
@@ -506,6 +522,25 @@ export default function Athletes() {
       
       return existingParent;
     } else {
+      // Create new parent user with credentials generated from THIS athlete's parent info
+      const parentUser = {
+        id: Date.now() + Math.random(),
+        username: credentials.username,
+        password: credentials.password,
+        firstName: athlete.parentName,
+        lastName: athlete.parentSurname,
+        phone: athlete.parentPhone,
+        email: athlete.parentEmail,
+        tcNo: athlete.parentTcNo,
+        relation: athlete.parentRelation,
+        linkedAthletes: [athlete.id],
+        role: 'parent',
+        isActive: true,
+        isTemporaryPassword: true, // Flag to indicate password needs to be changed
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
       // Create new parent user
       const updatedParentUsers = [...existingParentUsers, parentUser];
       localStorage.setItem('parentUsers', JSON.stringify(updatedParentUsers));

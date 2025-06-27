@@ -100,26 +100,22 @@ export default function Dashboard() {
   const [upcomingTrainings, setUpcomingTrainings] = useState<any[]>([]);
 
   useEffect(() => {
-    // Check if user is logged in and has admin role
-    const checkAuth = setTimeout(() => {
-      const { isValid, session } = SessionManager.validateSession();
-      const role = localStorage.getItem("userRole");
-      const email = localStorage.getItem("userEmail");
-      
-      if (!isValid || role !== "admin") {
-        SessionManager.destroySession();
-        router.replace("/login");
-        return;
-      }
-      
-      setUserRole(role);
-      setUserEmail(email || "");
-      
-      // Load real data from localStorage
-      loadDashboardData();
-    }, 50);
-
-    return () => clearTimeout(checkAuth);
+    // Immediate check to prevent flickering
+    const { isValid, session } = SessionManager.validateSession();
+    const role = localStorage.getItem("userRole");
+    const email = localStorage.getItem("userEmail");
+    
+    if (!isValid || role !== "admin") {
+      SessionManager.destroySession();
+      router.replace("/login");
+      return;
+    }
+    
+    setUserRole(role);
+    setUserEmail(email || "");
+    
+    // Load real data from localStorage
+    loadDashboardData();
   }, [router]);
 
   const loadDashboardData = () => {

@@ -32,28 +32,24 @@ export default function Login() {
 
   // Check if user is already logged in
   useEffect(() => {
-    // Add a small delay to prevent flickering
-    const checkAuth = setTimeout(() => {
-      const { isValid, session } = SessionManager.validateSession();
-      if (isValid && session) {
-        // Redirect based on role
-        switch (session.userRole) {
-          case 'admin':
-            router.replace('/dashboard');
-            break;
-          case 'coach':
-            router.replace('/coach-dashboard');
-            break;
-          case 'parent':
-            router.replace('/parent-dashboard');
-            break;
-          default:
-            SessionManager.destroySession();
-        }
+    // Immediate check without delay to prevent flickering
+    const { isValid, session } = SessionManager.validateSession();
+    if (isValid && session) {
+      // Redirect based on role immediately
+      switch (session.userRole) {
+        case 'admin':
+          router.replace('/dashboard');
+          break;
+        case 'coach':
+          router.replace('/coach-dashboard');
+          break;
+        case 'parent':
+          router.replace('/parent-dashboard');
+          break;
+        default:
+          SessionManager.destroySession();
       }
-    }, 100);
-
-    return () => clearTimeout(checkAuth);
+    }
   }, [router]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
