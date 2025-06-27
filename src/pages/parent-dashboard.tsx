@@ -178,6 +178,63 @@ export default function ParentDashboard() {
     return weeklyTrainingCount;
   };
 
+  // Add a test function to create sample data for debugging
+  const createTestData = () => {
+    // Create test athletes
+    const testAthletes = [
+      {
+        id: 'test-athlete-1',
+        studentName: 'Test',
+        studentSurname: 'Sporcu',
+        parentName: 'Test',
+        parentSurname: 'Veli',
+        parentPhone: '+905551234567',
+        parentEmail: 'test@test.com',
+        sportsBranches: ['Basketbol'],
+        status: 'Aktif'
+      }
+    ];
+    
+    // Create test parent user
+    const testParentUser = {
+      id: 'test-parent-1',
+      username: 'testveli1234',
+      password: 'TV1234',
+      firstName: 'Test',
+      lastName: 'Veli',
+      phone: '+905551234567',
+      email: 'test@test.com',
+      linkedAthletes: ['test-athlete-1'],
+      role: 'parent',
+      isActive: true,
+      isTemporaryPassword: true
+    };
+    
+    // Create test training
+    const testTraining = {
+      id: 'test-training-1',
+      title: 'Test Basketbol Antrenmanı',
+      sport: 'Basketbol',
+      coach: 'Test Antrenör',
+      location: 'Ana Salon',
+      startDate: new Date().toISOString().split('T')[0], // Today
+      date: new Date().toISOString().split('T')[0], // Today
+      startTime: '10:00',
+      endTime: '11:00',
+      assignedAthletes: ['test-athlete-1'],
+      isRecurring: false,
+      status: 'Aktif'
+    };
+    
+    // Save test data
+    localStorage.setItem('students', JSON.stringify(testAthletes));
+    localStorage.setItem('parentUsers', JSON.stringify([testParentUser]));
+    localStorage.setItem('trainings', JSON.stringify([testTraining]));
+    
+    console.log('Test data created:', { testAthletes, testParentUser, testTraining });
+    alert('Test verisi oluşturuldu! Şimdi test@test.com / TV1234 ile giriş yapabilirsiniz.');
+  };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -297,6 +354,9 @@ export default function ParentDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              <Button variant="outline" onClick={createTestData}>
+                Test Verisi Oluştur
+              </Button>
               <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
                 <Lock className="h-4 w-4 mr-2" />
                 Şifre Değiştir
