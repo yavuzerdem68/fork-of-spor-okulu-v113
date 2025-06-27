@@ -85,14 +85,23 @@ export default function ParentDashboard() {
   };
 
   const getWeeklyTrainingCount = () => {
-    if (!linkedAthletes || linkedAthletes.length === 0) return 0;
+    if (!linkedAthletes || linkedAthletes.length === 0) {
+      console.log('No linked athletes found');
+      return 0;
+    }
 
     // Load trainings from localStorage
     const storedTrainings = localStorage.getItem('trainings');
-    if (!storedTrainings) return 0;
+    if (!storedTrainings) {
+      console.log('No trainings found in localStorage');
+      return 0;
+    }
 
     const allTrainings = JSON.parse(storedTrainings);
+    console.log('All trainings:', allTrainings);
+    
     const linkedAthleteIds = linkedAthletes.map(athlete => athlete.id.toString());
+    console.log('Linked athlete IDs:', linkedAthleteIds);
 
     // Get current week date range
     const now = new Date();
@@ -104,20 +113,30 @@ export default function ParentDashboard() {
     endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
     endOfWeek.setHours(23, 59, 59, 999);
 
+    console.log('Week range:', startOfWeek.toISOString(), 'to', endOfWeek.toISOString());
+
     let weeklyTrainingCount = 0;
 
     // Check each training
     allTrainings.forEach((training: any) => {
+      console.log('Checking training:', training.title, 'assigned athletes:', training.assignedAthletes);
+      
       // Check if any linked athlete is assigned to this training
       const hasLinkedAthlete = training.assignedAthletes && 
-        training.assignedAthletes.some((athleteId: string) => 
-          linkedAthleteIds.includes(athleteId)
-        );
+        training.assignedAthletes.some((athleteId: string) => {
+          const isLinked = linkedAthleteIds.includes(athleteId);
+          console.log(`Athlete ${athleteId} linked:`, isLinked);
+          return isLinked;
+        });
+
+      console.log('Training has linked athlete:', hasLinkedAthlete);
 
       if (!hasLinkedAthlete) return;
 
       // Check if training occurs this week
       if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
+        console.log('Processing recurring training:', training.title, 'days:', training.recurringDays);
+        
         // For recurring trainings, check each day of the week
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         
@@ -133,20 +152,29 @@ export default function ParentDashboard() {
           const trainingStartDate = new Date(training.startDate || training.date);
           const trainingEndDate = training.endDate ? new Date(training.endDate) : trainingStartDate;
 
+          console.log(`Checking recurring day ${dayName}:`, trainingDate.toISOString(), 'training period:', trainingStartDate.toISOString(), 'to', trainingEndDate.toISOString());
+
           if (trainingDate >= trainingStartDate && trainingDate <= trainingEndDate && 
               trainingDate >= startOfWeek && trainingDate <= endOfWeek) {
             weeklyTrainingCount++;
+            console.log('Added recurring training, count now:', weeklyTrainingCount);
           }
         });
       } else {
+        console.log('Processing single-day training:', training.title, 'date:', training.startDate || training.date);
+        
         // For single-day trainings
         const trainingDate = new Date(training.startDate || training.date);
+        console.log('Training date:', trainingDate.toISOString());
+        
         if (trainingDate >= startOfWeek && trainingDate <= endOfWeek) {
           weeklyTrainingCount++;
+          console.log('Added single-day training, count now:', weeklyTrainingCount);
         }
       }
     });
 
+    console.log('Final weekly training count:', weeklyTrainingCount);
     return weeklyTrainingCount;
   };
 
