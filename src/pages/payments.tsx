@@ -808,14 +808,22 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // PERFECT SIBLING MATCHING SYSTEM - RESTORED
+  // PERFECT SIBLING MATCHING SYSTEM - RESTORED AND ENHANCED
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
-    if (!athlete) return [];
+    if (!athlete) {
+      console.log('Athlete not found for ID:', athleteId);
+      return [];
+    }
     
     // Use parent phone as the primary matching criteria
     const parentPhone = athlete.parentPhone?.toString().replace(/\D/g, '') || '';
-    if (!parentPhone || parentPhone.length < 10) return [];
+    console.log('Finding siblings for athlete:', athlete.studentName, athlete.studentSurname, 'Parent phone:', parentPhone);
+    
+    if (!parentPhone || parentPhone.length < 10) {
+      console.log('Invalid parent phone for sibling matching:', parentPhone);
+      return [];
+    }
     
     // Find all athletes with the same parent phone
     const siblings = athletes.filter(a => {
@@ -823,9 +831,16 @@ export default function Payments() {
       if (a.status !== 'Aktif' && a.status) return false; // Only active athletes
       
       const siblingParentPhone = a.parentPhone?.toString().replace(/\D/g, '') || '';
-      return siblingParentPhone === parentPhone;
+      const isMatch = siblingParentPhone === parentPhone;
+      
+      if (isMatch) {
+        console.log('Found sibling:', a.studentName, a.studentSurname, 'Phone:', siblingParentPhone);
+      }
+      
+      return isMatch;
     });
     
+    console.log(`Found ${siblings.length} siblings for ${athlete.studentName} ${athlete.studentSurname}`);
     return siblings;
   };
 
