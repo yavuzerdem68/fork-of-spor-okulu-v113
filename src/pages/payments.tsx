@@ -875,7 +875,27 @@ export default function Payments() {
       toast.success(`${allSiblings.length} kardeş için bölünecek`);
     }
   };
-=======
+
+  // Disable sibling payment - for the cancel button
+  const disableSiblingPayment = (index: number) => {
+    const result = matchResults[index];
+    if (!result.athleteId) return;
+
+    const athlete = athletes.find(a => a.id.toString() === result.athleteId);
+    if (!athlete) return;
+
+    const updatedResults = [...matchResults];
+    updatedResults[index] = {
+      ...updatedResults[index],
+      isSiblingPayment: false,
+      siblingIds: undefined,
+      athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim()
+    };
+    
+    setMatchResults(updatedResults);
+    toast.success("Kardeş ödemesi iptal edildi");
+  };
+
 
   // Step 4: Confirm and save matches - CLEAN VERSION
   const confirmMatches = async () => {
