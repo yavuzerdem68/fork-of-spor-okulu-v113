@@ -41,6 +41,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/router";
+import { SessionManager } from "@/utils/security";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -100,20 +101,27 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Check if user is logged in and has admin role
-    const role = localStorage.getItem("userRole");
-    const email = localStorage.getItem("userEmail");
-    
-    if (role !== "admin") {
-      router.push("/login");
-      return;
-    }
-    
-    setUserRole(role);
-    setUserEmail(email || "");
-    
-    // Load real data from localStorage
-    loadDashboardData();
+    const checkAuth = setTimeout(() => {
+      const { isValid, session } = SessionManager.validateSession();
+      const role = localStorage.getItem("userRole");
+      const email = localStorage.getItem("userEmail");
+      
+      if (!isValid || role !== "admin") {
+        SessionManager.destroySession();
+        router.replace("/login");
+        return;
+      }
+      
+      setUserRole(role);
+      setUserEmail(email || "");
+      
+      // Load real data from localStorage
+      loadDashboardData();
+    }, 50);
+
+    return () => clearTimeout(checkAuth);
   }, [router]);
+=======
 
   const loadDashboardData = () => {
     // Load athletes
@@ -210,9 +218,8 @@ export default function Dashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userEmail");
-    router.push("/");
+    SessionManager.destroySession();
+    router.replace("/");
   };
 
   const sidebarItems = [
