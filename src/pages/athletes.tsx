@@ -625,8 +625,65 @@ export default function Athletes() {
     const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
     
     if (parentUsers.length === 0) {
-      alert('Henüz oluşturulmuş veli hesabı bulunmuyor!');
-      return;
+      if (allStudents.length === 0) {
+        alert('Henüz sisteme sporcu kaydı yapılmamış!\n\nÖnce sporcu kayıtları oluşturun, ardından veli hesapları otomatik olarak oluşturulacaktır.');
+        return;
+      } else {
+        // Offer to create parent accounts for existing athletes
+        const shouldCreate = confirm(
+          `Sistemde ${allStudents.length} sporcu kaydı var ancak henüz veli hesabı oluşturulmamış.\n\n` +
+          'Mevcut sporcular için veli hesapları oluşturulsun mu?\n\n' +
+          '✅ Evet: Tüm sporcular için veli hesapları oluşturulacak\n' +
+          '❌ Hayır: İşlem iptal edilecek'
+        );
+        
+        if (!shouldCreate) {
+          return;
+        }
+        
+        // Create parent accounts for all existing athletes
+        let createdCount = 0;
+        const createdParentUsers = [];
+        
+        for (const athlete of allStudents) {
+          if (athlete.parentName && athlete.parentSurname && athlete.parentPhone) {
+            try {
+              const credentials = generateParentCredentials(
+                athlete.parentName, 
+                athlete.parentSurname, 
+                athlete.parentPhone
+              );
+              
+              const parentUser = createParentUser(athlete, credentials);
+              createdParentUsers.push({
+                athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
+                parentName: `${athlete.parentName} ${athlete.parentSurname}`,
+                username: credentials.username,
+                password: credentials.password,
+                phone: athlete.parentPhone,
+                email: athlete.parentEmail
+              });
+              createdCount++;
+            } catch (error) {
+              console.error('Error creating parent account for athlete:', athlete.studentName, error);
+            }
+          }
+        }
+        
+        if (createdCount === 0) {
+          alert('Veli hesabı oluşturulamadı!\n\nSporcuların veli bilgileri (ad, soyad, telefon) eksik olabilir.');
+          return;
+        }
+        
+        alert(`✅ ${createdCount} veli hesabı başarıyla oluşturuldu!\n\nŞimdi veli giriş bilgilerini indirebilirsiniz.`);
+        
+        // Continue with the download process
+        const updatedParentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+        if (updatedParentUsers.length === 0) {
+          alert('Veli hesapları oluşturulmasına rağmen bir hata oluştu. Lütfen tekrar deneyin.');
+          return;
+        }
+      }
     }
 
     // Enhanced parent-athlete matching with more precise algorithms
