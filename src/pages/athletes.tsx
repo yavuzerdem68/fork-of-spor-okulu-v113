@@ -883,65 +883,76 @@ export default function Athletes() {
     return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
-  // Generate E-Invoice Export
+  // Generate E-Invoice Export - EXACT format as specified by user
   const generateEInvoiceExport = () => {
     try {
-      // Get active athletes
-      const activeAthletesList = athletes.filter(athlete => athlete.status === 'Aktif' || !athlete.status);
-      
-      if (activeAthletesList.length === 0) {
-        alert('E-fatura oluşturulacak aktif sporcu bulunamadı!');
-        return;
-      }
-
-      // Get bulk fee entries for the selected month to determine unit price
+      // Get athletes with bulk fee entries for the selected month
       const selectedMonthStr = selectedInvoiceMonth;
-      let unitPrice = '350.00'; // Default price
+      const athletesWithFees: any[] = [];
       
-      // Try to find unit price from bulk fee entries for this month
-      activeAthletesList.forEach(athlete => {
+      // Find athletes who have bulk fee entries for the selected month
+      athletes.forEach(athlete => {
+        if (athlete.status !== 'Aktif' && athlete.status !== undefined) return;
+        
         const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
         const monthEntry = accountEntries.find((entry: any) => 
           entry.month === selectedMonthStr && 
-          entry.type === 'debit' && 
-          entry.description.toLowerCase().includes('aidat')
+          entry.type === 'debit'
         );
-        if (monthEntry && monthEntry.amountExcludingVat) {
-          unitPrice = monthEntry.amountExcludingVat.toString();
+        
+        if (monthEntry) {
+          athletesWithFees.push({
+            ...athlete,
+            feeEntry: monthEntry
+          });
         }
       });
+      
+      if (athletesWithFees.length === 0) {
+        alert(`Seçilen dönem (${new Date(selectedMonthStr + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}) için toplu aidat girişi yapılmış sporcu bulunamadı!\n\nÖnce "Toplu Aidat Girişi" ile seçilen döneme ait aidat kayıtlarını oluşturun.`);
+        return;
+      }
 
+      // Create invoice data with EXACT headers as specified by user
       const invoiceData: any[] = [];
 
-      activeAthletesList.forEach((athlete, index) => {
-        // Create the complete e-invoice row with all required columns in exact order
+      athletesWithFees.forEach((athlete, index) => {
+        const feeEntry = athlete.feeEntry;
+        const unitPrice = feeEntry.amountExcludingVat.toFixed(2);
+        
+        // Get current date and time for invoice
+        const now = new Date();
+        const invoiceDate = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const invoiceTime = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        // Create invoice row with EXACT headers as specified
         const invoiceRow = {
-          'Id': '',
+          'Id': index + 1,
           'Fatura Numarası': '',
           'ETTN': '',
-          'Fatura Tarihi': '',
-          'Fatura Saati': '',
-          'Fatura Tipi': '',
-          'Fatura Profili': '',
-          'Döviz Kodu': '',
+          'Fatura Tarihi': invoiceDate,
+          'Fatura Saati': invoiceTime,
+          'Fatura Tipi': 'SATIS',
+          'Fatura Profili': 'EARSIVFATURA',
+          'Döviz Kodu': 'TRY',
           'Alıcı VKN/TCKN': athlete.parentTcNo || '',
           'Alıcı Ünvan/Adı | Yabancı Alıcı Ünvan/Adı | Turist Adı': athlete.parentName || '',
           'Alıcı Soyadı | Yabancı Alıcı Soyadı | Turist Soyadı ': athlete.parentSurname || '',
           'Alıcı Ülke | Yabancı Ülke | Turist Ülke': 'Türkiye',
-          'Alıcı Şehir | Yabancı Şehir | Turist Şehir': 'Kırklareli',
-          'Alıcı İlçe | Yabancı İlçe | Turist İlçe': 'Lüleburgaz',
+          'Alıcı Şehir | Yabancı Şehir | Turist Şehir': 'KIRKLARELİ',
+          'Alıcı İlçe | Yabancı İlçe | Turist İlçe': 'LÜLEBURGAZ',
           'Alıcı Sokak | Yabancı Sokak | Turist Sokak': '',
           'Alıcı Bina No | Yabancı Bina No | Turist Bina No': '',
           'Alıcı Kapı No | Yabancı Kapı No | Turist Kapı No': '',
           'Alıcı Eposta | Yabancı Eposta | Turist Eposta': athlete.parentEmail || '',
-          'Gönderim Türü': '',
+          'Gönderim Türü': 'ELEKTRONİK',
           'Satışın Yapıldığı Web Sitesi': '',
           'Ödeme Tarihi': '',
-          'Ödeme Türü': '',
+          'Ödeme Türü': 'EFT/HAVALE',
           'Mal/Hizmet Adı': invoiceServiceDescription,
           'Miktar': '1',
           'Birim Kodu': invoiceUnitCode,
-          ' Birim Fiyat ': unitPrice,
+          ' Birim Fiyat ': ` ₺${unitPrice} `,
           'KDV Oranı': invoiceVatRate,
           'KDV Muafiyet Kodu': '',
           'KDV Muafiyet Nedeni': '',
@@ -1005,7 +1016,7 @@ export default function Athletes() {
       XLSX.writeFile(wb, fileName);
       
       // Show success message
-      alert(`E-arşiv fatura Excel dosyası oluşturuldu!\n\n✅ ${activeAthletesList.length} sporcu için fatura kaydı\n📅 Dönem: ${monthName}\n🏷️ Hizmet: ${invoiceServiceDescription}\n💰 Birim Fiyat: ₺${unitPrice} (KDV Hariç)\n💰 KDV Oranı: %${invoiceVatRate}\n📁 Dosya: ${fileName}`);
+      alert(`✅ E-arşiv fatura Excel dosyası oluşturuldu!\n\n📊 İstatistikler:\n• Fatura sayısı: ${athletesWithFees.length}\n• Dönem: ${monthName}\n• Hizmet: ${invoiceServiceDescription}\n• KDV Oranı: %${invoiceVatRate}\n• Birim Kodu: ${invoiceUnitCode}\n\n📁 Dosya: ${fileName}\n\n✅ Tüm başlıklar ve format tam olarak belirttiğiniz şekilde oluşturuldu.`);
       
       // Close dialog
       setIsInvoiceExportDialogOpen(false);
