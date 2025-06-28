@@ -14,6 +14,7 @@ import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Came
 import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput, sanitizeHtml } from "@/utils/security";
+import { saveAthleteData } from "@/lib/github-storage";
 
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
@@ -345,19 +346,35 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
       };
 
       const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+      let finalStudentData;
 
       if (athlete) {
         // Update existing athlete
+        finalStudentData = { ...athlete, ...studentData };
         const updatedStudents = existingStudents.map((student: any) => 
           student.id === athlete.id 
-            ? { ...student, ...studentData }
+            ? finalStudentData
             : student
         );
         localStorage.setItem('students', JSON.stringify(updatedStudents));
+        
+        // Save to GitHub
+        try {
+          const githubResult = await saveAthleteData(finalStudentData, `athlete-update-${athlete.id}-${Date.now()}.json`);
+          if (githubResult.success) {
+            console.log('Athlete data saved to GitHub:', githubResult.githubUrl);
+          } else {
+            console.warn('GitHub save failed:', githubResult.message);
+          }
+        } catch (githubError) {
+          console.warn('GitHub save error:', githubError);
+          // Don't fail the main operation if GitHub save fails
+        }
+        
         toast.success("Sporcu bilgileri başarıyla güncellendi!");
       } else {
         // Create new athlete
-        const newStudent = {
+        finalStudentData = {
           ...studentData,
           id: Date.now().toString(),
           status: 'Aktif',
@@ -367,9 +384,23 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           createdBy: 'admin'
         };
         
-        existingStudents.push(newStudent);
+        existingStudents.push(finalStudentData);
         localStorage.setItem('students', JSON.stringify(existingStudents));
-        toast.success("Sporcu başarıyla kaydedildi!");
+        
+        // Save to GitHub
+        try {
+          const githubResult = await saveAthleteData(finalStudentData, `athlete-new-${finalStudentData.id}.json`);
+          if (githubResult.success) {
+            console.log('New athlete data saved to GitHub:', githubResult.githubUrl);
+            toast.success("Sporcu başarıyla kaydedildi ve GitHub'a yedeklendi!");
+          } else {
+            console.warn('GitHub save failed:', githubResult.message);
+            toast.success("Sporcu başarıyla kaydedildi! (GitHub yedekleme başarısız)");
+          }
+        } catch (githubError) {
+          console.warn('GitHub save error:', githubError);
+          toast.success("Sporcu başarıyla kaydedildi! (GitHub yedekleme başarısız)");
+        }
       }
       
       onClose();
