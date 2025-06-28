@@ -126,6 +126,11 @@ export default function ParentDashboard() {
 
       if (!hasLinkedAthlete) return;
 
+      // Get which athletes from this parent are assigned
+      const assignedLinkedAthletes = linkedAthletes.filter(athlete => 
+        training.assignedAthletes && training.assignedAthletes.includes(athlete.id.toString())
+      );
+
       // Check if training occurs this week
       if (training.isRecurring && training.recurringDays && training.recurringDays.length > 0) {
         // For recurring trainings, check each day of the week
@@ -142,7 +147,7 @@ export default function ParentDashboard() {
 
           // Check if training period covers this week
           const trainingStartDate = new Date(training.startDate || training.date);
-          const trainingEndDate = training.endDate ? new Date(training.endDate) : trainingStartDate;
+          const trainingEndDate = training.endDate ? new Date(training.endDate) : new Date(trainingStartDate.getTime() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year if no end date
 
           if (trainingDate >= trainingStartDate && trainingDate <= trainingEndDate && 
               trainingDate >= startOfWeek && trainingDate <= endOfWeek) {
@@ -150,7 +155,8 @@ export default function ParentDashboard() {
               ...training,
               actualDate: trainingDate,
               dayLabel: dayLabels[dayIndex],
-              isRecurringInstance: true
+              isRecurringInstance: true,
+              assignedLinkedAthletes: assignedLinkedAthletes
             });
           }
         });
@@ -166,7 +172,8 @@ export default function ParentDashboard() {
             ...training,
             actualDate: trainingDate,
             dayLabel: dayLabels[dayIndex],
-            isRecurringInstance: false
+            isRecurringInstance: false,
+            assignedLinkedAthletes: assignedLinkedAthletes
           });
         }
       }
@@ -179,6 +186,44 @@ export default function ParentDashboard() {
       return a.startTime.localeCompare(b.startTime);
     });
   };
+
+  // Get weekly training schedule organized by days
+  const getWeeklySchedule = () => {
+    const trainings = getAthleteTrainings();
+    const schedule: { [key: string]: any[] } = {
+      'Pazartesi': [],
+      'Salı': [],
+      'Çarşamba': [],
+      'Perşembe': [],
+      'Cuma': [],
+      'Cumartesi': [],
+      'Pazar': []
+    };
+
+    trainings.forEach(training => {
+      if (schedule[training.dayLabel]) {
+        schedule[training.dayLabel].push(training);
+      }
+    });
+
+    return schedule;
+  };
+
+  // Get next upcoming training
+  const getNextTraining = () => {
+    const trainings = getAthleteTrainings();
+    const now = new Date();
+    
+    const upcomingTrainings = trainings.filter(training => {
+      const trainingDateTime = new Date(training.actualDate);
+      const [hours, minutes] = training.startTime.split(':');
+      trainingDateTime.setHours(parseInt(hours), parseInt(minutes));
+      return trainingDateTime > now;
+    });
+
+    return upcomingTrainings.length > 0 ? upcomingTrainings[0] : null;
+  };
+=======
 
   const getWeeklyTrainingCount = () => {
     return getAthleteTrainings().length;
@@ -653,55 +698,163 @@ export default function ParentDashboard() {
             initial="initial"
             animate="animate"
           >
+            {/* Next Training Card */}
+            {getNextTraining() && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2 text-primary">
+                    <Clock className="h-5 w-5" />
+                    <span>Sıradaki Antrenman</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const nextTraining = getNextTraining();
+                    if (!nextTraining) return null;
+                    
+                    return (
+                      <div className="flex items-center justify-between p-4 bg-background rounded-lg border">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground font-medium flex items-center justify-center">
+                            {nextTraining.sport.charAt(0)}
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-lg">{nextTraining.title}</h3>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{nextTraining.dayLabel}, {nextTraining.actualDate.toLocaleDateString('tr-TR')}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{nextTraining.startTime} - {nextTraining.endTime}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>{nextTraining.location}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-2">
+                              <span className="text-sm text-muted-foreground">Katılacak sporcular:</span>
+                              {nextTraining.assignedLinkedAthletes?.map((athlete: any, idx: number) => (
+                                <span key={athlete.id} className="text-sm font-medium text-primary">
+                                  {athlete.studentName} {athlete.studentSurname}
+                                  {idx < nextTraining.assignedLinkedAthletes.length - 1 && ', '}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Weekly Schedule */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Calendar className="h-5 w-5" />
-                  <span>Bu Haftaki Antrenmanlar</span>
+                  <span>Haftalık Antrenman Programı</span>
                 </CardTitle>
                 <CardDescription>
-                  Sporcunuzun bu hafta katılacağı antrenman programı
+                  Sporcularınızın bu hafta katılacağı tüm antrenmanlar
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {getAthleteTrainings().length > 0 ? (
-                  <div className="space-y-4">
-                    {getAthleteTrainings().map((training, index) => (
-                      <div key={`${training.id}-${index}`} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center">
-                            {training.sport.charAt(0)}
+                  <div className="space-y-6">
+                    {/* Weekly Calendar View */}
+                    <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                      {Object.entries(getWeeklySchedule()).map(([day, dayTrainings]) => (
+                        <div key={day} className="space-y-2">
+                          <h4 className="font-medium text-sm text-center p-2 bg-muted rounded-lg">
+                            {day}
+                          </h4>
+                          <div className="space-y-2 min-h-[100px]">
+                            {dayTrainings.map((training, index) => (
+                              <div key={`${training.id}-${index}`} className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+                                <div className="text-xs font-medium text-primary mb-1">
+                                  {training.startTime} - {training.endTime}
+                                </div>
+                                <div className="text-xs font-medium mb-1">
+                                  {training.title}
+                                </div>
+                                <div className="text-xs text-muted-foreground mb-1">
+                                  {training.location}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {training.assignedLinkedAthletes?.map((athlete: any) => athlete.studentName).join(', ')}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div>
-                            <h3 className="font-medium">{training.title}</h3>
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                              <div className="flex items-center space-x-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>{training.dayLabel}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Detailed List View */}
+                    <div className="border-t pt-6">
+                      <h4 className="font-medium mb-4">Detaylı Antrenman Listesi</h4>
+                      <div className="space-y-3">
+                        {getAthleteTrainings().map((training, index) => (
+                          <div key={`${training.id}-${index}`} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center">
+                                {training.sport.charAt(0)}
                               </div>
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{training.startTime} - {training.endTime}</span>
+                              <div>
+                                <h3 className="font-medium">{training.title}</h3>
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                                  <div className="flex items-center space-x-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>{training.dayLabel}, {training.actualDate.toLocaleDateString('tr-TR')}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <Clock className="h-3 w-3" />
+                                    <span>{training.startTime} - {training.endTime}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <MapPin className="h-3 w-3" />
+                                    <span>{training.location}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <User className="h-3 w-3" />
+                                    <span>{training.coach}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <span className="text-xs text-muted-foreground">Katılacak:</span>
+                                  {training.assignedLinkedAthletes?.map((athlete: any, idx: number) => (
+                                    <span key={athlete.id} className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded">
+                                      {athlete.studentName} {athlete.studentSurname}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="flex items-center space-x-1">
-                                <MapPin className="h-3 w-3" />
-                                <span>{training.location}</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-medium">
+                                {training.isRecurringInstance ? 'Haftalık' : 'Tek Seferlik'}
                               </div>
-                              <div className="flex items-center space-x-1">
-                                <User className="h-3 w-3" />
-                                <span>{training.coach}</span>
+                              <div className="text-xs text-muted-foreground">
+                                {training.sport} - {training.ageGroup || 'Genel'}
                               </div>
                             </div>
                           </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
                     <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Bu hafta antrenman bulunmuyor</p>
+                    <p className="text-muted-foreground mb-2">Bu hafta antrenman bulunmuyor</p>
+                    <p className="text-sm text-muted-foreground">
+                      Antrenman programı henüz oluşturulmamış olabilir veya sporcunuz herhangi bir antrenmana atanmamış olabilir.
+                    </p>
                   </div>
                 )}
               </CardContent>
