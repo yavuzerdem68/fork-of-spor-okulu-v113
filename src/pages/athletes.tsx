@@ -1087,9 +1087,9 @@ export default function Athletes() {
             continue;
           }
 
-          // Calculate VAT
-          const vatAmount = (amountExcludingVat * vatRate) / 100;
-          const amountIncludingVat = amountExcludingVat + vatAmount;
+          // Calculate VAT with proper rounding
+          const vatAmount = Math.round((amountExcludingVat * vatRate) / 100 * 100) / 100;
+          const amountIncludingVat = Math.round((amountExcludingVat + vatAmount) * 100) / 100;
 
           // Create account entry with due date set to last day of the month
           const entry = {

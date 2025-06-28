@@ -268,19 +268,25 @@ export default function Dashboard() {
       });
     });
 
-    // Calculate pending payments
+    // Calculate pending payments - match payments page calculation exactly
     let pendingPayments = 0;
     athletes.forEach((athlete: any) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
       const balance = accountEntries.reduce((total: number, entry: any) => {
+        const amount = parseFloat(String(entry.amountIncludingVat || 0).replace(',', '.')) || 0;
         return entry.type === 'debit' 
-          ? total + (entry.amountIncludingVat || 0)
-          : total - (entry.amountIncludingVat || 0);
+          ? total + amount
+          : total - amount;
       }, 0);
-      if (balance > 0) {
-        pendingPayments += balance;
+      // Round to 2 decimal places to avoid floating point errors
+      const roundedBalance = Math.round(balance * 100) / 100;
+      if (roundedBalance > 0) {
+        pendingPayments += roundedBalance;
       }
     });
+    
+    // Round final result to avoid display issues
+    pendingPayments = Math.round(pendingPayments * 100) / 100;
 
     // Update stats
     setStats([
