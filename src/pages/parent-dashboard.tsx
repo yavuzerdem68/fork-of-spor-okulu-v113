@@ -255,8 +255,6 @@ export default function ParentDashboard() {
     );
   };
 
-=======
-
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
