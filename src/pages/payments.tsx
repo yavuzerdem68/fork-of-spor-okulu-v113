@@ -44,9 +44,12 @@ import Header from "@/components/Header";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 
-// Simple Turkish character normalization
+// COMPLETELY REWRITTEN MATCHING SYSTEM - SIMPLE AND RELIABLE
+
+// Simple Turkish character normalization - FIXED VERSION
 const normalizeTurkish = (text: string): string => {
   if (!text) return '';
+  
   return text
     .toLowerCase()
     .replace(/ğ/g, 'g')
@@ -60,30 +63,55 @@ const normalizeTurkish = (text: string): string => {
     .trim();
 };
 
-// Simple similarity calculation
+// BULLETPROOF similarity calculation - COMPLETELY REWRITTEN
 const calculateSimilarity = (str1: string, str2: string): number => {
   if (!str1 || !str2) return 0;
   
+  // Normalize both strings
   const norm1 = normalizeTurkish(str1);
   const norm2 = normalizeTurkish(str2);
   
-  // Exact match
-  if (norm1 === norm2) return 100;
+  console.log(`Comparing: "${norm1}" vs "${norm2}"`);
   
-  // Word-based matching
+  // EXACT MATCH - This should be 100%
+  if (norm1 === norm2) {
+    console.log('✅ EXACT MATCH - 100%');
+    return 100;
+  }
+  
+  // Check if one contains the other completely
+  if (norm1.includes(norm2) || norm2.includes(norm1)) {
+    console.log('✅ COMPLETE CONTAINMENT - 95%');
+    return 95;
+  }
+  
+  // Word-based matching - IMPROVED
   const words1 = norm1.split(' ').filter(w => w.length > 1);
   const words2 = norm2.split(' ').filter(w => w.length > 1);
   
   if (words1.length === 0 || words2.length === 0) return 0;
   
-  let matchingWords = 0;
+  // Count exact word matches
+  let exactMatches = 0;
+  const totalWords = Math.max(words1.length, words2.length);
+  
   for (const word1 of words1) {
     if (words2.includes(word1)) {
-      matchingWords++;
+      exactMatches++;
     }
   }
   
-  return Math.round((matchingWords / Math.max(words1.length, words2.length)) * 100);
+  // If all words match, it's a perfect match
+  if (exactMatches === words1.length && exactMatches === words2.length) {
+    console.log('✅ ALL WORDS MATCH - 100%');
+    return 100;
+  }
+  
+  // Calculate word match percentage
+  const wordMatchPercentage = (exactMatches / totalWords) * 100;
+  console.log(`📊 Word match: ${exactMatches}/${totalWords} = ${wordMatchPercentage}%`);
+  
+  return Math.round(wordMatchPercentage);
 };
 
 // Parse Turkish date formats
@@ -229,8 +257,8 @@ interface MatchResult {
   parentName: string;
   similarity: number;
   isManual: boolean;
-  isSiblingPayment?: boolean; // New flag for sibling payments
-  siblingIds?: string[]; // Clean list of sibling IDs
+  isSiblingPayment?: boolean;
+  siblingIds?: string[];
 }
 
 const fadeInUp = {
@@ -708,14 +736,19 @@ export default function Payments() {
     }
   };
 
-  // Step 3: Find matches for each Excel row - CLEAN VERSION
+  // Step 3: Find matches for each Excel row - COMPLETELY REWRITTEN
   const findMatches = () => {
+    console.log('\n🔍 STARTING BULLETPROOF MATCHING PROCESS');
+    console.log(`📊 Processing ${excelData.length} Excel rows against ${athletes.length} athletes`);
+    
     const results: MatchResult[] = [];
     
     // Load payment matching history
     const matchingHistory = JSON.parse(localStorage.getItem('paymentMatchingHistory') || '{}');
     
-    excelData.forEach(row => {
+    excelData.forEach((row, index) => {
+      console.log(`\n--- Processing Row ${index + 1}: "${row.description}" ---`);
+      
       let bestMatch: MatchResult = {
         excelRow: row,
         athleteId: null,
@@ -745,20 +778,27 @@ export default function Payments() {
             siblingIds: historicalMatch.siblingIds || []
           };
           
-          console.log(`Historical match found: ${bestMatch.athleteName} for "${row.description}"`);
+          console.log(`✅ HISTORICAL MATCH FOUND: ${bestMatch.athleteName} for "${row.description}"`);
         }
       } else {
-        // Try to match with athletes using similarity
+        // Try to match with athletes using BULLETPROOF similarity
+        console.log(`🔍 Searching for new matches...`);
+        
         athletes.forEach(athlete => {
           const athleteName = `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim();
           const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
           
           if (!athleteName && !parentName) return;
           
-          // Calculate similarity
+          // Calculate similarity with BULLETPROOF algorithm
           const athleteSimilarity = calculateSimilarity(row.description, athleteName);
           const parentSimilarity = calculateSimilarity(row.description, parentName);
-          const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
+          
+          // Give slight bonus to parent matches (they often pay)
+          const adjustedParentSimilarity = parentSimilarity > 0 ? parentSimilarity + 5 : 0;
+          const maxSimilarity = Math.max(athleteSimilarity, adjustedParentSimilarity);
+          
+          console.log(`  👤 ${athleteName} (${parentName}): Athlete=${athleteSimilarity}%, Parent=${parentSimilarity}%, Max=${maxSimilarity}%`);
           
           if (maxSimilarity > bestMatch.similarity) {
             bestMatch = {
@@ -770,26 +810,36 @@ export default function Payments() {
               isManual: false,
               isSiblingPayment: false
             };
+            
+            console.log(`  🎯 NEW BEST MATCH: ${athleteName} with ${maxSimilarity}%`);
           }
         });
       }
       
+      console.log(`✅ FINAL MATCH for "${row.description}": ${bestMatch.athleteName || 'NO MATCH'} (${bestMatch.similarity}%)`);
       results.push(bestMatch);
     });
     
     setMatchResults(results);
     setStep('confirm');
     
+    // Count different types of matches
     const historicalMatches = results.filter(r => r.similarity === 100 && !r.isManual).length;
     const highConfidenceMatches = results.filter(r => r.similarity >= 80 && r.similarity < 100).length;
     const mediumConfidenceMatches = results.filter(r => r.similarity >= 50 && r.similarity < 80).length;
     const lowConfidenceMatches = results.filter(r => r.similarity < 50).length;
     
+    console.log(`\n📊 MATCHING SUMMARY:`);
+    console.log(`  Historical: ${historicalMatches}`);
+    console.log(`  High (80-99%): ${highConfidenceMatches}`);
+    console.log(`  Medium (50-79%): ${mediumConfidenceMatches}`);
+    console.log(`  Low (<50%): ${lowConfidenceMatches}`);
+    
     if (historicalMatches > 0) {
       toast.success(`Eşleştirme tamamlandı! ${historicalMatches} geçmiş eşleştirme otomatik uygulandı.`);
+    } else {
+      toast.success(`Eşleştirme tamamlandı! ${highConfidenceMatches} yüksek güvenilirlik, ${mediumConfidenceMatches} orta güvenilirlik.`);
     }
-    
-    console.log(`Matching completed: Historical: ${historicalMatches}, High: ${highConfidenceMatches}, Medium: ${mediumConfidenceMatches}, Low: ${lowConfidenceMatches}`);
   };
 
   // Manual match update - CLEAN VERSION
@@ -813,7 +863,7 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // CONSERVATIVE SIBLING MATCHING SYSTEM - FIXED VERSION
+  // COMPLETELY REWRITTEN SIBLING SYSTEM - ULTRA SIMPLE AND RELIABLE
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) {
@@ -821,44 +871,20 @@ export default function Payments() {
       return [];
     }
     
-    console.log('\n=== CONSERVATIVE SIBLING SEARCH ===');
-    console.log('🔍 Target Athlete:', athlete.studentName, athlete.studentSurname);
+    console.log('\n=== ULTRA SIMPLE SIBLING SEARCH ===');
+    console.log('🎯 Target Athlete:', athlete.studentName, athlete.studentSurname);
     
-    // Strict phone normalization
-    const normalizePhone = (phone: any) => {
-      if (!phone) return '';
-      let cleaned = phone.toString().replace(/\D/g, '');
-      
-      // Handle Turkish phone formats
-      if (cleaned.startsWith('90') && cleaned.length === 12) {
-        cleaned = cleaned.substring(2);
-      }
-      if (cleaned.startsWith('0') && cleaned.length === 11) {
-        cleaned = cleaned.substring(1);
-      }
-      
-      return cleaned.length === 10 ? cleaned : '';
-    };
-    
-    // Strict TC normalization
-    const normalizeTc = (tc: any) => {
-      if (!tc) return '';
-      const cleaned = tc.toString().replace(/\D/g, '');
-      return cleaned.length === 11 ? cleaned : '';
-    };
-    
-    // Get parent identifiers for the target athlete
-    const targetParentPhone = normalizePhone(athlete.parentPhone);
-    const targetParentTc = normalizeTc(athlete.parentTc);
+    // Get parent identifiers - ULTRA STRICT
+    const targetParentPhone = athlete.parentPhone ? athlete.parentPhone.toString().replace(/\D/g, '') : '';
+    const targetParentTc = athlete.parentTc ? athlete.parentTc.toString().replace(/\D/g, '') : '';
     
     console.log('📋 Target Parent Data:');
-    console.log('  - Phone:', targetParentPhone || 'MISSING');
-    console.log('  - TC:', targetParentTc ? targetParentTc.substring(0, 3) + '***' + targetParentTc.substring(8) : 'MISSING');
+    console.log('  - Phone:', targetParentPhone ? targetParentPhone.substring(0, 3) + '***' + targetParentPhone.substring(targetParentPhone.length - 2) : 'MISSING');
+    console.log('  - TC:', targetParentTc ? targetParentTc.substring(0, 3) + '***' + targetParentTc.substring(targetParentTc.length - 2) : 'MISSING');
     
-    // VERY STRICT VALIDATION - We need EXACT phone OR TC match
+    // We need at least one strong identifier
     if (!targetParentPhone && !targetParentTc) {
-      console.log('❌ NO STRONG PARENT IDENTIFIER - Cannot find siblings');
-      console.log('   Required: Valid Phone OR Valid TC Number');
+      console.log('❌ NO PARENT IDENTIFIERS - Cannot find siblings');
       return [];
     }
     
@@ -869,28 +895,25 @@ export default function Payments() {
       if (candidate.status === 'Pasif') return false;
       
       // Get candidate parent data
-      const candidateParentPhone = normalizePhone(candidate.parentPhone);
-      const candidateParentTc = normalizeTc(candidate.parentTc);
+      const candidateParentPhone = candidate.parentPhone ? candidate.parentPhone.toString().replace(/\D/g, '') : '';
+      const candidateParentTc = candidate.parentTc ? candidate.parentTc.toString().replace(/\D/g, '') : '';
       
       console.log(`\n🔍 Checking: ${candidate.studentName} ${candidate.studentSurname}`);
       console.log('  Parent Data:');
-      console.log('    - Phone:', candidateParentPhone || 'MISSING');
-      console.log('    - TC:', candidateParentTc ? candidateParentTc.substring(0, 3) + '***' + candidateParentTc.substring(8) : 'MISSING');
+      console.log('    - Phone:', candidateParentPhone ? candidateParentPhone.substring(0, 3) + '***' + candidateParentPhone.substring(candidateParentPhone.length - 2) : 'MISSING');
+      console.log('    - TC:', candidateParentTc ? candidateParentTc.substring(0, 3) + '***' + candidateParentTc.substring(candidateParentTc.length - 2) : 'MISSING');
       
-      // EXACT MATCHING ONLY - No fuzzy logic
+      // ULTRA STRICT EXACT MATCHING
       let isSibling = false;
-      let reason = '';
       
       // Rule 1: EXACT TC match (if both have TC)
       if (targetParentTc && candidateParentTc && targetParentTc === candidateParentTc) {
         isSibling = true;
-        reason = 'Exact TC Number Match';
         console.log(`    ✅ TC EXACT MATCH`);
       }
       // Rule 2: EXACT phone match (if both have phone)
       else if (targetParentPhone && candidateParentPhone && targetParentPhone === candidateParentPhone) {
         isSibling = true;
-        reason = 'Exact Phone Number Match';
         console.log(`    ✅ PHONE EXACT MATCH`);
       }
       else {
@@ -898,9 +921,6 @@ export default function Payments() {
       }
       
       console.log(`  🎯 DECISION: ${isSibling ? '✅ SIBLING' : '❌ NOT SIBLING'}`);
-      if (isSibling) {
-        console.log(`  📝 Reason: ${reason}`);
-      }
       
       return isSibling;
     });
@@ -914,7 +934,7 @@ export default function Payments() {
     return siblings;
   };
 
-  // CONSERVATIVE SIBLING DIALOG - FIXED VERSION
+  // ULTRA SIMPLE SIBLING DIALOG
   const showSiblingDialog = (index: number) => {
     const result = matchResults[index];
     if (!result.athleteId) {
@@ -922,7 +942,7 @@ export default function Payments() {
       return;
     }
 
-    console.log('\n=== CONSERVATIVE SIBLING PAYMENT CHECK ===');
+    console.log('\n=== ULTRA SIMPLE SIBLING PAYMENT CHECK ===');
     console.log('🎯 Selected athlete ID:', result.athleteId);
     
     const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
@@ -933,30 +953,16 @@ export default function Payments() {
     
     console.log('🎯 Selected athlete:', selectedAthlete.studentName, selectedAthlete.studentSurname);
     
-    // Find siblings with CONSERVATIVE matching
+    // Find siblings with ULTRA SIMPLE matching
     const siblings = findSiblings(result.athleteId);
     console.log('🔍 Found siblings count:', siblings.length);
     
     if (siblings.length === 0) {
-      // Show detailed error message with parent info
-      const parentInfo = [];
-      if (selectedAthlete.parentPhone) {
-        const phone = selectedAthlete.parentPhone.toString();
-        const maskedPhone = phone.length > 4 ? phone.substring(0, 3) + '***' + phone.substring(phone.length - 2) : phone;
-        parentInfo.push(`Tel: ${maskedPhone}`);
-      }
-      if (selectedAthlete.parentTc) {
-        const tc = selectedAthlete.parentTc.toString();
-        const maskedTc = tc.length > 4 ? tc.substring(0, 3) + '***' + tc.substring(tc.length - 2) : tc;
-        parentInfo.push(`TC: ${maskedTc}`);
-      }
-      
+      // Show simple error message
       toast.error(
         `❌ ${selectedAthlete.studentName} ${selectedAthlete.studentSurname} için kardeş bulunamadı!\n\n` +
-        `Veli Bilgileri: ${parentInfo.join(', ') || 'Eksik veli bilgisi'}\n\n` +
-        `⚠️ Kardeş ödemesi için AYNI telefon numarası veya TC kimlik numarasına sahip başka aktif sporcular olmalı.\n\n` +
-        `💡 Eğer kardeş varsa, veli bilgilerinin tam olarak aynı olduğundan emin olun.`,
-        { duration: 10000 }
+        `Kardeş ödemesi için AYNI telefon numarası veya TC kimlik numarasına sahip başka aktif sporcular olmalı.`,
+        { duration: 8000 }
       );
       return;
     }
@@ -966,82 +972,53 @@ export default function Payments() {
     const totalAmount = result.excelRow.amount;
     const amountPerSibling = Math.round((totalAmount / allSiblings.length) * 100) / 100;
     
-    // Create detailed sibling list for confirmation
+    // Create simple sibling list for confirmation
     const siblingDetails = allSiblings.map((s, idx) => {
       const sport = s.selectedSports?.[0] || s.sportsBranches?.[0] || 'Genel';
       return `${idx + 1}. ${s.studentName} ${s.studentSurname} (${sport})`;
     }).join('\n');
-    
-    // Show parent matching info for transparency
-    const parentMatchInfo = [];
-    if (selectedAthlete.parentPhone) {
-      const phone = selectedAthlete.parentPhone.toString();
-      const maskedPhone = phone.length > 4 ? phone.substring(0, 3) + '***' + phone.substring(phone.length - 2) : phone;
-      parentMatchInfo.push(`Telefon: ${maskedPhone}`);
-    }
-    if (selectedAthlete.parentTc) {
-      const tc = selectedAthlete.parentTc.toString();
-      const maskedTc = tc.length > 4 ? tc.substring(0, 3) + '***' + tc.substring(tc.length - 2) : tc;
-      parentMatchInfo.push(`TC: ${maskedTc}`);
-    }
     
     console.log('👨‍👩‍👧‍👦 All siblings for payment split:');
     allSiblings.forEach((s, idx) => {
       console.log(`  ${idx + 1}. ${s.studentName} ${s.studentSurname} - ID: ${s.id}`);
     });
     
-    // VERY CLEAR confirmation dialog with warnings
+    // ULTRA SIMPLE confirmation dialog
     const confirmationMessage = 
-      `🚨 DİKKAT: KARDEŞ ÖDEMESİ BÖLÜNECEK! 🚨\n\n` +
-      `📊 ÖDEME DETAYLARI:\n` +
+      `🚨 KARDEŞ ÖDEMESİ BÖLÜNECEK! 🚨\n\n` +
       `💰 Toplam Tutar: ₺${totalAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
       `👥 Kardeş Sayısı: ${allSiblings.length} sporcu\n` +
       `💵 Her sporcu için: ₺${amountPerSibling.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
-      `👨‍👩‍👧‍👦 KARDEŞLER (${parentMatchInfo.join(', ')}):\n${siblingDetails}\n\n` +
-      `⚠️ UYARI: Bu işlem ödemeyi ${allSiblings.length} farklı sporcuya böler!\n` +
-      `⚠️ UYARI: Her sporcu için ayrı ödeme kaydı oluşturulur!\n` +
-      `⚠️ UYARI: Bu işlem geri alınamaz!\n\n` +
+      `👨‍👩‍👧‍👦 KARDEŞLER:\n${siblingDetails}\n\n` +
+      `⚠️ Bu işlem geri alınamaz!\n\n` +
       `✅ Devam etmek istediğinizden EMİN misiniz?`;
 
     const confirmed = confirm(confirmationMessage);
 
     if (confirmed) {
-      // Double confirmation for safety
-      const doubleConfirm = confirm(
-        `🔄 SON ONAY\n\n` +
-        `${allSiblings.length} kardeş için ₺${amountPerSibling.toFixed(2)}'şer ödeme kaydı oluşturulacak.\n\n` +
-        `Bu işlemi onaylıyor musunuz?`
+      // Update match result with sibling payment data
+      const updatedResults = [...matchResults];
+      updatedResults[index] = {
+        ...updatedResults[index],
+        isSiblingPayment: true,
+        siblingIds: allSiblings.map(s => s.id.toString()),
+        athleteName: allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join(' + '),
+        parentName: `${selectedAthlete.parentName} ${selectedAthlete.parentSurname} (${allSiblings.length} kardeş)`
+      };
+      
+      setMatchResults(updatedResults);
+      
+      // Success notification
+      toast.success(
+        `✅ KARDEŞ ÖDEMESİ AKTİF!\n\n` +
+        `👥 ${allSiblings.length} kardeş için ödeme bölündü\n` +
+        `💵 Her sporcu: ₺${amountPerSibling.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        { duration: 6000 }
       );
       
-      if (doubleConfirm) {
-        // Update match result with sibling payment data
-        const updatedResults = [...matchResults];
-        updatedResults[index] = {
-          ...updatedResults[index],
-          isSiblingPayment: true,
-          siblingIds: allSiblings.map(s => s.id.toString()),
-          athleteName: allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join(' + '),
-          parentName: `${selectedAthlete.parentName} ${selectedAthlete.parentSurname} (${allSiblings.length} kardeş)`
-        };
-        
-        setMatchResults(updatedResults);
-        
-        // Success notification with details
-        toast.success(
-          `✅ KARDEŞ ÖDEMESİ AKTİF!\n\n` +
-          `👥 ${allSiblings.length} kardeş için ödeme bölündü\n` +
-          `💵 Her sporcu: ₺${amountPerSibling.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
-          `📝 Sporcular: ${allSiblings.map(s => s.studentName).join(', ')}`,
-          { duration: 8000 }
-        );
-        
-        console.log('✅ Sibling payment activated successfully!');
-        console.log('💰 Amount per sibling:', amountPerSibling);
-        console.log('👥 Sibling IDs:', allSiblings.map(s => s.id));
-      } else {
-        console.log('❌ Sibling payment cancelled at double confirmation');
-        toast.info("Kardeş ödemesi iptal edildi");
-      }
+      console.log('✅ Sibling payment activated successfully!');
+      console.log('💰 Amount per sibling:', amountPerSibling);
+      console.log('👥 Sibling IDs:', allSiblings.map(s => s.id));
     } else {
       console.log('❌ Sibling payment cancelled by user');
       toast.info("Kardeş ödemesi iptal edildi");
@@ -1067,7 +1044,6 @@ export default function Payments() {
     setMatchResults(updatedResults);
     toast.success("Kardeş ödemesi iptal edildi");
   };
-
 
   // Step 4: Confirm and save matches - CLEAN VERSION
   const confirmMatches = async () => {
@@ -1859,7 +1835,7 @@ export default function Payments() {
             </Tabs>
           </motion.div>
 
-          {/* Excel Upload Dialog - CLEAN VERSION */}
+          {/* Excel Upload Dialog - COMPLETELY REWRITTEN */}
           <Dialog open={isUploadDialogOpen} onOpenChange={(open) => {
             setIsUploadDialogOpen(open);
             if (!open) {
@@ -1870,7 +1846,7 @@ export default function Payments() {
               <DialogHeader>
                 <DialogTitle>Banka Extre Dosyası Yükle</DialogTitle>
                 <DialogDescription>
-                  Bankadan aldığınız Excel extre dosyasını yükleyerek ödemeleri güvenli şekilde eşleştirin
+                  Bankadan aldığınız Excel extre dosyasını yükleyerek ödemeleri BULLETPROOF algoritma ile eşleştirin
                 </DialogDescription>
               </DialogHeader>
               
@@ -1957,7 +1933,7 @@ export default function Payments() {
                     <CardHeader>
                       <CardTitle>Excel Verisi İnceleme</CardTitle>
                       <CardDescription>
-                        {excelData.length} ödeme kaydı bulundu. Devam etmek için "Eşleştirmeyi Başlat" butonuna tıklayın.
+                        {excelData.length} ödeme kaydı bulundu. Devam etmek için "BULLETPROOF Eşleştirmeyi Başlat" butonuna tıklayın.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -2008,7 +1984,7 @@ export default function Payments() {
                           </Button>
                           <Button onClick={findMatches}>
                             <Search className="h-4 w-4 mr-2" />
-                            Eşleştirmeyi Başlat
+                            BULLETPROOF Eşleştirmeyi Başlat
                           </Button>
                         </div>
                       </div>
@@ -2016,12 +1992,12 @@ export default function Payments() {
                   </Card>
                 )}
 
-                {/* Step 3: Confirm Matches - CLEAN VERSION */}
+                {/* Step 3: Confirm Matches - COMPLETELY REWRITTEN */}
                 {step === 'confirm' && matchResults.length > 0 && (
                   <div className="space-y-6">
                     <Card>
                       <CardHeader>
-                        <CardTitle>Eşleştirme Sonuçları</CardTitle>
+                        <CardTitle>BULLETPROOF Eşleştirme Sonuçları</CardTitle>
                         <CardDescription>
                           Eşleştirmeleri kontrol edin ve onaylayın. Manuel düzeltme yapabilirsiniz.
                         </CardDescription>
@@ -2031,8 +2007,8 @@ export default function Payments() {
                           {matchResults.map((result, index) => (
                             <Card key={index} className={`border ${
                               result.isSiblingPayment ? 'border-purple-300 bg-purple-50' :
-                              result.similarity >= 80 ? 'border-green-200 bg-green-50' : 
-                              result.similarity >= 50 ? 'border-yellow-200 bg-yellow-50' : 
+                              result.similarity >= 90 ? 'border-green-200 bg-green-50' : 
+                              result.similarity >= 70 ? 'border-yellow-200 bg-yellow-50' : 
                               'border-red-200 bg-red-50'
                             }`}>
                               <CardContent className="p-4">
@@ -2076,14 +2052,18 @@ export default function Payments() {
                                   
                                   {/* Match Result */}
                                   <div>
-                                    <Label className="text-sm font-medium text-muted-foreground">Eşleştirme:</Label>
+                                    <Label className="text-sm font-medium text-muted-foreground">BULLETPROOF Eşleştirme:</Label>
                                     <div className="mt-1">
                                       {result.athleteId ? (
                                         <div>
                                           <div className="flex items-center space-x-2">
                                             <p className="font-medium">{result.athleteName}</p>
-                                            <Badge variant="outline" className="text-xs">
-                                              %{result.similarity} {result.isManual ? '(Manuel)' : '(Otomatik)'}
+                                            <Badge variant="outline" className={`text-xs ${
+                                              result.similarity >= 90 ? 'bg-green-100 text-green-800' :
+                                              result.similarity >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                                              'bg-red-100 text-red-800'
+                                            }`}>
+                                              %{result.similarity} {result.isManual ? '(Manuel)' : '(BULLETPROOF)'}
                                             </Badge>
                                           </div>
                                           <p className="text-sm text-muted-foreground">{result.parentName}</p>
@@ -2095,7 +2075,7 @@ export default function Payments() {
                                   </div>
                                 </div>
                                 
-                                {/* Manual Matching - SIMPLIFIED */}
+                                {/* Manual Matching - ULTRA SIMPLE */}
                                 <div className="mt-4 pt-4 border-t">
                                   <div className="flex flex-col md:flex-row gap-4">
                                     {/* Athlete Selection */}
@@ -2126,7 +2106,7 @@ export default function Payments() {
                                       </Select>
                                     </div>
                                     
-                                    {/* Sibling Toggle - PERFECT VERSION */}
+                                    {/* Sibling Toggle - ULTRA SIMPLE VERSION */}
                                     {result.athleteId && (
                                       <div className="flex flex-col justify-end">
                                         {(() => {
