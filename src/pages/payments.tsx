@@ -1440,10 +1440,7 @@ export default function Payments() {
             </div>
             
             <div className="flex gap-2">
-              <Button variant="outline" onClick={clearAllFields}>
-                <X className="h-4 w-4 mr-2" />
-                Alanları Temizle
-              </Button>
+              {/* Clear fields button removed as requested */}
             </div>
           </motion.div>
 

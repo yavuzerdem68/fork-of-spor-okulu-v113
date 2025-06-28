@@ -1172,135 +1172,38 @@ export default function Athletes() {
             continue;
           }
 
-          // Simplified and robust birth date parsing for Turkish format (DD/MM/YYYY or DD.MM.YYYY)
+          // Parse birth date
           let parsedBirthDate = '';
           const birthDateField = studentData['Doğum Tarihi (DD.MM.YYYY)'] || studentData['Doğum Tarihi (DD/MM/YYYY)'] || studentData['Doğum Tarihi'];
           
-          console.log('Raw birth date field:', birthDateField, 'Type:', typeof birthDateField);
-          
-          if (birthDateField !== undefined && birthDateField !== null && birthDateField !== '') {
+          if (birthDateField) {
             try {
-              // Handle Excel serial date numbers first
-              if (typeof birthDateField === 'number' && birthDateField > 25569) {
-                console.log('Excel serial number detected:', birthDateField);
+              // Handle various date formats
+              const dateStr = birthDateField.toString().trim();
+              
+              // DD.MM.YYYY or DD/MM/YYYY format
+              const turkishMatch = dateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})$/);
+              if (turkishMatch) {
+                let day = parseInt(turkishMatch[1]);
+                let month = parseInt(turkishMatch[2]);
+                let year = parseInt(turkishMatch[3]);
                 
-                // Convert Excel serial number to JavaScript Date
-                // Excel serial date: days since 1900-01-01 (accounting for Excel's leap year bug)
-                const excelDate = new Date((birthDateField - 25569) * 86400 * 1000);
-                
-                if (!isNaN(excelDate.getTime()) && excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2030) {
-                  const year = excelDate.getFullYear();
-                  const month = (excelDate.getMonth() + 1).toString().padStart(2, '0');
-                  const day = excelDate.getDate().toString().padStart(2, '0');
-                  parsedBirthDate = `${year}-${month}-${day}`;
-                  console.log('Excel serial converted to:', parsedBirthDate);
+                // Handle 2-digit years
+                if (year < 100) {
+                  year = year <= 30 ? 2000 + year : 1900 + year;
                 }
-              }
-              // Handle string dates
-              else {
-                const birthDateStr = birthDateField.toString().trim();
-                console.log('Processing date string:', birthDateStr);
                 
-                if (birthDateStr && birthDateStr !== '0' && birthDateStr !== 'undefined') {
-                  // Turkish format: DD/MM/YYYY or DD.MM.YYYY
-                  const turkishMatch = birthDateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})$/);
-                  
-                  if (turkishMatch) {
-                    let day = parseInt(turkishMatch[1]);
-                    let month = parseInt(turkishMatch[2]);
-                    let year = parseInt(turkishMatch[3]);
-                    
-                    console.log('Turkish format parsed - Day:', day, 'Month:', month, 'Year:', year);
-                    
-                    // Handle 2-digit years
-                    if (year < 100) {
-                      year = year <= 30 ? 2000 + year : 1900 + year;
-                    }
-                    
-                    // Validate date components
-                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2030) {
-                      // Create and validate the date
-                      const testDate = new Date(year, month - 1, day);
-                      
-                      if (testDate.getFullYear() === year && 
-                          testDate.getMonth() === month - 1 && 
-                          testDate.getDate() === day) {
-                        
-                        parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-                        console.log('SUCCESS: Turkish date converted to ISO:', parsedBirthDate);
-                      } else {
-                        console.log('Date validation failed');
-                      }
-                    } else {
-                      console.log('Invalid date components:', { day, month, year });
-                    }
-                  }
-                  // Compact formats: DDMMYYYY or DDMMYY
-                  else if (birthDateStr.match(/^\d{6,8}$/)) {
-                    console.log('Compact date format detected:', birthDateStr);
-                    
-                    let day, month, year;
-                    
-                    if (birthDateStr.length === 6) {
-                      // DDMMYY
-                      day = parseInt(birthDateStr.substring(0, 2));
-                      month = parseInt(birthDateStr.substring(2, 4));
-                      const yearShort = parseInt(birthDateStr.substring(4, 6));
-                      year = yearShort <= 30 ? 2000 + yearShort : 1900 + yearShort;
-                    } else if (birthDateStr.length === 8) {
-                      // DDMMYYYY
-                      day = parseInt(birthDateStr.substring(0, 2));
-                      month = parseInt(birthDateStr.substring(2, 4));
-                      year = parseInt(birthDateStr.substring(4, 8));
-                    }
-                    
-                    if (day && month && year && 
-                        day >= 1 && day <= 31 && 
-                        month >= 1 && month <= 12 && 
-                        year >= 1900 && year <= 2030) {
-                      
-                      const testDate = new Date(year, month - 1, day);
-                      if (testDate.getFullYear() === year && 
-                          testDate.getMonth() === month - 1 && 
-                          testDate.getDate() === day) {
-                        
-                        parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-                        console.log('SUCCESS: Compact date converted to ISO:', parsedBirthDate);
-                      }
-                    }
-                  }
-                  // ISO format: YYYY-MM-DD
-                  else if (birthDateStr.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
-                    console.log('ISO format detected:', birthDateStr);
-                    const [year, month, day] = birthDateStr.split('-').map(num => parseInt(num));
-                    
-                    if (year >= 1900 && year <= 2030 && 
-                        month >= 1 && month <= 12 && 
-                        day >= 1 && day <= 31) {
-                      
-                      const testDate = new Date(year, month - 1, day);
-                      if (testDate.getFullYear() === year && 
-                          testDate.getMonth() === month - 1 && 
-                          testDate.getDate() === day) {
-                        
-                        parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-                        console.log('SUCCESS: ISO date validated:', parsedBirthDate);
-                      }
-                    }
-                  }
-                  else {
-                    console.log('Unrecognized date format:', birthDateStr);
+                if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2030) {
+                  const testDate = new Date(year, month - 1, day);
+                  if (testDate.getFullYear() === year && 
+                      testDate.getMonth() === month - 1 && 
+                      testDate.getDate() === day) {
+                    parsedBirthDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                   }
                 }
               }
             } catch (error) {
               console.error('Error parsing birth date:', error);
-            }
-            
-            if (!parsedBirthDate) {
-              console.warn('FAILED to parse birth date:', birthDateField);
-            } else {
-              console.log('FINAL parsed birth date:', parsedBirthDate);
             }
           }
 
@@ -1323,207 +1226,6 @@ export default function Athletes() {
             if (parentPhone.length >= 10) {
               parentPhone = '+90' + parentPhone.slice(-10);
             }
-          }
-
-          // Enhanced duplicate detection with multiple criteria and improved accuracy
-          const studentName = studentData['Öğrenci Adı']?.toString().trim();
-          const studentSurname = studentData['Öğrenci Soyadı']?.toString().trim();
-          const studentTcNo = studentData['TC Kimlik No']?.toString().trim();
-          const parentName = studentData['Veli Adı']?.toString().trim();
-          const parentSurname = studentData['Veli Soyadı']?.toString().trim();
-          const parentPhoneForDuplicateCheck = studentData['Veli Telefon']?.toString().trim();
-          const parentEmailForDuplicateCheck = studentData['Veli Email']?.toString().trim();
-          
-          console.log('Checking for duplicates:', { studentName, studentSurname, studentTcNo, parentName, parentSurname, parentPhoneForDuplicateCheck, parentEmailForDuplicateCheck });
-          
-          // Helper function to normalize Turkish text for comparison
-          const normalizeTurkishText = (text: string): string => {
-            if (!text) return '';
-            return text
-              .toLowerCase()
-              .replace(/ğ/g, 'g')
-              .replace(/ü/g, 'u')
-              .replace(/ş/g, 's')
-              .replace(/ı/g, 'i')
-              .replace(/ö/g, 'o')
-              .replace(/ç/g, 'c')
-              .replace(/[^\w\s]/g, '')
-              .replace(/\s+/g, ' ')
-              .trim();
-          };
-          
-          // Helper function to calculate string similarity
-          const calculateStringSimilarity = (str1: string, str2: string): number => {
-            if (!str1 || !str2) return 0;
-            const norm1 = normalizeTurkishText(str1);
-            const norm2 = normalizeTurkishText(str2);
-            
-            if (norm1 === norm2) return 100;
-            
-            // Levenshtein distance for similarity
-            const matrix = [];
-            for (let i = 0; i <= norm2.length; i++) {
-              matrix[i] = [i];
-            }
-            for (let j = 0; j <= norm1.length; j++) {
-              matrix[0][j] = j;
-            }
-            for (let i = 1; i <= norm2.length; i++) {
-              for (let j = 1; j <= norm1.length; j++) {
-                if (norm2.charAt(i - 1) === norm1.charAt(j - 1)) {
-                  matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                  matrix[i][j] = Math.min(
-                    matrix[i - 1][j - 1] + 1,
-                    matrix[i][j - 1] + 1,
-                    matrix[i - 1][j] + 1
-                  );
-                }
-              }
-            }
-            
-            const maxLength = Math.max(norm1.length, norm2.length);
-            const similarity = ((maxLength - matrix[norm2.length][norm1.length]) / maxLength) * 100;
-            return Math.round(similarity);
-          };
-          
-          const existingStudentIndex = existingStudents.findIndex((student: any) => {
-            // Priority 1: Check by TC number (most reliable) - must be exact match
-            if (studentTcNo && student.studentTcNo && studentTcNo.length >= 10) {
-              const normalizedNewTc = studentTcNo.replace(/\D/g, '');
-              const normalizedExistingTc = student.studentTcNo.toString().replace(/\D/g, '');
-              if (normalizedNewTc === normalizedExistingTc && normalizedNewTc.length >= 10) {
-                console.log('DUPLICATE FOUND by TC number:', studentTcNo, '-> Existing student:', student.studentName, student.studentSurname);
-                return true;
-              }
-            }
-            
-            // Priority 2: Check by exact name and surname match (Turkish-aware)
-            if (studentName && studentSurname && student.studentName && student.studentSurname) {
-              const newNameNorm = normalizeTurkishText(studentName);
-              const newSurnameNorm = normalizeTurkishText(studentSurname);
-              const existingNameNorm = normalizeTurkishText(student.studentName.toString());
-              const existingSurnameNorm = normalizeTurkishText(student.studentSurname.toString());
-              
-              if (newNameNorm === existingNameNorm && newSurnameNorm === existingSurnameNorm) {
-                console.log('DUPLICATE FOUND by exact name match:', studentName, studentSurname, '-> Existing student:', student.studentName, student.studentSurname);
-                return true;
-              }
-            }
-            
-            // Priority 3: Check by parent email (exact match)
-            if (parentEmailForDuplicateCheck && student.parentEmail && 
-                parentEmailForDuplicateCheck.length > 5 && student.parentEmail.length > 5) {
-              const newEmailNorm = parentEmailForDuplicateCheck.toLowerCase().trim();
-              const existingEmailNorm = student.parentEmail.toString().toLowerCase().trim();
-              
-              if (newEmailNorm === existingEmailNorm) {
-                console.log('DUPLICATE FOUND by parent email:', parentEmailForDuplicateCheck, '-> Existing student:', student.studentName, student.studentSurname);
-                return true;
-              }
-            }
-            
-            // Priority 4: Check by parent phone number with high name similarity
-            if (parentPhoneForDuplicateCheck && student.parentPhone && 
-                studentName && studentSurname && student.studentName && student.studentSurname) {
-              const normalizedNewPhone = parentPhoneForDuplicateCheck.replace(/\D/g, '').slice(-10);
-              const normalizedExistingPhone = student.parentPhone.toString().replace(/\D/g, '').slice(-10);
-              
-              if (normalizedNewPhone === normalizedExistingPhone && normalizedNewPhone.length >= 10) {
-                // Calculate name similarity
-                const nameSimilarity = calculateStringSimilarity(studentName, student.studentName.toString());
-                const surnameSimilarity = calculateStringSimilarity(studentSurname, student.studentSurname.toString());
-                
-                // Require high similarity (85%+) for phone-based matching
-                if (nameSimilarity >= 85 && surnameSimilarity >= 85) {
-                  console.log('DUPLICATE FOUND by parent phone and high name similarity:', 
-                    parentPhoneForDuplicateCheck, studentName, studentSurname, 
-                    `(${nameSimilarity}%/${surnameSimilarity}% similarity)`,
-                    '-> Existing student:', student.studentName, student.studentSurname);
-                  return true;
-                }
-              }
-            }
-            
-            // Priority 5: Check by parent name combination with very high student name similarity
-            if (parentName && parentSurname && student.parentName && student.parentSurname &&
-                studentName && studentSurname && student.studentName && student.studentSurname) {
-              
-              const parentNameSimilarity = calculateStringSimilarity(parentName, student.parentName.toString());
-              const parentSurnameSimilarity = calculateStringSimilarity(parentSurname, student.parentSurname.toString());
-              
-              // Require exact or very high parent name match
-              if (parentNameSimilarity >= 95 && parentSurnameSimilarity >= 95) {
-                const studentNameSimilarity = calculateStringSimilarity(studentName, student.studentName.toString());
-                const studentSurnameSimilarity = calculateStringSimilarity(studentSurname, student.studentSurname.toString());
-                
-                // Require very high student name similarity (90%+) when parent names match
-                if (studentNameSimilarity >= 90 && studentSurnameSimilarity >= 90) {
-                  console.log('DUPLICATE FOUND by parent names and high student name similarity:', 
-                    parentName, parentSurname, studentName, studentSurname,
-                    `(Parent: ${parentNameSimilarity}%/${parentSurnameSimilarity}%, Student: ${studentNameSimilarity}%/${studentSurnameSimilarity}%)`,
-                    '-> Existing student:', student.studentName, student.studentSurname);
-                  return true;
-                }
-              }
-            }
-            
-            // Priority 6: Check for very high overall similarity (potential typos)
-            if (studentName && studentSurname && student.studentName && student.studentSurname &&
-                parentName && parentSurname && student.parentName && student.parentSurname) {
-              
-              const studentNameSimilarity = calculateStringSimilarity(studentName, student.studentName.toString());
-              const studentSurnameSimilarity = calculateStringSimilarity(studentSurname, student.studentSurname.toString());
-              const parentNameSimilarity = calculateStringSimilarity(parentName, student.parentName.toString());
-              const parentSurnameSimilarity = calculateStringSimilarity(parentSurname, student.parentSurname.toString());
-              
-              // Calculate overall similarity
-              const overallSimilarity = (studentNameSimilarity + studentSurnameSimilarity + parentNameSimilarity + parentSurnameSimilarity) / 4;
-              
-              // Very high threshold (97%+) for overall similarity to catch typos
-              if (overallSimilarity >= 97) {
-                console.log('DUPLICATE FOUND by very high overall similarity:', 
-                  studentName, studentSurname, parentName, parentSurname,
-                  `(Overall: ${overallSimilarity.toFixed(1)}%)`,
-                  '-> Existing student:', student.studentName, student.studentSurname);
-                return true;
-              }
-            }
-            
-            return false;
-          });
-
-          if (existingStudentIndex !== -1) {
-            // Merge duplicate - update existing student with new information
-            const existingStudent = existingStudents[existingStudentIndex];
-            console.log('Merging duplicate student:', existingStudent.studentName, existingStudent.studentSurname);
-            
-            const updatedStudent = {
-              ...existingStudent,
-              // Update fields if new data is provided and not empty
-              studentTcNo: studentTcNo || existingStudent.studentTcNo,
-              studentBirthDate: parsedBirthDate || existingStudent.studentBirthDate,
-              studentAge: studentData['Yaş']?.toString().trim() || existingStudent.studentAge,
-              studentGender: studentData['Cinsiyet']?.toString().trim() || existingStudent.studentGender,
-              studentSchool: studentData['Okul']?.toString().trim() || existingStudent.studentSchool,
-              studentClass: studentData['Sınıf']?.toString().trim() || existingStudent.studentClass,
-              // Merge sports branches (combine existing and new, remove duplicates)
-              sportsBranches: [...new Set([...(existingStudent.sportsBranches || []), ...sportsBranches])],
-              // Update parent info if provided and not empty
-              parentName: studentData['Veli Adı']?.toString().trim() || existingStudent.parentName,
-              parentSurname: studentData['Veli Soyadı']?.toString().trim() || existingStudent.parentSurname,
-              parentTcNo: studentData['Veli TC Kimlik No']?.toString().trim() || existingStudent.parentTcNo,
-              parentPhone: parentPhone || existingStudent.parentPhone,
-              parentEmail: studentData['Veli Email']?.toString().trim() || existingStudent.parentEmail,
-              parentRelation: studentData['Yakınlık Derecesi']?.toString().trim() || existingStudent.parentRelation,
-              updatedAt: new Date().toISOString()
-            };
-            
-            // Update the existing student in the array
-            existingStudents[existingStudentIndex] = updatedStudent;
-            mergedCount++;
-            console.log('Successfully merged student:', updatedStudent.studentName, updatedStudent.studentSurname);
-            continue;
           }
 
           const newStudent = {
@@ -1575,10 +1277,10 @@ export default function Athletes() {
         }
       }
 
-      // Combine existing students (with merged updates) and new students
+      // Combine existing students and new students
       const updatedStudents = [...existingStudents, ...newStudents];
 
-      if (newStudents.length === 0 && mergedCount === 0) {
+      if (newStudents.length === 0) {
         let message = 'İşlenecek yeni sporcu bulunamadı.';
         if (errorCount > 0) {
           message += ` ${errorCount} satırda hata oluştu.`;
@@ -1597,9 +1299,6 @@ export default function Athletes() {
       message += `📊 İşlem Özeti:\n`;
       if (newStudents.length > 0) {
         message += `• Yeni eklenen sporcu: ${newStudents.length}\n`;
-      }
-      if (mergedCount > 0) {
-        message += `• Birleştirilen mükerrer sporcu: ${mergedCount}\n`;
       }
       if (createdParentUsers.length > 0) {
         message += `• Oluşturulan veli hesabı: ${createdParentUsers.length}\n`;
@@ -2045,7 +1744,6 @@ export default function Athletes() {
                         <li>• TC Kimlik numaraları 11 haneli olmalıdır</li>
                         <li>• Spor branşları virgülle ayrılmalıdır (örn: Basketbol, Futbol)</li>
                         <li>• Tarih formatı: DD.MM.YYYY (kısa tarih formatı)</li>
-                        <li>• Mükerrer sporcular otomatik birleştirilir</li>
                         <li>• Her veli için kullanıcı adı ve şifre oluşturulur</li>
                       </ul>
                     </div>
