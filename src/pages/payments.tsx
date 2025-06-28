@@ -324,55 +324,59 @@ export default function Payments() {
     // Load existing payments
     const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
     
-    // Generate payments from athlete account entries (debit entries that haven't been paid)
+    // Generate payments from athlete account entries based on balance
     const generatedPayments: any[] = [];
     
     activeAthletes.forEach((athlete: any) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
       
-      // Find debit entries (charges) that don't have corresponding credit entries (payments)
-      const debitEntries = accountEntries.filter((entry: any) => entry.type === 'debit');
-      const creditEntries = accountEntries.filter((entry: any) => entry.type === 'credit');
+      // Calculate balance (debit - credit)
+      const balance = accountEntries.reduce((total: number, entry: any) => {
+        return entry.type === 'debit' 
+          ? total + (entry.amountIncludingVat || 0)
+          : total - (entry.amountIncludingVat || 0);
+      }, 0);
       
-      debitEntries.forEach((debitEntry: any) => {
-        // Check if this debit has been paid (has corresponding credit)
-        const isPaid = creditEntries.some((creditEntry: any) => 
-          creditEntry.amountIncludingVat >= debitEntry.amountIncludingVat &&
-          new Date(creditEntry.date) >= new Date(debitEntry.date)
-        );
-        
-        // Check if payment already exists in existing payments
+      // Only create payment entry if there's a positive balance (debt)
+      if (balance > 0) {
+        // Check if payment already exists for this athlete
         const paymentExists = existingPayments.some((payment: any) => 
-          payment.athleteId === athlete.id && 
-          payment.description === debitEntry.description &&
-          Math.abs(payment.amount - debitEntry.amountIncludingVat) < 0.01
+          payment.athleteId === athlete.id && payment.isGenerated
         );
         
-        if (!isPaid && !paymentExists) {
-          // Create payment entry from debit
-          const dueDate = new Date(debitEntry.date);
-          dueDate.setMonth(dueDate.getMonth() + 1); // Due date is 1 month after charge date
+        if (!paymentExists) {
+          // Find the latest debit entry to determine due date
+          const debitEntries = accountEntries.filter((entry: any) => entry.type === 'debit');
+          const latestDebit = debitEntries.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+          
+          let dueDate = new Date();
+          if (latestDebit && latestDebit.dueDate) {
+            dueDate = new Date(latestDebit.dueDate);
+          } else if (latestDebit) {
+            dueDate = new Date(latestDebit.date);
+            dueDate.setMonth(dueDate.getMonth() + 1); // Due date is 1 month after charge date
+          }
           
           const isOverdue = new Date() > dueDate;
           
           generatedPayments.push({
-            id: `generated_${athlete.id}_${debitEntry.id}`,
+            id: `generated_${athlete.id}_balance`,
             athleteId: athlete.id,
             athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
             parentName: `${athlete.parentName} ${athlete.parentSurname}`,
-            amount: debitEntry.amountIncludingVat,
+            amount: balance,
             method: '',
             paymentDate: null,
             status: isOverdue ? "Gecikmiş" : "Bekliyor",
             sport: athlete.sportsBranches?.[0] || athlete.selectedSports?.[0] || 'Genel',
-            invoiceNumber: `INV-${debitEntry.id}`,
+            invoiceNumber: `BAL-${athlete.id}`,
             dueDate: dueDate.toISOString().split('T')[0],
-            description: debitEntry.description,
-            accountEntryId: debitEntry.id,
+            description: `Toplam Borç Bakiyesi`,
+            accountEntryId: null,
             isGenerated: true
           });
         }
-      });
+      }
     });
     
     // Combine existing payments with generated payments
@@ -1715,6 +1719,7 @@ export default function Payments() {
                                     onClick={() => {
                                       alert(`Ödeme Detayları:\n\nSporcu: ${payment.athleteName}\nVeli: ${payment.parentName}\nTutar: ₺${payment.amount}\nDurum: ${payment.status}\nVade: ${new Date(payment.dueDate).toLocaleDateString('tr-TR')}\nAçıklama: ${payment.description || 'Yok'}`);
                                     }}
+                                    title="Görüntüle"
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
@@ -1722,18 +1727,12 @@ export default function Payments() {
                                     variant="ghost" 
                                     size="sm"
                                     onClick={() => {
-                                      const receiptData = `ÖDEME MAKBUZu\n\nSporcu: ${payment.athleteName}\nVeli: ${payment.parentName}\nTutar: ₺${payment.amount}\nTarih: ${payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('tr-TR') : 'Ödenmedi'}\nYöntem: ${payment.method || 'Belirtilmemiş'}\nFatura No: ${payment.invoiceNumber}`;
-                                      
-                                      const blob = new Blob([receiptData], { type: 'text/plain;charset=utf-8' });
-                                      const url = URL.createObjectURL(blob);
-                                      const link = document.createElement('a');
-                                      link.href = url;
-                                      link.download = `Makbuz_${payment.invoiceNumber}.txt`;
-                                      link.click();
-                                      URL.revokeObjectURL(url);
+                                      // Navigate to athletes page with account dialog open for this athlete
+                                      router.push(`/athletes?openAccount=${payment.athleteId}`);
                                     }}
+                                    title="İzleme - Cari Hesap"
                                   >
-                                    <Receipt className="h-4 w-4" />
+                                    <FileText className="h-4 w-4" />
                                   </Button>
                                   <Button 
                                     variant="ghost" 
@@ -1751,6 +1750,7 @@ export default function Payments() {
                                         toast.success('Ödeme tutarı güncellendi');
                                       }
                                     }}
+                                    title="Düzenle"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>

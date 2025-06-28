@@ -61,7 +61,6 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
     { icon: CreditCard, label: "Ödemeler", href: "/payments" },
     { icon: Package, label: "Stok ve Satış", href: "/inventory-sales" },
     { icon: Trophy, label: "Etkinlikler", href: "/events-tournaments" },
-    { icon: Heart, label: "Sağlık Kayıtları", href: "/health-records" },
     { icon: BarChart3, label: "Performans", href: "/performance" },
     { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
     { icon: Camera, label: "Medya", href: "/media" },

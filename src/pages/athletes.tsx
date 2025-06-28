@@ -1048,6 +1048,11 @@ export default function Athletes() {
       let processedCount = 0;
       let errorCount = 0;
       const currentMonth = new Date().toISOString().slice(0, 7);
+      
+      // Calculate the last day of the current month for payment due date
+      const currentDate = new Date();
+      const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      const dueDate = lastDayOfMonth.toISOString();
 
       for (const row of jsonData) {
         try {
@@ -1086,7 +1091,7 @@ export default function Athletes() {
           const vatAmount = (amountExcludingVat * vatRate) / 100;
           const amountIncludingVat = amountExcludingVat + vatAmount;
 
-          // Create account entry
+          // Create account entry with due date set to last day of the month
           const entry = {
             id: Date.now() + Math.random(),
             date: new Date().toISOString(),
@@ -1097,7 +1102,8 @@ export default function Athletes() {
             vatAmount: vatAmount,
             amountIncludingVat: amountIncludingVat,
             unitCode: unitCode,
-            type: 'debit'
+            type: 'debit',
+            dueDate: dueDate // Set due date to last day of the month
           };
 
           // Save to athlete's account
@@ -1124,7 +1130,8 @@ export default function Athletes() {
       if (errorCount > 0) {
         message += `• Hatalı kayıt: ${errorCount}\n`;
       }
-      message += `• Dönem: ${new Date(currentMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}`;
+      message += `• Dönem: ${new Date(currentMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}\n`;
+      message += `• Son ödeme tarihi: ${lastDayOfMonth.toLocaleDateString('tr-TR')}`;
       
       alert(message);
       
