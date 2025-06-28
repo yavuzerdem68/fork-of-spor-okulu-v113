@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-06-28T22:04:16.722Z",
+  "dataType": "diagnostic",
+  "source": "SportsCRM Web Application",
+  "data": {
+    "timestamp": "2025-06-28T22:04:13.538Z",
+    "test": "api-connection",
+    "source": "Diagnostic Tool"
+  }
+}
