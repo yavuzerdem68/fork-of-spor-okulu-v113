@@ -120,7 +120,18 @@ export default function Athletes() {
     }
 
     loadAthletes(role, user ? JSON.parse(user) : null);
-  }, [router]);
+
+    // Check if there's an openAccount parameter in the URL
+    if (router.query.openAccount) {
+      const athleteId = router.query.openAccount as string;
+      const athlete = JSON.parse(localStorage.getItem('students') || '[]').find((a: any) => a.id.toString() === athleteId);
+      if (athlete) {
+        setTimeout(() => {
+          openAccountDialog(athlete);
+        }, 500); // Small delay to ensure component is fully loaded
+      }
+    }
+  }, [router, router.query.openAccount]);
 
   const loadAthletes = (role: string, user: any) => {
     // Load students from localStorage

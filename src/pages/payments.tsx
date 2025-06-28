@@ -330,15 +330,19 @@ export default function Payments() {
     activeAthletes.forEach((athlete: any) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
       
-      // Calculate balance (debit - credit)
+      // Calculate balance (debit - credit) with proper number handling
       const balance = accountEntries.reduce((total: number, entry: any) => {
+        const amount = parseFloat(String(entry.amountIncludingVat || 0).replace(',', '.')) || 0;
         return entry.type === 'debit' 
-          ? total + (entry.amountIncludingVat || 0)
-          : total - (entry.amountIncludingVat || 0);
+          ? total + amount
+          : total - amount;
       }, 0);
       
+      // Round to 2 decimal places to avoid floating point errors
+      const roundedBalance = Math.round(balance * 100) / 100;
+      
       // Only create payment entry if there's a positive balance (debt)
-      if (balance > 0) {
+      if (roundedBalance > 0) {
         // Check if payment already exists for this athlete
         const paymentExists = existingPayments.some((payment: any) => 
           payment.athleteId === athlete.id && payment.isGenerated
@@ -364,7 +368,7 @@ export default function Payments() {
             athleteId: athlete.id,
             athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
             parentName: `${athlete.parentName} ${athlete.parentSurname}`,
-            amount: balance,
+            amount: roundedBalance,
             method: '',
             paymentDate: null,
             status: isOverdue ? "Gecikmiş" : "Bekliyor",
@@ -880,7 +884,7 @@ export default function Payments() {
     
     // Get parent identifiers - ULTRA STRICT
     const targetParentPhone = athlete.parentPhone ? athlete.parentPhone.toString().replace(/\D/g, '') : '';
-    const targetParentTc = athlete.parentTc ? athlete.parentTc.toString().replace(/\D/g, '') : '';
+    const targetParentTc = athlete.parentTcNo ? athlete.parentTcNo.toString().replace(/\D/g, '') : '';
     
     console.log('📋 Target Parent Data:');
     console.log('  - Phone:', targetParentPhone ? targetParentPhone.substring(0, 3) + '***' + targetParentPhone.substring(targetParentPhone.length - 2) : 'MISSING');
@@ -1115,7 +1119,7 @@ export default function Payments() {
               athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
               parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
               amount: amountPerSibling,
-              status: "Ödendi",
+              status: "Ödendi", // Explicitly set as paid for sibling payments
               paymentDate: paymentDate,
               method: "Havale/EFT",
               reference: match.excelRow.reference,
@@ -1123,7 +1127,9 @@ export default function Payments() {
               invoiceNumber: `SIBLING-${Date.now()}-${athlete.id}`,
               dueDate: paymentDate,
               description: `Kardeş ödemesi (${match.siblingIds.length} sporcu) - ${match.excelRow.description}`,
-              isGenerated: false
+              isGenerated: false,
+              isSiblingPayment: true, // Mark as sibling payment
+              isPaid: true // Ensure it's marked as paid
             };
             
             updatedPayments.push(newPayment);
@@ -1189,7 +1195,8 @@ export default function Payments() {
               invoiceNumber: `SINGLE-${Date.now()}-${athlete.id}`,
               dueDate: paymentDate,
               description: `Tekil ödeme - ${match.excelRow.description}`,
-              isGenerated: false
+              isGenerated: false,
+              isPaid: true // Ensure it's marked as paid
             };
             
             updatedPayments.push(newPayment);
@@ -1727,8 +1734,8 @@ export default function Payments() {
                                     variant="ghost" 
                                     size="sm"
                                     onClick={() => {
-                                      // Navigate to athletes page with account dialog open for this athlete
-                                      router.push(`/athletes?openAccount=${payment.athleteId}`);
+                                      // Navigate to athletes page and automatically open the athlete's current account
+                                      window.location.href = `/athletes?openAccount=${payment.athleteId}`;
                                     }}
                                     title="İzleme - Cari Hesap"
                                   >
