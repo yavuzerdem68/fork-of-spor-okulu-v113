@@ -298,6 +298,20 @@ export default function Payments() {
     description: ''
   });
 
+  // Account dialog states
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [selectedAthlete, setSelectedAthlete] = useState<any>(null);
+  const [accountEntries, setAccountEntries] = useState<any[]>([]);
+  const [newEntry, setNewEntry] = useState({
+    month: new Date().toISOString().slice(0, 7),
+    description: '',
+    amountExcludingVat: '',
+    vatRate: '20',
+    amountIncludingVat: '',
+    unitCode: 'Ay',
+    type: 'debit'
+  });
+
   useEffect(() => {
     const role = localStorage.getItem("userRole");
     const user = localStorage.getItem("currentUser");
@@ -1053,7 +1067,7 @@ export default function Payments() {
     toast.success("Kardeş ödemesi iptal edildi");
   };
 
-  // Step 4: Confirm and save matches - CLEAN VERSION
+  // Step 4: Confirm and save matches - FIXED VERSION
   const confirmMatches = async () => {
     const validMatches = matchResults.filter(result => result.athleteId);
     
@@ -1065,7 +1079,8 @@ export default function Payments() {
     setIsProcessing(true);
     
     try {
-      const updatedPayments = [...payments];
+      // Get existing payments from localStorage (not from state to avoid stale data)
+      const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
       let processedCount = 0;
       
       // Load and update payment matching history
@@ -1073,7 +1088,7 @@ export default function Payments() {
       
       // Check for existing payments to prevent duplicates
       const existingPaymentKeys = new Set();
-      payments.forEach(payment => {
+      existingPayments.forEach((payment: any) => {
         if (payment.reference) {
           existingPaymentKeys.add(`${payment.athleteId}_${payment.reference}_${payment.amount}`);
         }
@@ -1112,14 +1127,14 @@ export default function Payments() {
               continue;
             }
             
-            // Create payment record for each sibling
+            // Create payment record for each sibling - FIXED: Ensure status is "Ödendi"
             const newPayment = {
               id: `sibling_${siblingId}_${Date.now()}_${Math.random()}`,
               athleteId: athlete.id,
               athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
               parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
               amount: amountPerSibling,
-              status: "Ödendi", // Explicitly set as paid for sibling payments
+              status: "Ödendi", // FIXED: Explicitly set as paid
               paymentDate: paymentDate,
               method: "Havale/EFT",
               reference: match.excelRow.reference,
@@ -1128,11 +1143,11 @@ export default function Payments() {
               dueDate: paymentDate,
               description: `Kardeş ödemesi (${match.siblingIds.length} sporcu) - ${match.excelRow.description}`,
               isGenerated: false,
-              isSiblingPayment: true, // Mark as sibling payment
-              isPaid: true // Ensure it's marked as paid
+              isSiblingPayment: true,
+              isPaid: true
             };
             
-            updatedPayments.push(newPayment);
+            existingPayments.push(newPayment);
             existingPaymentKeys.add(paymentKey);
             
             // Add to athlete's account
@@ -1167,27 +1182,28 @@ export default function Payments() {
           }
           
           // Try to update existing payment first
-          const existingPayment = updatedPayments.find(p => 
+          const existingPaymentIndex = existingPayments.findIndex((p: any) => 
             p.athleteId.toString() === match.athleteId && 
             p.status !== "Ödendi" &&
             Math.abs(p.amount - match.excelRow.amount) <= 50 // Allow some tolerance
           );
           
-          if (existingPayment) {
-            // Update existing payment
-            existingPayment.status = "Ödendi";
-            existingPayment.paymentDate = paymentDate;
-            existingPayment.method = "Havale/EFT";
-            existingPayment.reference = match.excelRow.reference;
+          if (existingPaymentIndex !== -1) {
+            // Update existing payment - FIXED: Ensure status is "Ödendi"
+            existingPayments[existingPaymentIndex].status = "Ödendi";
+            existingPayments[existingPaymentIndex].paymentDate = paymentDate;
+            existingPayments[existingPaymentIndex].method = "Havale/EFT";
+            existingPayments[existingPaymentIndex].reference = match.excelRow.reference;
+            existingPayments[existingPaymentIndex].isPaid = true;
           } else {
-            // Create new payment record
+            // Create new payment record - FIXED: Ensure status is "Ödendi"
             const newPayment = {
               id: `single_${match.athleteId}_${Date.now()}_${Math.random()}`,
               athleteId: athlete.id,
               athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
               parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
               amount: match.excelRow.amount,
-              status: "Ödendi",
+              status: "Ödendi", // FIXED: Explicitly set as paid
               paymentDate: paymentDate,
               method: "Havale/EFT",
               reference: match.excelRow.reference,
@@ -1196,10 +1212,10 @@ export default function Payments() {
               dueDate: paymentDate,
               description: `Tekil ödeme - ${match.excelRow.description}`,
               isGenerated: false,
-              isPaid: true // Ensure it's marked as paid
+              isPaid: true
             };
             
-            updatedPayments.push(newPayment);
+            existingPayments.push(newPayment);
           }
           
           existingPaymentKeys.add(paymentKey);
@@ -1228,9 +1244,8 @@ export default function Payments() {
       // Save updated matching history
       localStorage.setItem('paymentMatchingHistory', JSON.stringify(matchingHistory));
       
-      // Save updated payments
-      setPayments(updatedPayments);
-      localStorage.setItem('payments', JSON.stringify(updatedPayments));
+      // Save updated payments to localStorage
+      localStorage.setItem('payments', JSON.stringify(existingPayments));
       
       // Reset states
       setIsUploadDialogOpen(false);
@@ -1419,6 +1434,79 @@ export default function Payments() {
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  // Account dialog functions
+  const loadAccountEntries = (athleteId: string) => {
+    const entries = JSON.parse(localStorage.getItem(`account_${athleteId}`) || '[]');
+    setAccountEntries(entries);
+  };
+
+  const openAccountDialog = (athlete: any) => {
+    setSelectedAthlete(athlete);
+    loadAccountEntries(athlete.id);
+    setIsAccountDialogOpen(true);
+  };
+
+  const saveAccountEntry = () => {
+    if (!selectedAthlete || !newEntry.description || !newEntry.amountExcludingVat) {
+      return;
+    }
+
+    const amountExcluding = parseFloat(newEntry.amountExcludingVat);
+    const vatRate = parseFloat(newEntry.vatRate);
+    const vatAmount = (amountExcluding * vatRate) / 100;
+    const amountIncluding = amountExcluding + vatAmount;
+
+    const entry = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      month: newEntry.month,
+      description: newEntry.description,
+      amountExcludingVat: amountExcluding,
+      vatRate: vatRate,
+      vatAmount: vatAmount,
+      amountIncludingVat: amountIncluding,
+      unitCode: newEntry.unitCode,
+      type: newEntry.type
+    };
+
+    const updatedEntries = [...accountEntries, entry];
+    setAccountEntries(updatedEntries);
+    localStorage.setItem(`account_${selectedAthlete.id}`, JSON.stringify(updatedEntries));
+
+    // Reset form
+    setNewEntry({
+      month: new Date().toISOString().slice(0, 7),
+      description: '',
+      amountExcludingVat: '',
+      vatRate: '20',
+      amountIncludingVat: '',
+      unitCode: 'Ay',
+      type: 'debit'
+    });
+  };
+
+  const calculateVatAmount = (excludingVat: string, vatRate: string) => {
+    const excluding = parseFloat(excludingVat) || 0;
+    const rate = parseFloat(vatRate) || 0;
+    const vatAmount = (excluding * rate) / 100;
+    const including = excluding + vatAmount;
+    
+    setNewEntry(prev => ({
+      ...prev,
+      amountExcludingVat: excludingVat,
+      vatRate: vatRate,
+      amountIncludingVat: including.toFixed(2)
+    }));
+  };
+
+  const getTotalBalance = () => {
+    return accountEntries.reduce((total, entry) => {
+      return entry.type === 'debit' 
+        ? total + entry.amountIncludingVat 
+        : total - entry.amountIncludingVat;
+    }, 0);
   };
 
   return (
@@ -1734,8 +1822,13 @@ export default function Payments() {
                                     variant="ghost" 
                                     size="sm"
                                     onClick={() => {
-                                      // Navigate to athletes page and automatically open the athlete's current account
-                                      window.location.href = `/athletes?openAccount=${payment.athleteId}`;
+                                      // Find the athlete and open account dialog directly
+                                      const athlete = athletes.find(a => a.id.toString() === payment.athleteId.toString());
+                                      if (athlete) {
+                                        openAccountDialog(athlete);
+                                      } else {
+                                        toast.error("Sporcu bulunamadı");
+                                      }
                                     }}
                                     title="İzleme - Cari Hesap"
                                   >
@@ -2203,6 +2296,176 @@ export default function Payments() {
                     </div>
                   </div>
                 )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Account Dialog */}
+          <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5" />
+                  <span>Cari Hesap</span>
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedAthlete && `${selectedAthlete.studentName} ${selectedAthlete.studentSurname} - Cari Hesap Hareketleri`}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Balance Summary */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Toplam Bakiye</p>
+                        <p className={`text-2xl font-bold ${getTotalBalance() >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ₺{getTotalBalance().toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Toplam Hareket</p>
+                        <p className="text-lg font-medium">{accountEntries.length}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Add New Entry */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Yeni Hareket Ekle</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="month">Ay</Label>
+                        <Input
+                          id="month"
+                          type="month"
+                          value={newEntry.month}
+                          onChange={(e) => setNewEntry(prev => ({ ...prev, month: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="description">Açıklama</Label>
+                        <Input
+                          id="description"
+                          placeholder="Örn: Haziran Aidatı"
+                          value={newEntry.description}
+                          onChange={(e) => setNewEntry(prev => ({ ...prev, description: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="type">İşlem Türü</Label>
+                        <Select value={newEntry.type} onValueChange={(value) => setNewEntry(prev => ({ ...prev, type: value }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="debit">Borç</SelectItem>
+                            <SelectItem value="credit">Alacak</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="amountExcludingVat">Tutar (KDV Hariç)</Label>
+                        <Input
+                          id="amountExcludingVat"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={newEntry.amountExcludingVat}
+                          onChange={(e) => calculateVatAmount(e.target.value, newEntry.vatRate)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="vatRate">KDV Oranı (%)</Label>
+                        <Select value={newEntry.vatRate} onValueChange={(value) => calculateVatAmount(newEntry.amountExcludingVat, value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="amountIncludingVat">Toplam (KDV Dahil)</Label>
+                        <Input
+                          id="amountIncludingVat"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={newEntry.amountIncludingVat}
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <Button onClick={saveAccountEntry}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Hareket Ekle
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Account Entries Table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Cari Hesap Hareketleri</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {accountEntries.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tarih</TableHead>
+                            <TableHead>Ay</TableHead>
+                            <TableHead>Açıklama</TableHead>
+                            <TableHead>Tür</TableHead>
+                            <TableHead>Tutar (KDV Hariç)</TableHead>
+                            <TableHead>KDV</TableHead>
+                            <TableHead>Toplam</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {accountEntries.map((entry) => (
+                            <TableRow key={entry.id}>
+                              <TableCell>{new Date(entry.date).toLocaleDateString('tr-TR')}</TableCell>
+                              <TableCell>{new Date(entry.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</TableCell>
+                              <TableCell>{entry.description}</TableCell>
+                              <TableCell>
+                                <Badge variant={entry.type === 'debit' ? 'destructive' : 'default'}>
+                                  {entry.type === 'debit' ? 'Borç' : 'Alacak'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>₺{entry.amountExcludingVat.toFixed(2)}</TableCell>
+                              <TableCell>₺{entry.vatAmount.toFixed(2)} (%{entry.vatRate})</TableCell>
+                              <TableCell className={entry.type === 'debit' ? 'text-red-600' : 'text-green-600'}>
+                                {entry.type === 'debit' ? '+' : '-'}₺{entry.amountIncludingVat.toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Henüz cari hesap hareketi bulunmuyor</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setIsAccountDialogOpen(false)}>
+                  Kapat
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
