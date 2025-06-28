@@ -223,7 +223,6 @@ export default function ParentDashboard() {
 
     return upcomingTrainings.length > 0 ? upcomingTrainings[0] : null;
   };
-=======
 
   const getWeeklyTrainingCount = () => {
     return getAthleteTrainings().length;
