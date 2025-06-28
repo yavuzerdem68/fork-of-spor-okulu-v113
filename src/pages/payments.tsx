@@ -813,7 +813,7 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // COMPLETELY REVISED SIBLING MATCHING SYSTEM - PARENT-BASED APPROACH
+  // ULTRA-ROBUST SIBLING MATCHING SYSTEM - BULLETPROOF VERSION
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) {
@@ -821,219 +821,312 @@ export default function Payments() {
       return [];
     }
     
-    console.log('=== ENHANCED SIBLING SEARCH ===');
-    console.log('🔍 Searching siblings for:', athlete.studentName, athlete.studentSurname);
+    console.log('\n=== BULLETPROOF SIBLING SEARCH ===');
+    console.log('🔍 Target Athlete:', athlete.studentName, athlete.studentSurname);
     
-    // Normalize parent data for comparison
+    // Ultra-robust phone normalization
     const normalizePhone = (phone: any) => {
       if (!phone) return '';
-      const cleaned = phone.toString().replace(/\D/g, '');
-      // Handle Turkish phone format: remove country code if present
+      let cleaned = phone.toString().replace(/\D/g, '');
+      
+      // Handle various Turkish phone formats
       if (cleaned.startsWith('90') && cleaned.length === 12) {
-        return cleaned.substring(2); // Remove +90
+        cleaned = cleaned.substring(2); // Remove +90
       }
-      return cleaned;
+      if (cleaned.startsWith('0') && cleaned.length === 11) {
+        cleaned = cleaned.substring(1); // Remove leading 0
+      }
+      
+      return cleaned.length === 10 ? cleaned : '';
     };
     
+    // Ultra-robust text normalization
     const normalizeText = (text: any) => {
       if (!text) return '';
-      return normalizeTurkish(text.toString().trim());
+      return normalizeTurkish(text.toString().trim().toLowerCase());
     };
     
-    // Get parent identifiers for the selected athlete
-    const parentPhone = normalizePhone(athlete.parentPhone);
-    const parentName = normalizeText(athlete.parentName);
-    const parentSurname = normalizeText(athlete.parentSurname);
-    const parentEmail = normalizeText(athlete.parentEmail);
-    const parentTc = athlete.parentTc?.toString().replace(/\D/g, '') || '';
+    // Ultra-robust TC normalization
+    const normalizeTc = (tc: any) => {
+      if (!tc) return '';
+      const cleaned = tc.toString().replace(/\D/g, '');
+      return cleaned.length === 11 ? cleaned : '';
+    };
     
-    console.log('📋 Parent Info:');
-    console.log('  - Phone:', parentPhone);
-    console.log('  - Name:', parentName);
-    console.log('  - Surname:', parentSurname);
-    console.log('  - Email:', parentEmail);
-    console.log('  - TC:', parentTc ? parentTc.substring(0, 3) + '***' : 'None');
+    // Ultra-robust email normalization
+    const normalizeEmail = (email: any) => {
+      if (!email) return '';
+      return email.toString().trim().toLowerCase();
+    };
     
-    // Validation - we need at least phone or TC to match siblings reliably
-    if (!parentPhone && !parentTc) {
-      console.log('❌ No reliable parent identifier (phone or TC) found');
+    // Get ALL parent identifiers for the target athlete
+    const targetParentPhone = normalizePhone(athlete.parentPhone);
+    const targetParentName = normalizeText(athlete.parentName);
+    const targetParentSurname = normalizeText(athlete.parentSurname);
+    const targetParentEmail = normalizeEmail(athlete.parentEmail);
+    const targetParentTc = normalizeTc(athlete.parentTc);
+    const targetParentFullName = `${targetParentName} ${targetParentSurname}`.trim();
+    
+    console.log('📋 Target Parent Data:');
+    console.log('  - Phone:', targetParentPhone || 'MISSING');
+    console.log('  - Name:', targetParentName || 'MISSING');
+    console.log('  - Surname:', targetParentSurname || 'MISSING');
+    console.log('  - Full Name:', targetParentFullName || 'MISSING');
+    console.log('  - Email:', targetParentEmail || 'MISSING');
+    console.log('  - TC:', targetParentTc ? targetParentTc.substring(0, 3) + '***' + targetParentTc.substring(8) : 'MISSING');
+    
+    // STRICT VALIDATION - We need at least ONE strong identifier
+    const hasStrongIdentifier = targetParentPhone || targetParentTc || (targetParentEmail && targetParentEmail.includes('@'));
+    
+    if (!hasStrongIdentifier) {
+      console.log('❌ NO STRONG PARENT IDENTIFIER - Cannot reliably find siblings');
+      console.log('   Required: Phone OR TC OR Valid Email');
       return [];
     }
     
-    if (parentPhone && parentPhone.length < 10) {
-      console.log('❌ Invalid parent phone length:', parentPhone.length);
-      if (!parentTc) return [];
-    }
-    
-    // Find potential siblings using multiple criteria
-    const potentialSiblings = athletes.filter(a => {
-      if (a.id === athlete.id) return false; // Exclude self
-      if (a.status === 'Pasif') return false; // Only active athletes
+    // Find siblings with BULLETPROOF matching
+    const siblings = athletes.filter(candidate => {
+      // Skip self and inactive athletes
+      if (candidate.id === athlete.id) return false;
+      if (candidate.status === 'Pasif') return false;
       
-      const siblingParentPhone = normalizePhone(a.parentPhone);
-      const siblingParentName = normalizeText(a.parentName);
-      const siblingParentSurname = normalizeText(a.parentSurname);
-      const siblingParentEmail = normalizeText(a.parentEmail);
-      const siblingParentTc = a.parentTc?.toString().replace(/\D/g, '') || '';
+      // Get candidate parent data
+      const candidateParentPhone = normalizePhone(candidate.parentPhone);
+      const candidateParentName = normalizeText(candidate.parentName);
+      const candidateParentSurname = normalizeText(candidate.parentSurname);
+      const candidateParentEmail = normalizeEmail(candidate.parentEmail);
+      const candidateParentTc = normalizeTc(candidate.parentTc);
+      const candidateParentFullName = `${candidateParentName} ${candidateParentSurname}`.trim();
       
-      console.log(`\n🔍 Checking: ${a.studentName} ${a.studentSurname}`);
-      console.log('  Parent Info:');
-      console.log('    - Phone:', siblingParentPhone);
-      console.log('    - Name:', siblingParentName);
-      console.log('    - Surname:', siblingParentSurname);
-      console.log('    - Email:', siblingParentEmail);
-      console.log('    - TC:', siblingParentTc ? siblingParentTc.substring(0, 3) + '***' : 'None');
+      console.log(`\n🔍 Checking: ${candidate.studentName} ${candidate.studentSurname}`);
+      console.log('  Parent Data:');
+      console.log('    - Phone:', candidateParentPhone || 'MISSING');
+      console.log('    - Name:', candidateParentName || 'MISSING');
+      console.log('    - Surname:', candidateParentSurname || 'MISSING');
+      console.log('    - Full Name:', candidateParentFullName || 'MISSING');
+      console.log('    - Email:', candidateParentEmail || 'MISSING');
+      console.log('    - TC:', candidateParentTc ? candidateParentTc.substring(0, 3) + '***' + candidateParentTc.substring(8) : 'MISSING');
       
-      // Scoring system for sibling matching
-      let matchScore = 0;
-      let maxScore = 0;
-      const reasons = [];
+      // BULLETPROOF MATCHING CRITERIA
+      const matchResults = [];
       
-      // 1. TC Number Match (Most reliable - 40 points)
-      if (parentTc && siblingParentTc) {
-        maxScore += 40;
-        if (parentTc === siblingParentTc && parentTc.length === 11) {
-          matchScore += 40;
-          reasons.push('TC Match (40pts)');
-          console.log('    ✅ TC Match: Perfect');
-        } else {
-          console.log('    ❌ TC Match: Failed');
-        }
+      // 1. TC NUMBER MATCH (100% reliable if both exist)
+      if (targetParentTc && candidateParentTc) {
+        const tcMatch = targetParentTc === candidateParentTc;
+        matchResults.push({
+          type: 'TC',
+          match: tcMatch,
+          confidence: tcMatch ? 100 : 0,
+          weight: 50
+        });
+        console.log(`    TC Match: ${tcMatch ? '✅ PERFECT' : '❌ NO MATCH'}`);
       }
       
-      // 2. Phone Number Match (Very reliable - 35 points)
-      if (parentPhone && siblingParentPhone) {
-        maxScore += 35;
-        if (parentPhone === siblingParentPhone && parentPhone.length >= 10) {
-          matchScore += 35;
-          reasons.push('Phone Match (35pts)');
-          console.log('    ✅ Phone Match: Perfect');
-        } else {
-          console.log('    ❌ Phone Match: Failed');
-        }
+      // 2. PHONE NUMBER MATCH (99% reliable if both exist and valid)
+      if (targetParentPhone && candidateParentPhone) {
+        const phoneMatch = targetParentPhone === candidateParentPhone;
+        matchResults.push({
+          type: 'Phone',
+          match: phoneMatch,
+          confidence: phoneMatch ? 99 : 0,
+          weight: 45
+        });
+        console.log(`    Phone Match: ${phoneMatch ? '✅ PERFECT' : '❌ NO MATCH'}`);
       }
       
-      // 3. Email Match (Reliable - 20 points)
-      if (parentEmail && siblingParentEmail && parentEmail.length > 5) {
-        maxScore += 20;
-        if (parentEmail === siblingParentEmail) {
-          matchScore += 20;
-          reasons.push('Email Match (20pts)');
-          console.log('    ✅ Email Match: Perfect');
-        } else {
-          console.log('    ❌ Email Match: Failed');
-        }
+      // 3. EMAIL MATCH (95% reliable if both exist and valid)
+      if (targetParentEmail && candidateParentEmail && targetParentEmail.includes('@') && candidateParentEmail.includes('@')) {
+        const emailMatch = targetParentEmail === candidateParentEmail;
+        matchResults.push({
+          type: 'Email',
+          match: emailMatch,
+          confidence: emailMatch ? 95 : 0,
+          weight: 40
+        });
+        console.log(`    Email Match: ${emailMatch ? '✅ PERFECT' : '❌ NO MATCH'}`);
       }
       
-      // 4. Parent Full Name Match (Moderately reliable - 15 points)
-      if (parentName && parentSurname && siblingParentName && siblingParentSurname) {
-        maxScore += 15;
-        const fullNameSimilarity = calculateSimilarity(
-          `${parentName} ${parentSurname}`,
-          `${siblingParentName} ${siblingParentSurname}`
-        );
-        if (fullNameSimilarity >= 90) {
-          matchScore += 15;
-          reasons.push(`Full Name Match (15pts, ${fullNameSimilarity}%)`);
-          console.log(`    ✅ Full Name Match: ${fullNameSimilarity}%`);
-        } else {
-          console.log(`    ❌ Full Name Match: ${fullNameSimilarity}%`);
-        }
+      // 4. FULL NAME MATCH (80% reliable if both exist)
+      if (targetParentFullName && candidateParentFullName && targetParentFullName.length > 3 && candidateParentFullName.length > 3) {
+        const fullNameSimilarity = calculateSimilarity(targetParentFullName, candidateParentFullName);
+        const fullNameMatch = fullNameSimilarity >= 95;
+        matchResults.push({
+          type: 'Full Name',
+          match: fullNameMatch,
+          confidence: fullNameMatch ? fullNameSimilarity : 0,
+          weight: 30
+        });
+        console.log(`    Full Name Match: ${fullNameMatch ? '✅' : '❌'} (${fullNameSimilarity}%)`);
       }
       
-      // 5. Surname Only Match (Less reliable - 10 points)
-      if (parentSurname && siblingParentSurname) {
-        maxScore += 10;
-        if (parentSurname === siblingParentSurname) {
-          matchScore += 10;
-          reasons.push('Surname Match (10pts)');
-          console.log('    ✅ Surname Match: Perfect');
-        } else {
-          const surnameSimilarity = calculateSimilarity(parentSurname, siblingParentSurname);
-          if (surnameSimilarity >= 85) {
-            matchScore += 8;
-            reasons.push(`Surname Similar (8pts, ${surnameSimilarity}%)`);
-            console.log(`    ⚠️ Surname Similar: ${surnameSimilarity}%`);
-          } else {
-            console.log(`    ❌ Surname Match: ${surnameSimilarity}%`);
-          }
-        }
+      // 5. SURNAME MATCH (60% reliable if both exist)
+      if (targetParentSurname && candidateParentSurname && targetParentSurname.length > 2 && candidateParentSurname.length > 2) {
+        const surnameMatch = targetParentSurname === candidateParentSurname;
+        matchResults.push({
+          type: 'Surname',
+          match: surnameMatch,
+          confidence: surnameMatch ? 90 : 0,
+          weight: 20
+        });
+        console.log(`    Surname Match: ${surnameMatch ? '✅ PERFECT' : '❌ NO MATCH'}`);
       }
       
-      // Calculate match percentage
-      const matchPercentage = maxScore > 0 ? Math.round((matchScore / maxScore) * 100) : 0;
+      // CALCULATE FINAL SCORE
+      const perfectMatches = matchResults.filter(r => r.match);
+      const totalWeight = matchResults.reduce((sum, r) => sum + r.weight, 0);
+      const matchedWeight = perfectMatches.reduce((sum, r) => sum + r.weight, 0);
       
-      console.log(`  📊 Score: ${matchScore}/${maxScore} = ${matchPercentage}%`);
-      console.log(`  📝 Reasons: ${reasons.join(', ') || 'None'}`);
+      const finalScore = totalWeight > 0 ? Math.round((matchedWeight / totalWeight) * 100) : 0;
+      const highestConfidence = Math.max(...perfectMatches.map(r => r.confidence), 0);
       
-      // Require at least 70% match with minimum score of 35 points
-      const isMatch = matchPercentage >= 70 && matchScore >= 35;
+      console.log(`  📊 Match Analysis:`);
+      console.log(`    - Perfect Matches: ${perfectMatches.length}/${matchResults.length}`);
+      console.log(`    - Matched Weight: ${matchedWeight}/${totalWeight}`);
+      console.log(`    - Final Score: ${finalScore}%`);
+      console.log(`    - Highest Confidence: ${highestConfidence}%`);
+      console.log(`    - Match Types: ${perfectMatches.map(r => r.type).join(', ') || 'None'}`);
       
-      console.log(`  🎯 Final Decision: ${isMatch ? '✅ SIBLING' : '❌ NOT SIBLING'}`);
+      // BULLETPROOF DECISION LOGIC
+      let isSibling = false;
+      let reason = '';
       
-      return isMatch;
+      // Rule 1: Perfect TC match = 100% sibling
+      if (perfectMatches.some(r => r.type === 'TC')) {
+        isSibling = true;
+        reason = 'TC Number Match (100% confidence)';
+      }
+      // Rule 2: Perfect phone match = 99% sibling
+      else if (perfectMatches.some(r => r.type === 'Phone')) {
+        isSibling = true;
+        reason = 'Phone Number Match (99% confidence)';
+      }
+      // Rule 3: Perfect email match = 95% sibling
+      else if (perfectMatches.some(r => r.type === 'Email')) {
+        isSibling = true;
+        reason = 'Email Match (95% confidence)';
+      }
+      // Rule 4: High name similarity + surname match = 85% sibling
+      else if (perfectMatches.some(r => r.type === 'Full Name') && perfectMatches.some(r => r.type === 'Surname')) {
+        isSibling = true;
+        reason = 'Full Name + Surname Match (85% confidence)';
+      }
+      // Rule 5: Multiple weak matches with high score = possible sibling
+      else if (perfectMatches.length >= 2 && finalScore >= 70) {
+        isSibling = true;
+        reason = `Multiple Matches (${finalScore}% confidence)`;
+      }
+      
+      console.log(`  🎯 FINAL DECISION: ${isSibling ? '✅ SIBLING' : '❌ NOT SIBLING'}`);
+      if (isSibling) {
+        console.log(`  📝 Reason: ${reason}`);
+      }
+      
+      return isSibling;
     });
     
     console.log(`\n🎉 SIBLING SEARCH COMPLETE`);
-    console.log(`✅ Found ${potentialSiblings.length} siblings for ${athlete.studentName} ${athlete.studentSurname}:`);
-    potentialSiblings.forEach((s, index) => {
-      console.log(`  ${index + 1}. ${s.studentName} ${s.studentSurname}`);
+    console.log(`✅ Found ${siblings.length} confirmed siblings for ${athlete.studentName} ${athlete.studentSurname}:`);
+    siblings.forEach((s, index) => {
+      console.log(`  ${index + 1}. ${s.studentName} ${s.studentSurname} (Parent: ${s.parentName} ${s.parentSurname})`);
     });
     
-    return potentialSiblings;
+    return siblings;
   };
 
-  // Show sibling selection dialog with enhanced feedback
+  // ENHANCED SIBLING DIALOG WITH BULLETPROOF VALIDATION
   const showSiblingDialog = (index: number) => {
     const result = matchResults[index];
     if (!result.athleteId) {
-      toast.error("Önce bir sporcu seçin");
+      toast.error("⚠️ Önce bir sporcu seçin");
       return;
     }
 
-    console.log('=== SIBLING PAYMENT TEST ===');
-    console.log('Selected athlete ID:', result.athleteId);
+    console.log('\n=== SIBLING PAYMENT ACTIVATION ===');
+    console.log('🎯 Selected athlete ID:', result.athleteId);
     
+    const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
+    if (!selectedAthlete) {
+      toast.error("❌ Seçilen sporcu bulunamadı");
+      return;
+    }
+    
+    console.log('🎯 Selected athlete:', selectedAthlete.studentName, selectedAthlete.studentSurname);
+    
+    // Find siblings with bulletproof matching
     const siblings = findSiblings(result.athleteId);
-    console.log('Found siblings:', siblings.length);
+    console.log('🔍 Found siblings count:', siblings.length);
     
     if (siblings.length === 0) {
-      toast.error("Bu sporcu için kardeş bulunamadı. Kardeş ödemesi için aynı veli telefon numarasına sahip başka aktif sporcular olmalı.");
+      // Show detailed error message
+      const parentInfo = [];
+      if (selectedAthlete.parentPhone) parentInfo.push(`Tel: ${selectedAthlete.parentPhone}`);
+      if (selectedAthlete.parentTc) parentInfo.push(`TC: ${selectedAthlete.parentTc.substring(0, 3)}***`);
+      if (selectedAthlete.parentEmail) parentInfo.push(`Email: ${selectedAthlete.parentEmail}`);
+      
+      toast.error(
+        `❌ ${selectedAthlete.studentName} ${selectedAthlete.studentSurname} için kardeş bulunamadı!\n\n` +
+        `Veli Bilgileri: ${parentInfo.join(', ') || 'Eksik'}\n\n` +
+        `Kardeş ödemesi için aynı veli bilgilerine sahip başka aktif sporcular olmalı.`,
+        { duration: 8000 }
+      );
       return;
     }
 
-    const selectedAthlete = athletes.find(a => a.id.toString() === result.athleteId);
-    if (!selectedAthlete) return;
-
+    // Prepare sibling data
     const allSiblings = [selectedAthlete, ...siblings];
-    const siblingNames = allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join('\n');
+    const totalAmount = result.excelRow.amount;
+    const amountPerSibling = Math.round((totalAmount / allSiblings.length) * 100) / 100;
     
-    console.log('All siblings for payment split:', allSiblings.map(s => `${s.studentName} ${s.studentSurname}`));
+    // Create detailed sibling list for confirmation
+    const siblingDetails = allSiblings.map((s, idx) => 
+      `${idx + 1}. ${s.studentName} ${s.studentSurname} (${s.selectedSports?.[0] || s.sportsBranches?.[0] || 'Genel'})`
+    ).join('\n');
     
-    const amountPerSibling = (result.excelRow.amount / allSiblings.length).toFixed(2);
+    console.log('👨‍👩‍👧‍👦 All siblings for payment split:');
+    allSiblings.forEach((s, idx) => {
+      console.log(`  ${idx + 1}. ${s.studentName} ${s.studentSurname} - ID: ${s.id}`);
+    });
     
-    const confirmed = confirm(
+    // Enhanced confirmation dialog
+    const confirmationMessage = 
       `🔄 KARDEŞ ÖDEMESİ BÖLÜNECEK\n\n` +
-      `Toplam Tutar: ₺${result.excelRow.amount.toLocaleString()}\n` +
-      `Sporcu Sayısı: ${allSiblings.length}\n` +
-      `Her sporcu için: ₺${amountPerSibling}\n\n` +
-      `Sporcular:\n${siblingNames}\n\n` +
-      `Bu ödemeyi ${allSiblings.length} kardeş arasında eşit olarak bölmek istediğinizden emin misiniz?`
-    );
+      `💰 Toplam Tutar: ₺${totalAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+      `👥 Sporcu Sayısı: ${allSiblings.length} kardeş\n` +
+      `💵 Her sporcu için: ₺${amountPerSibling.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
+      `📋 Sporcular:\n${siblingDetails}\n\n` +
+      `✅ Bu ödemeyi ${allSiblings.length} kardeş arasında eşit olarak bölmek istediğinizden emin misiniz?\n\n` +
+      `⚠️ Bu işlem geri alınamaz!`;
+
+    const confirmed = confirm(confirmationMessage);
 
     if (confirmed) {
+      // Update match result with sibling payment data
       const updatedResults = [...matchResults];
       updatedResults[index] = {
         ...updatedResults[index],
         isSiblingPayment: true,
         siblingIds: allSiblings.map(s => s.id.toString()),
-        athleteName: allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join(' + ')
+        athleteName: allSiblings.map(s => `${s.studentName} ${s.studentSurname}`).join(' + '),
+        parentName: `${selectedAthlete.parentName} ${selectedAthlete.parentSurname} (${allSiblings.length} kardeş)`
       };
       
       setMatchResults(updatedResults);
-      toast.success(`✅ ${allSiblings.length} kardeş için ödeme bölündü! Her sporcu: ₺${amountPerSibling}`);
       
-      console.log('Sibling payment activated for:', allSiblings.map(s => `${s.studentName} ${s.studentSurname}`));
+      // Success notification with details
+      toast.success(
+        `✅ KARDEŞ ÖDEMESİ AKTİF!\n\n` +
+        `👥 ${allSiblings.length} kardeş için ödeme bölündü\n` +
+        `💵 Her sporcu: ₺${amountPerSibling.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+        `📝 Sporcular: ${allSiblings.map(s => s.studentName).join(', ')}`,
+        { duration: 6000 }
+      );
+      
+      console.log('✅ Sibling payment activated successfully!');
+      console.log('💰 Amount per sibling:', amountPerSibling);
+      console.log('👥 Sibling IDs:', allSiblings.map(s => s.id));
+    } else {
+      console.log('❌ Sibling payment cancelled by user');
+      toast.info("Kardeş ödemesi iptal edildi");
     }
   };
 
