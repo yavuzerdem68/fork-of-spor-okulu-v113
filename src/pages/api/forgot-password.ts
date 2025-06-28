@@ -3,18 +3,20 @@ import nodemailer from 'nodemailer';
 import { hashPassword } from '@/utils/security';
 import { sanitizeInput } from '@/utils/security';
 
-// This would normally come from environment variables
-// For now, we'll use a mock email service
+// Create email transporter with proper configuration
 const createTransporter = () => {
-  // In production, you would use real SMTP settings
-  // For development/demo, we'll create a test account
+  // Check if we have email configuration
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('Email configuration missing. Please set EMAIL_USER and EMAIL_PASS environment variables.');
+    return null;
+  }
+
+  // Use Gmail SMTP configuration
   return nodemailer.createTransporter({
-    host: 'smtp.ethereal.email', // Test SMTP server
-    port: 587,
-    secure: false,
+    service: 'gmail',
     auth: {
-      user: process.env.EMAIL_USER || 'test@example.com',
-      pass: process.env.EMAIL_PASS || 'testpassword'
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
     }
   });
 };
@@ -57,9 +59,13 @@ export default async function handler(
     // Create email transporter
     const transporter = createTransporter();
 
+    if (!transporter) {
+      throw new Error('Email yapılandırması eksik. Lütfen sistem yöneticisi ile iletişime geçin.');
+    }
+
     // Email template
     const mailOptions = {
-      from: process.env.EMAIL_FROM || 'noreply@sportscrm.com',
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: sanitizedEmail,
       subject: 'SportsCRM - Şifre Sıfırlama',
       html: `
