@@ -273,7 +273,7 @@ export default function GitHubTestPage() {
             <AlertTriangle className="w-5 h-5" />
             <span>Nasıl Çalışır?</span>
           </CardTitle>
-        </CardContent>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="text-sm space-y-2">
             <p><strong>1. GitHub Token:</strong> GitHub Personal Access Token'ınızın doğru ayarlandığından emin olun.</p>
