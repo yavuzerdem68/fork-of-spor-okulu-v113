@@ -813,58 +813,174 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // IMPROVED SIBLING MATCHING SYSTEM - SIMPLIFIED AND MORE ACCURATE
+  // COMPLETELY REVISED SIBLING MATCHING SYSTEM - PARENT-BASED APPROACH
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) {
-      console.log('Athlete not found for ID:', athleteId);
+      console.log('❌ Athlete not found for ID:', athleteId);
       return [];
     }
     
-    // Primary matching criteria - phone number is the most reliable
-    const parentPhone = athlete.parentPhone?.toString().replace(/\D/g, '') || '';
-    const parentSurname = (athlete.parentSurname || '').trim().toLowerCase();
+    console.log('=== ENHANCED SIBLING SEARCH ===');
+    console.log('🔍 Searching siblings for:', athlete.studentName, athlete.studentSurname);
     
-    console.log('=== SIBLING SEARCH ===');
-    console.log('Searching siblings for:', athlete.studentName, athlete.studentSurname);
-    console.log('Parent phone:', parentPhone);
-    console.log('Parent surname:', parentSurname);
+    // Normalize parent data for comparison
+    const normalizePhone = (phone: any) => {
+      if (!phone) return '';
+      const cleaned = phone.toString().replace(/\D/g, '');
+      // Handle Turkish phone format: remove country code if present
+      if (cleaned.startsWith('90') && cleaned.length === 12) {
+        return cleaned.substring(2); // Remove +90
+      }
+      return cleaned;
+    };
     
-    if (!parentPhone || parentPhone.length < 10) {
-      console.log('❌ Invalid parent phone for sibling matching:', parentPhone);
+    const normalizeText = (text: any) => {
+      if (!text) return '';
+      return normalizeTurkish(text.toString().trim());
+    };
+    
+    // Get parent identifiers for the selected athlete
+    const parentPhone = normalizePhone(athlete.parentPhone);
+    const parentName = normalizeText(athlete.parentName);
+    const parentSurname = normalizeText(athlete.parentSurname);
+    const parentEmail = normalizeText(athlete.parentEmail);
+    const parentTc = athlete.parentTc?.toString().replace(/\D/g, '') || '';
+    
+    console.log('📋 Parent Info:');
+    console.log('  - Phone:', parentPhone);
+    console.log('  - Name:', parentName);
+    console.log('  - Surname:', parentSurname);
+    console.log('  - Email:', parentEmail);
+    console.log('  - TC:', parentTc ? parentTc.substring(0, 3) + '***' : 'None');
+    
+    // Validation - we need at least phone or TC to match siblings reliably
+    if (!parentPhone && !parentTc) {
+      console.log('❌ No reliable parent identifier (phone or TC) found');
       return [];
     }
     
-    // Find all athletes with matching parent phone
-    const siblings = athletes.filter(a => {
+    if (parentPhone && parentPhone.length < 10) {
+      console.log('❌ Invalid parent phone length:', parentPhone.length);
+      if (!parentTc) return [];
+    }
+    
+    // Find potential siblings using multiple criteria
+    const potentialSiblings = athletes.filter(a => {
       if (a.id === athlete.id) return false; // Exclude self
-      if (a.status !== 'Aktif' && a.status) return false; // Only active athletes
+      if (a.status === 'Pasif') return false; // Only active athletes
       
-      const siblingParentPhone = a.parentPhone?.toString().replace(/\D/g, '') || '';
-      const siblingParentSurname = (a.parentSurname || '').trim().toLowerCase();
+      const siblingParentPhone = normalizePhone(a.parentPhone);
+      const siblingParentName = normalizeText(a.parentName);
+      const siblingParentSurname = normalizeText(a.parentSurname);
+      const siblingParentEmail = normalizeText(a.parentEmail);
+      const siblingParentTc = a.parentTc?.toString().replace(/\D/g, '') || '';
       
-      // Primary criteria: Phone number must match exactly
-      const phoneMatch = siblingParentPhone === parentPhone && siblingParentPhone.length >= 10;
+      console.log(`\n🔍 Checking: ${a.studentName} ${a.studentSurname}`);
+      console.log('  Parent Info:');
+      console.log('    - Phone:', siblingParentPhone);
+      console.log('    - Name:', siblingParentName);
+      console.log('    - Surname:', siblingParentSurname);
+      console.log('    - Email:', siblingParentEmail);
+      console.log('    - TC:', siblingParentTc ? siblingParentTc.substring(0, 3) + '***' : 'None');
       
-      // Secondary criteria: Parent surname should be similar (more flexible)
-      const surnameMatch = !parentSurname || !siblingParentSurname || 
-                          parentSurname === siblingParentSurname ||
-                          calculateSimilarity(parentSurname, siblingParentSurname) >= 70;
+      // Scoring system for sibling matching
+      let matchScore = 0;
+      let maxScore = 0;
+      const reasons = [];
       
-      const isMatch = phoneMatch && surnameMatch;
+      // 1. TC Number Match (Most reliable - 40 points)
+      if (parentTc && siblingParentTc) {
+        maxScore += 40;
+        if (parentTc === siblingParentTc && parentTc.length === 11) {
+          matchScore += 40;
+          reasons.push('TC Match (40pts)');
+          console.log('    ✅ TC Match: Perfect');
+        } else {
+          console.log('    ❌ TC Match: Failed');
+        }
+      }
       
-      console.log(`Checking ${a.studentName} ${a.studentSurname}:`);
-      console.log(`  - Phone: ${siblingParentPhone} vs ${parentPhone} = ${phoneMatch}`);
-      console.log(`  - Surname: ${siblingParentSurname} vs ${parentSurname} = ${surnameMatch}`);
-      console.log(`  - Final match: ${isMatch}`);
+      // 2. Phone Number Match (Very reliable - 35 points)
+      if (parentPhone && siblingParentPhone) {
+        maxScore += 35;
+        if (parentPhone === siblingParentPhone && parentPhone.length >= 10) {
+          matchScore += 35;
+          reasons.push('Phone Match (35pts)');
+          console.log('    ✅ Phone Match: Perfect');
+        } else {
+          console.log('    ❌ Phone Match: Failed');
+        }
+      }
+      
+      // 3. Email Match (Reliable - 20 points)
+      if (parentEmail && siblingParentEmail && parentEmail.length > 5) {
+        maxScore += 20;
+        if (parentEmail === siblingParentEmail) {
+          matchScore += 20;
+          reasons.push('Email Match (20pts)');
+          console.log('    ✅ Email Match: Perfect');
+        } else {
+          console.log('    ❌ Email Match: Failed');
+        }
+      }
+      
+      // 4. Parent Full Name Match (Moderately reliable - 15 points)
+      if (parentName && parentSurname && siblingParentName && siblingParentSurname) {
+        maxScore += 15;
+        const fullNameSimilarity = calculateSimilarity(
+          `${parentName} ${parentSurname}`,
+          `${siblingParentName} ${siblingParentSurname}`
+        );
+        if (fullNameSimilarity >= 90) {
+          matchScore += 15;
+          reasons.push(`Full Name Match (15pts, ${fullNameSimilarity}%)`);
+          console.log(`    ✅ Full Name Match: ${fullNameSimilarity}%`);
+        } else {
+          console.log(`    ❌ Full Name Match: ${fullNameSimilarity}%`);
+        }
+      }
+      
+      // 5. Surname Only Match (Less reliable - 10 points)
+      if (parentSurname && siblingParentSurname) {
+        maxScore += 10;
+        if (parentSurname === siblingParentSurname) {
+          matchScore += 10;
+          reasons.push('Surname Match (10pts)');
+          console.log('    ✅ Surname Match: Perfect');
+        } else {
+          const surnameSimilarity = calculateSimilarity(parentSurname, siblingParentSurname);
+          if (surnameSimilarity >= 85) {
+            matchScore += 8;
+            reasons.push(`Surname Similar (8pts, ${surnameSimilarity}%)`);
+            console.log(`    ⚠️ Surname Similar: ${surnameSimilarity}%`);
+          } else {
+            console.log(`    ❌ Surname Match: ${surnameSimilarity}%`);
+          }
+        }
+      }
+      
+      // Calculate match percentage
+      const matchPercentage = maxScore > 0 ? Math.round((matchScore / maxScore) * 100) : 0;
+      
+      console.log(`  📊 Score: ${matchScore}/${maxScore} = ${matchPercentage}%`);
+      console.log(`  📝 Reasons: ${reasons.join(', ') || 'None'}`);
+      
+      // Require at least 70% match with minimum score of 35 points
+      const isMatch = matchPercentage >= 70 && matchScore >= 35;
+      
+      console.log(`  🎯 Final Decision: ${isMatch ? '✅ SIBLING' : '❌ NOT SIBLING'}`);
       
       return isMatch;
     });
     
-    console.log(`✅ Found ${siblings.length} siblings for ${athlete.studentName} ${athlete.studentSurname}`);
-    siblings.forEach(s => console.log(`  - ${s.studentName} ${s.studentSurname}`));
+    console.log(`\n🎉 SIBLING SEARCH COMPLETE`);
+    console.log(`✅ Found ${potentialSiblings.length} siblings for ${athlete.studentName} ${athlete.studentSurname}:`);
+    potentialSiblings.forEach((s, index) => {
+      console.log(`  ${index + 1}. ${s.studentName} ${s.studentSurname}`);
+    });
     
-    return siblings;
+    return potentialSiblings;
   };
 
   // Show sibling selection dialog with enhanced feedback
