@@ -165,6 +165,11 @@ export class StorageManager {
 
   private getWordPressSettings() {
     try {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        return null;
+      }
+      
       const settings = localStorage.getItem('wordpress-settings');
       return settings ? JSON.parse(settings) : null;
     } catch (error) {
