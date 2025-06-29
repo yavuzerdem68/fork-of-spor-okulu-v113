@@ -1,0 +1,29 @@
+{
+  "timestamp": "2025-06-29T12:28:55.150Z",
+  "dataType": "athletes",
+  "source": "SportsCRM Web Application",
+  "data": {
+    "id": "diagnostic-1751200135365",
+    "studentName": "Diagnostic",
+    "studentSurname": "Test Sporcusu",
+    "studentTcNo": "12345678901",
+    "studentBirthDate": "2010-01-01",
+    "studentAge": "14",
+    "studentGender": "erkek",
+    "sportsBranches": [
+      "Basketbol"
+    ],
+    "parentName": "Test",
+    "parentSurname": "Veli",
+    "parentTcNo": "98765432109",
+    "parentPhone": "+90555123456",
+    "parentEmail": "test@example.com",
+    "address": "Test Adresi",
+    "city": "İstanbul",
+    "district": "Test İlçe",
+    "status": "Aktif",
+    "registrationDate": "2025-06-29T12:28:55.365Z",
+    "createdAt": "2025-06-29T12:28:55.365Z",
+    "source": "Diagnostic Tool"
+  }
+}
