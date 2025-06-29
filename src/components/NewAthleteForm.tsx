@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput, sanitizeHtml } from "@/utils/security";
 import { saveAthleteData } from "@/lib/github-storage";
+import { storageManager } from "@/lib/storage-adapter";
 
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
@@ -345,33 +346,51 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
         updatedAt: new Date().toISOString()
       };
 
-      const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
       let finalStudentData;
 
       if (athlete) {
         // Update existing athlete
         finalStudentData = { ...athlete, ...studentData };
-        const updatedStudents = existingStudents.map((student: any) => 
-          student.id === athlete.id 
-            ? finalStudentData
-            : student
-        );
-        localStorage.setItem('students', JSON.stringify(updatedStudents));
         
-        // Save to GitHub
         try {
-          const githubResult = await saveAthleteData(finalStudentData, `athlete-update-${athlete.id}-${Date.now()}.json`);
-          if (githubResult.success) {
-            console.log('Athlete data saved to GitHub:', githubResult.githubUrl);
+          // Try WordPress storage first
+          await storageManager.updateAthlete(athlete.id, finalStudentData);
+          
+          // Update localStorage as backup
+          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+          const updatedStudents = existingStudents.map((student: any) => 
+            student.id === athlete.id ? finalStudentData : student
+          );
+          localStorage.setItem('students', JSON.stringify(updatedStudents));
+          
+          const adapterType = storageManager.getAdapterType();
+          if (adapterType === 'wordpress') {
+            toast.success("Sporcu bilgileri başarıyla güncellendi ve WordPress'e kaydedildi!");
           } else {
-            console.warn('GitHub save failed:', githubResult.message);
+            toast.success("Sporcu bilgileri başarıyla güncellendi!");
           }
-        } catch (githubError) {
-          console.warn('GitHub save error:', githubError);
-          // Don't fail the main operation if GitHub save fails
+        } catch (storageError) {
+          console.warn('Storage manager failed, using fallback:', storageError);
+          
+          // Fallback to localStorage and GitHub
+          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+          const updatedStudents = existingStudents.map((student: any) => 
+            student.id === athlete.id ? finalStudentData : student
+          );
+          localStorage.setItem('students', JSON.stringify(updatedStudents));
+          
+          // Try GitHub backup
+          try {
+            const githubResult = await saveAthleteData(finalStudentData, `athlete-update-${athlete.id}-${Date.now()}.json`);
+            if (githubResult.success) {
+              toast.success("Sporcu bilgileri güncellendi ve GitHub'a yedeklendi!");
+            } else {
+              toast.success("Sporcu bilgileri güncellendi! (Yedekleme başarısız)");
+            }
+          } catch (githubError) {
+            toast.success("Sporcu bilgileri güncellendi! (Yedekleme başarısız)");
+          }
         }
-        
-        toast.success("Sporcu bilgileri başarıyla güncellendi!");
       } else {
         // Create new athlete
         finalStudentData = {
@@ -384,22 +403,41 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           createdBy: 'admin'
         };
         
-        existingStudents.push(finalStudentData);
-        localStorage.setItem('students', JSON.stringify(existingStudents));
-        
-        // Save to GitHub
         try {
-          const githubResult = await saveAthleteData(finalStudentData, `athlete-new-${finalStudentData.id}.json`);
-          if (githubResult.success) {
-            console.log('New athlete data saved to GitHub:', githubResult.githubUrl);
-            toast.success("Sporcu başarıyla kaydedildi ve GitHub'a yedeklendi!");
+          // Try WordPress storage first
+          const savedId = await storageManager.saveAthlete(finalStudentData);
+          console.log('Athlete saved with ID:', savedId);
+          
+          // Update localStorage as backup
+          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+          existingStudents.push(finalStudentData);
+          localStorage.setItem('students', JSON.stringify(existingStudents));
+          
+          const adapterType = storageManager.getAdapterType();
+          if (adapterType === 'wordpress') {
+            toast.success("Sporcu başarıyla kaydedildi ve WordPress'e kaydedildi!");
           } else {
-            console.warn('GitHub save failed:', githubResult.message);
-            toast.success("Sporcu başarıyla kaydedildi! (GitHub yedekleme başarısız)");
+            toast.success("Sporcu başarıyla kaydedildi!");
           }
-        } catch (githubError) {
-          console.warn('GitHub save error:', githubError);
-          toast.success("Sporcu başarıyla kaydedildi! (GitHub yedekleme başarısız)");
+        } catch (storageError) {
+          console.warn('Storage manager failed, using fallback:', storageError);
+          
+          // Fallback to localStorage and GitHub
+          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+          existingStudents.push(finalStudentData);
+          localStorage.setItem('students', JSON.stringify(existingStudents));
+          
+          // Try GitHub backup
+          try {
+            const githubResult = await saveAthleteData(finalStudentData, `athlete-new-${finalStudentData.id}.json`);
+            if (githubResult.success) {
+              toast.success("Sporcu kaydedildi ve GitHub'a yedeklendi!");
+            } else {
+              toast.success("Sporcu kaydedildi! (Yedekleme başarısız)");
+            }
+          } catch (githubError) {
+            toast.success("Sporcu kaydedildi! (Yedekleme başarısız)");
+          }
         }
       }
       

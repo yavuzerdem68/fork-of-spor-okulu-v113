@@ -1,116 +1,91 @@
-# 🎯 WordPress Deployment Rehberi
+# WordPress Deployment Rehberi - G7 Spor Okulu CRM
 
-Bu rehber, SportsCRM projesini WordPress sitenizde yayınlamanız için özel olarak hazırlanmıştır.
+Bu rehber, Next.js tabanlı Spor Okulu CRM sistemini WordPress sitenizde (www.g7spor.org) nasıl kuracağınızı adım adım açıklar.
 
-## 📋 WordPress için Hazırlık
+## Ön Hazırlık
 
-### Adım 1: Static Export Oluşturma
+### 1. WordPress Yönetici Paneli Hazırlığı
+
+1. **wp-admin** paneline giriş yapın: `https://www.g7spor.org/wp-admin`
+2. **Eklentiler > Yeni Ekle** bölümüne gidin
+3. Aşağıdaki eklentileri arayıp kurun:
+   - **Application Passwords** (WordPress 5.6+ için gerekli)
+   - **Custom Post Type UI** (veri depolama için)
+   - **Advanced Custom Fields** (meta veriler için)
+
+### 2. Application Password Oluşturma
+
+1. **Kullanıcılar > Profil** bölümüne gidin
+2. Sayfanın altında **Application Passwords** bölümünü bulun
+3. **New Application Password Name** alanına: `Spor Okulu CRM` yazın
+4. **Add New Application Password** butonuna tıklayın
+5. Oluşan şifreyi güvenli bir yere kaydedin (sadece bir kez gösterilir)
+
+### 3. Custom Post Types Oluşturma
+
+**Eklentiler > Custom Post Type UI > Add/Edit Post Types** bölümüne gidin ve aşağıdaki post type'ları oluşturun:
+
+#### Sporcu Verileri için:
+- **Post Type Slug**: `spor_athletes`
+- **Plural Label**: `Sporcular`
+- **Singular Label**: `Sporcu`
+- **Public**: `False` (güvenlik için)
+- **Show in REST**: `True` (API erişimi için)
+
+#### Genel Veriler için:
+- **Post Type Slug**: `spor_data`
+- **Plural Label**: `Spor Verileri`
+- **Singular Label**: `Spor Verisi`
+- **Public**: `False`
+- **Show in REST**: `True`
+
+### 4. Dosya Yükleme İzinleri
+
+**Araçlar > Site Health > Info** bölümünde aşağıdaki değerleri kontrol edin:
+- `upload_max_filesize`: En az 10MB
+- `post_max_size`: En az 10MB
+- `max_execution_time`: En az 300 saniye
+
+## Proje Hazırlığı
+
+### 1. Geliştirme Ortamında Build Alma
+
+Bilgisayarınızda proje klasöründe terminal açın ve şu komutları çalıştırın:
 
 ```bash
-# 1. WordPress konfigürasyonunu aktif edin
-cp next.config.wordpress.mjs next.config.mjs
-cp package.wordpress.json package.json
-
-# 2. Bağımlılıkları yükleyin
-npm install
-
-# 3. WordPress için build alın
+# WordPress için özel build
 npm run build:wordpress
+
+# Veya manuel olarak:
+NEXT_CONFIG_FILE=next.config.wordpress.mjs npm run build
 ```
 
-Bu komutlar çalıştıktan sonra `out/` klasöründe WordPress'e yükleyebileceğiniz static dosyalar hazır olacak.
+### 2. .htaccess Dosyası Oluşturma
 
-## 📁 WordPress'e Yükleme
+Proje ana dizininde `.htaccess` dosyası oluşturun:
 
-### Yöntem 1: Alt Klasör Olarak
-```
-your-website.com/sportscrm/
-```
-
-1. `out/` klasörünün içindeki tüm dosyaları alın
-2. WordPress sitenizin `public_html/sportscrm/` klasörüne yükleyin
-3. `https://your-website.com/sportscrm/` adresinden erişin
-
-### Yöntem 2: Subdomain Olarak
-```
-crm.your-website.com
-```
-
-1. cPanel'den subdomain oluşturun: `crm.your-website.com`
-2. `out/` klasörünün içindeki dosyaları subdomain klasörüne yükleyin
-3. `https://crm.your-website.com` adresinden erişin
-
-### Yöntem 3: Ana Domain Olarak
-```
-your-website.com
-```
-
-1. WordPress'i başka bir klasöre taşıyın
-2. `out/` klasörünün içindeki dosyaları `public_html/` ana klasörüne yükleyin
-
-## ⚙️ WordPress Entegrasyonu
-
-### WordPress Plugin Olarak Kullanım
-
-1. **Custom Post Type** oluşturun:
-```php
-// functions.php'ye ekleyin
-function create_sportscrm_post_type() {
-    register_post_type('sportscrm_data',
-        array(
-            'labels' => array(
-                'name' => 'SportsCRM Data',
-            ),
-            'public' => true,
-            'has_archive' => true,
-        )
-    );
-}
-add_action('init', 'create_sportscrm_post_type');
-```
-
-2. **REST API** ile veri alışverişi:
-```php
-// WordPress REST API endpoint
-add_action('rest_api_init', function () {
-    register_rest_route('sportscrm/v1', '/athletes', array(
-        'methods' => 'GET',
-        'callback' => 'get_athletes_data',
-    ));
-});
-```
-
-## 🔧 Özelleştirmeler
-
-### Logo ve Branding
-```bash
-# public/ klasörüne kendi logonuzu ekleyin
-# src/components/Logo.tsx dosyasını güncelleyin
-```
-
-### Renk Teması
-```css
-/* src/styles/globals.css */
-:root {
-  --primary: 120 100% 25%; /* Yeşil tema */
-  --secondary: 210 40% 95%;
-}
-```
-
-### Domain Ayarları
-```javascript
-// next.config.wordpress.mjs
-const nextConfig = {
-  basePath: '/sportscrm', // Alt klasör kullanıyorsanız
-  assetPrefix: 'https://your-domain.com/sportscrm/',
-};
-```
-
-## 🚀 Performans Optimizasyonu
-
-### 1. Gzip Sıkıştırma
-`.htaccess` dosyasına ekleyin:
 ```apache
+# .htaccess
+RewriteEngine On
+
+# Handle client-side routing
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /spor-okulu/index.html [L]
+
+# Security headers
+Header always set X-Frame-Options DENY
+Header always set X-Content-Type-Options nosniff
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# Cache static assets
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+    Header set Cache-Control "public, immutable"
+</FilesMatch>
+
+# Compress files
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
@@ -124,101 +99,112 @@ const nextConfig = {
 </IfModule>
 ```
 
-### 2. Cache Headers
-```apache
-<IfModule mod_expires.c>
-    ExpiresActive on
-    ExpiresByType text/css "access plus 1 year"
-    ExpiresByType application/javascript "access plus 1 year"
-    ExpiresByType image/png "access plus 1 year"
-    ExpiresByType image/jpg "access plus 1 year"
-    ExpiresByType image/jpeg "access plus 1 year"
-</IfModule>
-```
+### 3. Build Sonrası Dosya Hazırlığı
 
-## 🔒 Güvenlik
+Build tamamlandıktan sonra `out` klasöründeki tüm dosyaları hazırlayın.
 
-### 1. Dosya İzinleri
-```bash
-# Klasör izinleri
-chmod 755 sportscrm/
-# Dosya izinleri  
-chmod 644 sportscrm/*
-```
+## WordPress'e Yükleme
 
-### 2. .htaccess Güvenlik
-```apache
-# Hassas dosyaları gizle
-<Files "*.json">
-    Order allow,deny
-    Deny from all
-</Files>
+### 1. FTP/cPanel File Manager ile Yükleme
 
-<Files "*.md">
-    Order allow,deny
-    Deny from all
-</Files>
-```
+1. **cPanel > File Manager** veya FTP istemcinizi açın
+2. `public_html` klasörüne gidin
+3. `spor-okulu` adında yeni bir klasör oluşturun
+4. `out` klasöründeki tüm dosyaları `public_html/spor-okulu/` klasörüne yükleyin
 
-## 📊 Analytics Entegrasyonu
+### 2. Dosya İzinleri Ayarlama
 
-### Google Analytics
-```javascript
-// src/pages/_app.tsx'ya ekleyin
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
+Yüklenen dosyalar için izinleri ayarlayın:
+- Klasörler: 755
+- Dosyalar: 644
 
-export default function App({ Component, pageProps }) {
-  const router = useRouter();
-  
-  useEffect(() => {
-    const handleRouteChange = (url) => {
-      gtag('config', 'GA_MEASUREMENT_ID', {
-        page_path: url,
-      });
-    };
-    router.events.on('routeChangeComplete', handleRouteChange);
-    return () => {
-      router.events.off('routeChangeComplete', handleRouteChange);
-    };
-  }, [router.events]);
+### 3. WordPress Menü Ekleme
 
-  return <Component {...pageProps} />;
-}
-```
+1. **wp-admin > Görünüm > Menüler** bölümüne gidin
+2. Yeni menü oluşturun: "Spor Okulu"
+3. **Özel Bağlantılar** bölümünden:
+   - **URL**: `https://www.g7spor.org/spor-okulu/`
+   - **Bağlantı Metni**: `Spor Okulu CRM`
+4. Menüyü kaydedin ve istediğiniz konuma atayın
 
-## 🆘 Sorun Giderme
+## Konfigürasyon
 
-### Yaygın Sorunlar
+### 1. WordPress API Ayarları
 
-1. **CSS yüklenmiyor**
-   - `assetPrefix` ayarını kontrol edin
-   - Dosya yollarını kontrol edin
+Uygulamanın WordPress ile iletişim kurabilmesi için aşağıdaki bilgileri not edin:
 
-2. **JavaScript çalışmıyor**
-   - Browser console'da hata mesajlarını kontrol edin
-   - CORS ayarlarını kontrol edin
+- **WordPress Site URL**: `https://www.g7spor.org`
+- **REST API URL**: `https://www.g7spor.org/wp-json/wp/v2`
+- **Kullanıcı Adı**: WordPress admin kullanıcı adınız
+- **Application Password**: Yukarıda oluşturduğunuz şifre
 
-3. **Resimler görünmüyor**
-   - `next.config.mjs`'de `images.unoptimized: true` olduğundan emin olun
+### 2. Uygulama İçi Ayarlar
+
+Uygulama ilk açıldığında **Sistem Ayarları** bölümünden:
+
+1. **WordPress Entegrasyonu** sekmesine gidin
+2. Yukarıdaki bilgileri girin
+3. **Bağlantıyı Test Et** butonuna tıklayın
+4. Başarılı olursa ayarları kaydedin
+
+## Test ve Doğrulama
+
+### 1. Uygulama Erişimi
+
+`https://www.g7spor.org/spor-okulu/` adresine gidin ve uygulamanın açıldığını kontrol edin.
+
+### 2. Veri Kaydetme Testi
+
+1. **Sporcular** bölümüne gidin
+2. **Yeni Sporcu Ekle** ile test verisi girin
+3. Kaydettikten sonra **wp-admin > Yazılar** bölümünde verinin kaydedildiğini kontrol edin
+
+### 3. WordPress Veri Kontrolü
+
+**wp-admin > Yazılar** bölümünde:
+- Sporcu verileri "Sporcu: [Ad Soyad]" formatında görünmelidir
+- Durum: "Özel" olmalıdır
+- İçerik: JSON formatında veri içermelidir
+
+## Güvenlik Önerileri
+
+### 1. WordPress Güvenlik
+
+- WordPress, tema ve eklentileri güncel tutun
+- Güçlü şifreler kullanın
+- İki faktörlü kimlik doğrulama aktif edin
+- Düzenli yedek alın
+
+### 2. Uygulama Güvenliği
+
+- Application Password'ü sadece gerekli kişilerle paylaşın
+- Düzenli olarak erişim loglarını kontrol edin
+- Şüpheli aktivite durumunda şifreyi yenileyin
+
+## Sorun Giderme
+
+### Yaygın Sorunlar ve Çözümleri
+
+1. **404 Hatası**: `.htaccess` dosyasının doğru yüklendiğini kontrol edin
+2. **API Bağlantı Hatası**: Application Password'ün doğru girildiğini kontrol edin
+3. **Yavaş Yükleme**: Hosting sağlayıcınızdan PHP limitleri artırılmasını isteyin
+4. **Dosya Yükleme Hatası**: Dosya izinlerini kontrol edin
 
 ### Destek
 
-Sorun yaşarsanız:
-1. Browser Developer Tools'u açın
-2. Console'daki hata mesajlarını kontrol edin
-3. Network tab'inde dosyaların yüklenip yüklenmediğini kontrol edin
+Sorun yaşadığınızda:
+1. Browser Developer Tools'da console hatalarını kontrol edin
+2. WordPress Debug loglarını inceleyin
+3. Hosting sağlayıcınızın error loglarına bakın
 
-## ✅ Checklist
+## Güncelleme Süreci
 
-- [ ] Node.js 20.x yüklü
-- [ ] `npm install` çalıştırıldı
-- [ ] `npm run build:wordpress` çalıştırıldı
-- [ ] `out/` klasörü oluştu
-- [ ] Dosyalar WordPress'e yüklendi
-- [ ] Domain/subdomain ayarlandı
-- [ ] .htaccess dosyası yapılandırıldı
-- [ ] SSL sertifikası aktif
-- [ ] Test edildi ve çalışıyor
+Uygulama güncellendiğinde:
+1. Yeni build alın: `npm run build:wordpress`
+2. Mevcut `spor-okulu` klasörünü yedekleyin
+3. Yeni dosyaları yükleyin
+4. Ayarları kontrol edin
 
-Başarılar! 🎉
+---
+
+Bu rehberi takip ederek Spor Okulu CRM sisteminizi WordPress sitenizde başarıyla çalıştırabilirsiniz. Herhangi bir sorun yaşarsanız, adım adım kontrol listesini tekrar gözden geçirin.

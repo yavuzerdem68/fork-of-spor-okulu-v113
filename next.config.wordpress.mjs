@@ -1,23 +1,26 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  images: {
-    unoptimized: true,
-    domains: ["images.unsplash.com"],
-  },
-  assetPrefix: './',
-  basePath: '',
-  distDir: 'out',
+  reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
+  output: 'export',
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
+  distDir: 'out',
+  images: {
+    unoptimized: true,
+    domains: ["assets.co.dev", "images.unsplash.com", "www.g7spor.org"],
   },
-  webpack: (config) => {
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/spor-okulu' : '',
+  basePath: process.env.NODE_ENV === 'production' ? '/spor-okulu' : '',
+  webpack: (config, context) => {
     config.optimization.minimize = true;
     return config;
+  },
+  env: {
+    WORDPRESS_API_URL: 'https://www.g7spor.org/wp-json/wp/v2',
+    WORDPRESS_SITE_URL: 'https://www.g7spor.org',
   }
 };
 
