@@ -8,12 +8,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:wordpress": "NEXT_CONFIG_FILE=next.config.wordpress.mjs next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "copy-htaccess": "copy .htaccess out\\",
+    "copy-htaccess-unix": "cp .htaccess out/",
+    "deploy:wordpress": "npm run build:wordpress && npm run copy-htaccess"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
