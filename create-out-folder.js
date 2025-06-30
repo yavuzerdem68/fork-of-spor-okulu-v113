@@ -4,8 +4,11 @@ const path = require('path');
 const outDir = 'out';
 
 function fixAssetPaths(htmlContent) {
-  // Fix _next static asset paths
+  // Fix _next static asset paths - sadece tek prefix ekle
   htmlContent = htmlContent.replace(/\/_next\//g, '/spor-okulu/_next/');
+  
+  // Çifte prefix'i düzelt
+  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
   
   // Fix other asset paths that don't already have the prefix
   htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)/g, 'href="/spor-okulu/');
