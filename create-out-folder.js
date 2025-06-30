@@ -39,7 +39,6 @@ function fixAssetPaths(htmlContent) {
   
   return htmlContent;
 }
-=======
 
 // Fix existing HTML files in out directory
 function fixExistingHtmlFiles() {
