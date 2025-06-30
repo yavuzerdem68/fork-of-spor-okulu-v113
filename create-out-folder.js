@@ -4,38 +4,44 @@ const path = require('path');
 const outDir = 'out';
 
 function fixAssetPaths(htmlContent) {
-  // Önce tüm çifte prefix'leri temizle - daha kapsamlı regex'ler
+  // 1. ÖNCE TÜM ÇİFTE PREFIX'LERİ TEMİZLE
+  // Tüm çifte prefix durumlarını kapsamlı şekilde temizle
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu(?=[\s"'>])/g, '/spor-okulu');
   htmlContent = htmlContent.replace(/"\/spor-okulu\/spor-okulu\//g, '"/spor-okulu/');
   htmlContent = htmlContent.replace(/"\/spor-okulu\/spor-okulu"/g, '"/spor-okulu"');
   htmlContent = htmlContent.replace(/='\/spor-okulu\/spor-okulu\//g, '="/spor-okulu/');
   htmlContent = htmlContent.replace(/='\/spor-okulu\/spor-okulu'/g, '="/spor-okulu"');
-  
-  // Manifest içindeki çifte prefix'leri de temizle
   htmlContent = htmlContent.replace(/content="\/spor-okulu\/spor-okulu\//g, 'content="/spor-okulu/');
   htmlContent = htmlContent.replace(/content='\/spor-okulu\/spor-okulu\//g, 'content="/spor-okulu/');
   
-  // _next asset paths için özel düzeltme - lookbehind olmadan
+  // 2. _NEXT ASSET PATHS İÇİN ÖZEL DÜZELTME
+  // Önce mevcut _next path'lerini temizle, sonra doğru prefix'i ekle
+  htmlContent = htmlContent.replace(/\/spor-okulu\/_next\//g, '/_next/');
   htmlContent = htmlContent.replace(/\/_next\//g, '/spor-okulu/_next/');
-  // Çifte prefix'i tekrar temizle
-  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\/_next\//g, '/spor-okulu/_next/');
   
-  // Diğer asset path'leri düzelt (prefix yoksa ekle)
-  htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)(?!http)/g, 'href="/spor-okulu/');
-  htmlContent = htmlContent.replace(/src="\/(?!spor-okulu)(?!http)/g, 'src="/spor-okulu/');
+  // 3. DİĞER ASSET PATH'LERİ DÜZELT
+  // Sadece prefix'i olmayan path'lere ekle
+  htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)(?!http)(?!mailto)(?!tel)/g, 'href="/spor-okulu/');
+  htmlContent = htmlContent.replace(/src="\/(?!spor-okulu)(?!http)(?!data:)/g, 'src="/spor-okulu/');
   htmlContent = htmlContent.replace(/content="\/(?!spor-okulu)(?!http)/g, 'content="/spor-okulu/');
   
-  // Manifest ve favicon için özel düzeltmeler
-  htmlContent = htmlContent.replace(/\/manifest\.json/g, '/spor-okulu/manifest.json');
-  htmlContent = htmlContent.replace(/\/favicon\.ico/g, '/spor-okulu/favicon.ico');
+  // 4. ÖZEL DOSYALAR İÇİN DÜZELTMELER
+  // Manifest ve favicon - sadece prefix'i yoksa ekle
+  htmlContent = htmlContent.replace(/href="\/manifest\.json"/g, 'href="/spor-okulu/manifest.json"');
+  htmlContent = htmlContent.replace(/href="\/favicon\.ico"/g, 'href="/spor-okulu/favicon.ico"');
+  htmlContent = htmlContent.replace(/src="\/favicon\.ico"/g, 'src="/spor-okulu/favicon.ico"');
   
-  // Icon path'leri için özel düzeltme
-  htmlContent = htmlContent.replace(/\/icons\//g, '/spor-okulu/icons/');
+  // Icons klasörü - sadece prefix'i yoksa ekle
+  htmlContent = htmlContent.replace(/src="\/icons\//g, 'src="/spor-okulu/icons/');
+  htmlContent = htmlContent.replace(/href="\/icons\//g, 'href="/spor-okulu/icons/');
   
-  // Son temizlik - çifte prefix'leri tekrar temizle
+  // 5. SON TEMİZLİK - ÇİFTE PREFIX'LERİ TEKRAR TEMİZLE
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu(?=[\s"'>])/g, '/spor-okulu');
+  
+  // 6. ÜÇLÜ PREFIX'LERİ DE TEMİZLE (eğer varsa)
+  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
   
   return htmlContent;
 }
@@ -203,9 +209,15 @@ function fixManifestPaths() {
   if (fs.existsSync(manifestPath)) {
     let manifestContent = fs.readFileSync(manifestPath, 'utf8');
     
-    // Fix icon paths in manifest
-    manifestContent = manifestContent.replace(/\/icons\//g, '/spor-okulu/icons/');
-    manifestContent = manifestContent.replace(/\/favicon\.ico/g, '/spor-okulu/favicon.ico');
+    // Önce çifte prefix'leri temizle
+    manifestContent = manifestContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
+    
+    // Eğer prefix yoksa ekle, varsa dokunma
+    manifestContent = manifestContent.replace(/"\/icons\//g, '"/spor-okulu/icons/');
+    manifestContent = manifestContent.replace(/"\/favicon\.ico"/g, '"/spor-okulu/favicon.ico"');
+    
+    // Son kontrol - çifte prefix'leri tekrar temizle
+    manifestContent = manifestContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
     
     fs.writeFileSync(manifestPath, manifestContent, 'utf8');
     console.log('✅ manifest.json yolları düzeltildi');

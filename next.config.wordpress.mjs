@@ -25,9 +25,9 @@ const nextConfig = {
   webpack: (config, context) => {
     config.optimization.minimize = true;
     
-    // Static export için asset path'i düzelt
+    // Static export için asset path'i düzelt - çifte prefix'i önlemek için
     if (context.isServer === false) {
-      config.output.publicPath = '/spor-okulu/_next/';
+      config.output.publicPath = '/_next/';
     }
     
     return config;
