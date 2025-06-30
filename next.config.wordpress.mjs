@@ -14,9 +14,13 @@ const nextConfig = {
   },
   assetPrefix: '/spor-okulu',
   basePath: '/spor-okulu',
-  // API routes'ları devre dışı bırak
+  // Static export için optimizasyonlar
   experimental: {
     missingSuspenseWithCSRBailout: false,
+  },
+  // API routes static export'ta çalışmaz - WordPress REST API kullanıyoruz
+  generateBuildId: async () => {
+    return 'static-build-' + Date.now();
   },
   webpack: (config, context) => {
     config.optimization.minimize = true;
