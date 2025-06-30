@@ -32,35 +32,35 @@ const Header = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("currentUser");
     localStorage.removeItem("userEmail");
-    router.push("/login");
+    router.push("/spor-okulu/login");
   };
 
   const getNavigationItems = () => {
     if (userRole === 'admin') {
       return [
-        { label: 'Dashboard', path: '/dashboard' },
-        { label: 'Sporcular', path: '/athletes' },
-        { label: 'Antrenörler', path: '/coaches' },
-        { label: 'Antrenmanlar', path: '/trainings' },
-        { label: 'Yoklama', path: '/attendance' },
-        { label: 'Ödemeler', path: '/payments' },
-        { label: 'Performans', path: '/performance' },
-        { label: 'Raporlar', path: '/reports' },
-        { label: 'Ayarlar', path: '/system-settings' }
+        { label: 'Dashboard', path: '/spor-okulu/dashboard' },
+        { label: 'Sporcular', path: '/spor-okulu/athletes' },
+        { label: 'Antrenörler', path: '/spor-okulu/coaches' },
+        { label: 'Antrenmanlar', path: '/spor-okulu/trainings' },
+        { label: 'Yoklama', path: '/spor-okulu/attendance' },
+        { label: 'Ödemeler', path: '/spor-okulu/payments' },
+        { label: 'Performans', path: '/spor-okulu/performance' },
+        { label: 'Raporlar', path: '/spor-okulu/reports' },
+        { label: 'Ayarlar', path: '/spor-okulu/system-settings' }
       ];
     } else if (userRole === 'coach') {
       return [
-        { label: 'Dashboard', path: '/coach-dashboard' },
-        { label: 'Sporcularım', path: '/coach-dashboard' },
-        { label: 'Performans', path: '/performance' },
-        { label: 'Yoklama', path: '/coach-dashboard' },
-        { label: 'Mesajlar', path: '/coach-dashboard' }
+        { label: 'Dashboard', path: '/spor-okulu/coach-dashboard' },
+        { label: 'Sporcularım', path: '/spor-okulu/coach-dashboard' },
+        { label: 'Performans', path: '/spor-okulu/performance' },
+        { label: 'Yoklama', path: '/spor-okulu/coach-dashboard' },
+        { label: 'Mesajlar', path: '/spor-okulu/coach-dashboard' }
       ];
     } else if (userRole === 'parent') {
       return [
-        { label: 'Dashboard', path: '/parent-dashboard' },
-        { label: 'Ödemeler', path: '/parent-dashboard' },
-        { label: 'Performans', path: '/parent-dashboard' }
+        { label: 'Dashboard', path: '/spor-okulu/parent-dashboard' },
+        { label: 'Ödemeler', path: '/spor-okulu/parent-dashboard' },
+        { label: 'Performans', path: '/spor-okulu/parent-dashboard' }
       ];
     }
     return [];
@@ -100,7 +100,7 @@ const Header = () => {
         <div className="flex justify-between items-center py-4">
           {/* Logo */}
           <div className="flex items-center space-x-4">
-            <div className="cursor-pointer flex items-center space-x-2" onClick={() => router.push("/")}>
+            <div className="cursor-pointer flex items-center space-x-2" onClick={() => router.push("/spor-okulu/")}>
               <Trophy className="h-8 w-8 text-primary" />
               <span className="text-2xl font-bold text-primary">SportsCRM</span>
             </div>
@@ -159,7 +159,7 @@ const Header = () => {
 
           {/* Login Button for non-authenticated users */}
           {!userRole && (
-            <Button onClick={() => router.push("/login")}>
+            <Button onClick={() => router.push("/spor-okulu/login")}>
               Giriş Yap
             </Button>
           )}

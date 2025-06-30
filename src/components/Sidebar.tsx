@@ -49,24 +49,24 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
-    router.push("/");
+    router.push("/spor-okulu/");
   };
 
   const sidebarItems = [
-    { icon: Home, label: "Dashboard", href: "/dashboard" },
-    { icon: Users, label: "Sporcular", href: "/athletes" },
-    { icon: Zap, label: "Antrenörler", href: "/coaches" },
-    { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
-    { icon: UserCheck, label: "Yoklama", href: "/attendance" },
-    { icon: CreditCard, label: "Ödemeler", href: "/payments" },
-    { icon: Package, label: "Stok ve Satış", href: "/inventory-sales" },
-    { icon: Trophy, label: "Etkinlikler", href: "/events-tournaments" },
-    { icon: BarChart3, label: "Performans", href: "/performance" },
-    { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
-    { icon: Camera, label: "Medya", href: "/media" },
-    { icon: FileText, label: "Raporlar", href: "/reports" },
-    { icon: Settings, label: "Ayarlar", href: "/settings" },
-    { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
+    { icon: Home, label: "Dashboard", href: "/spor-okulu/dashboard" },
+    { icon: Users, label: "Sporcular", href: "/spor-okulu/athletes" },
+    { icon: Zap, label: "Antrenörler", href: "/spor-okulu/coaches" },
+    { icon: Calendar, label: "Antrenmanlar", href: "/spor-okulu/trainings" },
+    { icon: UserCheck, label: "Yoklama", href: "/spor-okulu/attendance" },
+    { icon: CreditCard, label: "Ödemeler", href: "/spor-okulu/payments" },
+    { icon: Package, label: "Stok ve Satış", href: "/spor-okulu/inventory-sales" },
+    { icon: Trophy, label: "Etkinlikler", href: "/spor-okulu/events-tournaments" },
+    { icon: BarChart3, label: "Performans", href: "/spor-okulu/performance" },
+    { icon: MessageCircle, label: "Mesajlar", href: "/spor-okulu/messages" },
+    { icon: Camera, label: "Medya", href: "/spor-okulu/media" },
+    { icon: FileText, label: "Raporlar", href: "/spor-okulu/reports" },
+    { icon: Settings, label: "Ayarlar", href: "/spor-okulu/settings" },
+    { icon: Shield, label: "Yönetici Ayarları", href: "/spor-okulu/admin-settings" }
   ];
 
   const isActive = (href: string) => {
