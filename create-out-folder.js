@@ -10,30 +10,8 @@ const basePath = '/spor-okulu';
 function fixAssetPaths(htmlContent) {
   console.log('🔧 Asset pathleri düzeltiliyor...');
   
-  // ADIM 1: Tüm çifte/üçlü prefix'leri temizle
+  // SADECE çifte/üçlü prefix'leri temizle - yeni prefix ekleme!
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
-  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
-  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu(?=[\s"'>])/g, '/spor-okulu');
-  
-  // ADIM 2: _next dosyaları için özel düzeltme
-  htmlContent = htmlContent.replace(/\/spor-okulu\/_next\//g, '/_next/');
-  htmlContent = htmlContent.replace(/\/_next\//g, '/spor-okulu/_next/');
-  
-  // ADIM 3: Favicon ve manifest düzeltmeleri
-  htmlContent = htmlContent.replace(/href="\/favicon\.ico"/g, 'href="/spor-okulu/favicon.ico"');
-  htmlContent = htmlContent.replace(/src="\/favicon\.ico"/g, 'src="/spor-okulu/favicon.ico"');
-  htmlContent = htmlContent.replace(/href="\/manifest\.json"/g, 'href="/spor-okulu/manifest.json"');
-  
-  // ADIM 4: Icons klasörü düzeltmeleri
-  htmlContent = htmlContent.replace(/href="\/icons\//g, 'href="/spor-okulu/icons/');
-  htmlContent = htmlContent.replace(/src="\/icons\//g, 'src="/spor-okulu/icons/');
-  
-  // ADIM 5: Genel asset path'leri (prefix'i olmayanlar için)
-  htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)(?!http)(?!mailto)(?!tel)(?!#)/g, 'href="/spor-okulu/');
-  htmlContent = htmlContent.replace(/src="\/(?!spor-okulu)(?!http)(?!data:)(?!#)/g, 'src="/spor-okulu/');
-  htmlContent = htmlContent.replace(/content="\/(?!spor-okulu)(?!http)/g, 'content="/spor-okulu/');
-  
-  // ADIM 6: Son temizlik - çifte prefix'leri tekrar temizle
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu(?=[\s"'>])/g, '/spor-okulu');
   
