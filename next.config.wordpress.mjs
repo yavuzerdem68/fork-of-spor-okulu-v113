@@ -12,8 +12,8 @@ const nextConfig = {
     unoptimized: true,
     domains: ["assets.co.dev", "images.unsplash.com", "www.g7spor.org"],
   },
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/spor-okulu' : '',
-  basePath: process.env.NODE_ENV === 'production' ? '/spor-okulu' : '',
+  assetPrefix: '/spor-okulu',
+  basePath: '/spor-okulu',
   webpack: (config, context) => {
     config.optimization.minimize = true;
     return config;

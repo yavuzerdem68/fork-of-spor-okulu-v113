@@ -1,8 +1,14 @@
 RewriteEngine On
 
+# Handle static assets first - don't rewrite if file exists
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Handle Next.js _next static files
+RewriteRule ^_next/(.*)$ /spor-okulu/_next/$1 [L]
+
 # Handle client-side routing for Next.js static export
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ /spor-okulu/index.html [L]
 
 # Security headers
@@ -30,8 +36,14 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
     AddOutputFilterByType DEFLATE application/x-javascript
 </IfModule>
 
-# Prevent access to sensitive files
-<FilesMatch "\.(json|log|md)$">
+# Prevent access to sensitive files (but allow manifest.json)
+<FilesMatch "\.(log|md)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent access to data JSON files but allow manifest.json
+<FilesMatch "^(?!manifest\.json$).*\.json$">
     Order allow,deny
     Deny from all
 </FilesMatch>
