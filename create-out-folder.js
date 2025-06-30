@@ -69,9 +69,9 @@ function fixExistingHtmlFiles() {
   return true;
 }
 
-// 3. EKSİK SAYFALARI OLUŞTUR
+// 3. EKSİK SAYFALARI OLUŞTUR (SADECE GERÇEKTEN EKSİK OLANLARI)
 function createMissingPages() {
-  console.log('📄 Eksik sayfalar oluşturuluyor...');
+  console.log('📄 Eksik sayfalar kontrol ediliyor...');
   
   const pages = [
     'login', 'parent-signup', 'register', 'dashboard', 'coach-dashboard', 
@@ -81,7 +81,7 @@ function createMissingPages() {
     'performance', 'system-settings', 'admin-settings', 'wordpress-settings'
   ];
 
-  // Template HTML oluştur
+  // Template HTML oluştur (sadece eksik sayfalar için)
   const templateHtml = `<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -122,42 +122,53 @@ function createMissingPages() {
   let createdCount = 0;
   
   pages.forEach(pageName => {
-    // .html dosyası oluştur
+    // Sadece eksik olan .html dosyalarını oluştur
     const pageHtmlPath = path.join(outDir, `${pageName}.html`);
-    fs.writeFileSync(pageHtmlPath, templateHtml, 'utf8');
-    
-    // Klasör yapısı oluştur
-    const pageDirPath = path.join(outDir, pageName);
-    if (!fs.existsSync(pageDirPath)) {
-      fs.mkdirSync(pageDirPath, { recursive: true });
+    if (!fs.existsSync(pageHtmlPath)) {
+      fs.writeFileSync(pageHtmlPath, templateHtml, 'utf8');
+      createdCount++;
     }
-    const pageIndexPath = path.join(pageDirPath, 'index.html');
-    fs.writeFileSync(pageIndexPath, templateHtml, 'utf8');
     
-    createdCount++;
+    // Sadece eksik olan klasör yapılarını oluştur
+    const pageDirPath = path.join(outDir, pageName);
+    const pageIndexPath = path.join(pageDirPath, 'index.html');
+    if (!fs.existsSync(pageIndexPath)) {
+      if (!fs.existsSync(pageDirPath)) {
+        fs.mkdirSync(pageDirPath, { recursive: true });
+      }
+      fs.writeFileSync(pageIndexPath, templateHtml, 'utf8');
+    }
   });
   
-  console.log(`✅ ${createdCount} sayfa oluşturuldu`);
+  if (createdCount > 0) {
+    console.log(`✅ ${createdCount} eksik sayfa oluşturuldu`);
+  } else {
+    console.log('✅ Tüm sayfalar mevcut, yeni sayfa oluşturulmadı');
+  }
 }
 
-// 4. FAVICON VE ICON DOSYALARINI OLUŞTUR
+// 4. EKSİK FAVICON VE ICON DOSYALARINI OLUŞTUR
 function createMissingIcons() {
-  console.log('🎨 Icon dosyaları oluşturuluyor...');
+  console.log('🎨 Eksik icon dosyaları kontrol ediliyor...');
   
   const iconsDir = path.join(outDir, 'icons');
   if (!fs.existsSync(iconsDir)) {
     fs.mkdirSync(iconsDir, { recursive: true });
   }
 
-  // Basit SVG icon oluştur
-  const simpleSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#3b82f6">
-    <path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z"/>
-  </svg>`;
-  
-  const iconSvgPath = path.join(iconsDir, 'icon.svg');
-  fs.writeFileSync(iconSvgPath, simpleSvg, 'utf8');
+  let createdCount = 0;
 
-  // Basit PNG icon (1x1 mavi pixel)
+  // Basit SVG icon oluştur (sadece yoksa)
+  const iconSvgPath = path.join(iconsDir, 'icon.svg');
+  if (!fs.existsSync(iconSvgPath)) {
+    const simpleSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#3b82f6">
+      <path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z"/>
+    </svg>`;
+    fs.writeFileSync(iconSvgPath, simpleSvg, 'utf8');
+    createdCount++;
+  }
+
+  // Basit PNG icon (1x1 mavi pixel) - sadece eksik olanları oluştur
   const bluePng = Buffer.from([
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
     0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -170,14 +181,24 @@ function createMissingIcons() {
   const iconSizes = ['16x16', '32x32', '152x152', '192x192', '384x384', '512x512'];
   iconSizes.forEach(size => {
     const iconPath = path.join(iconsDir, `icon-${size}.png`);
-    fs.writeFileSync(iconPath, bluePng);
+    if (!fs.existsSync(iconPath)) {
+      fs.writeFileSync(iconPath, bluePng);
+      createdCount++;
+    }
   });
 
-  // Favicon.ico oluştur
+  // Favicon.ico oluştur (sadece yoksa)
   const faviconPath = path.join(outDir, 'favicon.ico');
-  fs.writeFileSync(faviconPath, bluePng);
+  if (!fs.existsSync(faviconPath)) {
+    fs.writeFileSync(faviconPath, bluePng);
+    createdCount++;
+  }
   
-  console.log('✅ Icon dosyaları oluşturuldu');
+  if (createdCount > 0) {
+    console.log(`✅ ${createdCount} eksik icon dosyası oluşturuldu`);
+  } else {
+    console.log('✅ Tüm icon dosyaları mevcut');
+  }
 }
 
 // 5. MANIFEST.JSON DÜZELT
@@ -247,26 +268,10 @@ function ensureOutDirectory() {
   if (!fs.existsSync(outDir)) {
     console.log('📁 out klasörü oluşturuluyor...');
     fs.mkdirSync(outDir, { recursive: true });
-    
-    // Basit index.html oluştur
-    const basicIndex = `<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spor Okulu CRM</title>
-    <link rel="icon" href="/spor-okulu/favicon.ico">
-</head>
-<body>
-    <h1>Spor Okulu CRM</h1>
-    <p>Sistem hazırlanıyor...</p>
-</body>
-</html>`;
-    
-    fs.writeFileSync(path.join(outDir, 'index.html'), basicIndex, 'utf8');
-    console.log('✅ out klasörü ve index.html oluşturuldu');
+    console.log('✅ out klasörü oluşturuldu');
     return true;
   }
+  console.log('✅ out klasörü mevcut');
   return false;
 }
 
