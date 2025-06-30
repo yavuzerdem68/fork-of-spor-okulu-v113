@@ -38,13 +38,13 @@ export default function Login() {
       // Redirect based on role immediately
       switch (session.userRole) {
         case 'admin':
-          router.replace('/dashboard');
+          router.replace('/spor-okulu/dashboard');
           break;
         case 'coach':
-          router.replace('/coach-dashboard');
+          router.replace('/spor-okulu/coach-dashboard');
           break;
         case 'parent':
-          router.replace('/parent-dashboard');
+          router.replace('/spor-okulu/parent-dashboard');
           break;
         default:
           SessionManager.destroySession();
@@ -124,7 +124,7 @@ export default function Login() {
           // Reset rate limiter on successful login
           rateLimiter.reset(clientId);
           
-          router.push("/dashboard");
+          router.push("/spor-okulu/dashboard");
         } else {
           setError("Geçersiz email veya şifre");
         }
@@ -186,7 +186,7 @@ export default function Login() {
           // Reset rate limiter on successful login
           rateLimiter.reset(clientId);
           
-          router.push("/coach-dashboard");
+          router.push("/spor-okulu/coach-dashboard");
         } else {
           setError("Geçersiz email veya şifre");
         }
@@ -251,7 +251,7 @@ export default function Login() {
           // Reset rate limiter on successful login
           rateLimiter.reset(clientId);
           
-          router.push("/parent-dashboard");
+          router.push("/spor-okulu/parent-dashboard");
         } else {
           setError("Geçersiz kullanıcı adı/email veya şifre");
         }

@@ -1,14 +1,40 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="64" fill="#3b82f6"/>
-  <circle cx="256" cy="256" r="180" fill="white" opacity="0.1"/>
-  <circle cx="256" cy="256" r="120" fill="white" opacity="0.2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
   
-  <!-- Basketball -->
-  <circle cx="256" cy="256" r="80" fill="#ff6b35" stroke="white" stroke-width="4"/>
-  <path d="M176 256 C176 200, 200 176, 256 176 C312 176, 336 200, 336 256 C336 312, 312 336, 256 336 C200 336, 176 312, 176 256" stroke="white" stroke-width="3" fill="none"/>
-  <path d="M256 176 L256 336" stroke="white" stroke-width="3"/>
-  <path d="M176 256 L336 256" stroke="white" stroke-width="3"/>
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#grad1)" stroke="#1e40af" stroke-width="8"/>
+  
+  <!-- Trophy Icon -->
+  <g transform="translate(256,256)">
+    <!-- Trophy Cup -->
+    <path d="M-80,-60 L-80,20 Q-80,40 -60,40 L60,40 Q80,40 80,20 L80,-60 Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="3"/>
+    
+    <!-- Trophy Handles -->
+    <path d="M-80,-40 Q-120,-40 -120,-20 Q-120,0 -80,0" fill="none" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+    <path d="M80,-40 Q120,-40 120,-20 Q120,0 80,0" fill="none" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- Trophy Base -->
+    <rect x="-60" y="40" width="120" height="20" fill="#6b7280" stroke="#4b5563" stroke-width="2"/>
+    <rect x="-40" y="60" width="80" height="30" fill="#6b7280" stroke="#4b5563" stroke-width="2"/>
+    
+    <!-- Star in Trophy -->
+    <path d="M0,-30 L8,-10 L30,-10 L14,2 L20,20 L0,10 L-20,20 L-14,2 L-30,-10 L-8,-10 Z" fill="#ffffff" stroke="#fbbf24" stroke-width="2"/>
+    
+    <!-- Sport Elements -->
+    <!-- Soccer Ball -->
+    <circle cx="-40" cy="-80" r="12" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+    <path d="M-40,-92 L-40,-68 M-52,-80 L-28,-80 M-46,-86 L-34,-74 M-34,-86 L-46,-74" stroke="#000000" stroke-width="1.5"/>
+    
+    <!-- Basketball -->
+    <circle cx="40" cy="-80" r="12" fill="#ff6b35" stroke="#d63031" stroke-width="2"/>
+    <path d="M40,-92 L40,-68 M28,-80 L52,-80 M34,-86 L46,-74 M46,-86 L34,-74" stroke="#d63031" stroke-width="1.5"/>
+  </g>
   
   <!-- Text -->
-  <text x="256" y="420" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="36" font-weight="bold">SPOR CRM</text>
+  <text x="256" y="420" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="32" font-weight="bold">SPOR CRM</text>
 </svg>
