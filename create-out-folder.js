@@ -7,9 +7,20 @@ if (!fs.existsSync('out')) {
   console.log('✅ out klasörü oluşturuldu');
 }
 
-// .next/server/pages içindeki HTML dosyalarını kopyala
+// .next/server/pages içindeki HTML dosyalarını kopyala ve asset yollarını düzelt
 const serverPagesDir = '.next/server/pages';
 const outDir = 'out';
+
+function fixAssetPaths(htmlContent) {
+  // Fix _next static asset paths
+  htmlContent = htmlContent.replace(/\/_next\//g, '/spor-okulu/_next/');
+  
+  // Fix other asset paths that don't already have the prefix
+  htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)/g, 'href="/spor-okulu/');
+  htmlContent = htmlContent.replace(/src="\/(?!spor-okulu)/g, 'src="/spor-okulu/');
+  
+  return htmlContent;
+}
 
 function copyHtmlFiles(sourceDir, targetDir) {
   if (!fs.existsSync(sourceDir)) {
@@ -32,8 +43,14 @@ function copyHtmlFiles(sourceDir, targetDir) {
       copyHtmlFiles(sourcePath, targetSubDir);
     } else if (file.endsWith('.html')) {
       const targetPath = path.join(targetDir, file);
-      fs.copyFileSync(sourcePath, targetPath);
-      console.log(`✅ ${file} kopyalandı`);
+      
+      // HTML içeriğini oku ve asset yollarını düzelt
+      let htmlContent = fs.readFileSync(sourcePath, 'utf8');
+      htmlContent = fixAssetPaths(htmlContent);
+      
+      // Düzeltilmiş içeriği yaz
+      fs.writeFileSync(targetPath, htmlContent, 'utf8');
+      console.log(`✅ ${file} kopyalandı ve asset yolları düzeltildi`);
     }
   });
 }

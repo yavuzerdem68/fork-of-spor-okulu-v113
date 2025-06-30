@@ -20,11 +20,21 @@ const nextConfig = {
   },
   webpack: (config, context) => {
     config.optimization.minimize = true;
+    
+    // Ensure proper asset prefix handling
+    if (context.isServer === false) {
+      config.output.publicPath = '/spor-okulu/_next/';
+    }
+    
     return config;
   },
   env: {
     WORDPRESS_API_URL: 'https://www.g7spor.org/wp-json/wp/v2',
     WORDPRESS_SITE_URL: 'https://www.g7spor.org',
+  },
+  // Force asset prefix in all environments
+  publicRuntimeConfig: {
+    basePath: '/spor-okulu',
   }
 };
 

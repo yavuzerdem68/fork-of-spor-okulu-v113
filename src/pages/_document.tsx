@@ -2,9 +2,14 @@ import { Html, Head, Main, NextScript } from "next/document";
 import Script from "next/script";
 
 export default function Document() {
+  // Asset prefix for WordPress deployment
+  const assetPrefix = process.env.NODE_ENV === 'production' ? '/spor-okulu' : '';
+  
   return (
     <Html lang="tr">
       <Head>
+        {/* Base tag for asset prefix */}
+        {assetPrefix && <base href={`${assetPrefix}/`} />}
         {/* PWA Meta Tags */}
         <meta name="application-name" content="Spor CRM" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
