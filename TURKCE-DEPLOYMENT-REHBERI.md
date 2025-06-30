@@ -32,9 +32,19 @@ Bu komut tüm gerekli paketleri yükleyecek (birkaç dakika sürebilir).
 
 ### Adım 5: WordPress için Build Alma
 ```powershell
-npm run build:wordpress
+npm run build:complete
 ```
-Bu komut çalıştıktan sonra **out** klasörü oluşacak.
+Bu komut şunları yapacak:
+1. WordPress için build alacak
+2. out klasörünü oluşturacak
+3. .htaccess dosyasını kopyalayacak
+
+**Alternatif olarak adım adım:**
+```powershell
+npm run build:wordpress
+npm run create-out
+npm run copy-htaccess
+```
 
 ### Adım 6: Build Kontrolü
 Proje klasörünüzde şimdi **out** klasörü olmalı. İçinde şunlar olmalı:

@@ -14,6 +14,10 @@ const nextConfig = {
   },
   assetPrefix: '/spor-okulu',
   basePath: '/spor-okulu',
+  // API routes'ları devre dışı bırak
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+  },
   webpack: (config, context) => {
     config.optimization.minimize = true;
     return config;
