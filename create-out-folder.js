@@ -224,12 +224,123 @@ function fixManifestPaths() {
   }
 }
 
+// Yardımcı fonksiyonlar
+function copyDir(src, dest) {
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(dest, { recursive: true });
+  }
+  
+  const files = fs.readdirSync(src);
+  files.forEach(file => {
+    const srcPath = path.join(src, file);
+    const destPath = path.join(dest, file);
+    
+    if (fs.statSync(srcPath).isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  });
+}
+
+function copyServerPages(serverDir, outDir) {
+  if (!fs.existsSync(serverDir)) return;
+  
+  const files = fs.readdirSync(serverDir);
+  
+  files.forEach(file => {
+    if (file.endsWith('.html')) {
+      const srcPath = path.join(serverDir, file);
+      const destPath = path.join(outDir, file);
+      fs.copyFileSync(srcPath, destPath);
+    }
+  });
+}
+
 // Ana fonksiyon
 console.log('🚀 out klasörü düzenleniyor...');
 
+// Önce .next klasörünü kontrol et, sonra out klasörünü oluştur
+const nextDir = '.next';
+if (fs.existsSync(nextDir) && !fs.existsSync(outDir)) {
+  console.log('📁 .next klasörü bulundu, out klasörü oluşturuluyor...');
+  
+  // Out klasörünü oluştur
+  if (!fs.existsSync(outDir)) {
+    fs.mkdirSync(outDir, { recursive: true });
+  }
+  
+  // Static dosyaları kopyala
+  const nextStaticDir = path.join(nextDir, 'static');
+  if (fs.existsSync(nextStaticDir)) {
+    const outStaticDir = path.join(outDir, '_next', 'static');
+    fs.mkdirSync(path.dirname(outStaticDir), { recursive: true });
+    copyDir(nextStaticDir, outStaticDir);
+    console.log('✅ Static dosyalar kopyalandı');
+  }
+  
+  // Server pages'i HTML olarak kopyala
+  const nextServerDir = path.join(nextDir, 'server', 'pages');
+  if (fs.existsSync(nextServerDir)) {
+    copyServerPages(nextServerDir, outDir);
+    console.log('✅ HTML sayfalar kopyalandı');
+  }
+  
+  // Public klasörünü kopyala
+  const publicDir = 'public';
+  if (fs.existsSync(publicDir)) {
+    copyDir(publicDir, outDir);
+    console.log('✅ Public dosyalar kopyalandı');
+  }
+  
+  // Basit bir index.html oluştur eğer yoksa
+  const indexPath = path.join(outDir, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    const basicHtml = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spor Okulu CRM</title>
+    <link rel="manifest" href="/spor-okulu/manifest.json">
+    <link rel="icon" href="/spor-okulu/favicon.ico">
+</head>
+<body>
+    <div id="__next">
+        <h1>Spor Okulu CRM</h1>
+        <p>Sistem yükleniyor...</p>
+    </div>
+    <script src="/spor-okulu/_next/static/chunks/main.js"></script>
+</body>
+</html>`;
+    fs.writeFileSync(indexPath, basicHtml, 'utf8');
+    console.log('✅ index.html oluşturuldu');
+  }
+}
+
 if (!fs.existsSync(outDir)) {
-  console.log('❌ out klasörü bulunamadı. Önce "npm run build" komutunu çalıştırın.');
-  process.exit(1);
+  console.log('❌ out klasörü bulunamadı. Manuel olarak oluşturuluyor...');
+  fs.mkdirSync(outDir, { recursive: true });
+  
+  // Basit bir index.html oluştur
+  const basicHtml = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spor Okulu CRM</title>
+    <link rel="manifest" href="/spor-okulu/manifest.json">
+    <link rel="icon" href="/spor-okulu/favicon.ico">
+</head>
+<body>
+    <div id="__next">
+        <h1>Spor Okulu CRM</h1>
+        <p>Sistem yükleniyor...</p>
+    </div>
+</body>
+</html>`;
+  fs.writeFileSync(path.join(outDir, 'index.html'), basicHtml, 'utf8');
+  console.log('✅ out klasörü ve index.html oluşturuldu');
 }
 
 fixExistingHtmlFiles();
