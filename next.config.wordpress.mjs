@@ -13,7 +13,7 @@ const nextConfig = {
   },
   assetPrefix: '/spor-okulu',
   basePath: '/spor-okulu',
-  distDir: 'out',
+
   // Static export için optimizasyonlar
   experimental: {
     missingSuspenseWithCSRBailout: false,

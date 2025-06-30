@@ -23,7 +23,8 @@
     "deploy:wordpress": "npm run build:wordpress && npm run copy-htaccess",
     "deploy:full": "npm run build:wordpress && npm run create-out && npm run copy-htaccess",
     "clean": "rimraf out .next",
-    "fresh-build": "npm run clean && npm run build:wordpress && npm run create-out && npm run copy-htaccess"
+    "fresh-build": "npm run clean && npm run build:wordpress && npm run create-out && npm run copy-htaccess",
+    "debug-build": "npm run clean && npm run build:wordpress"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
