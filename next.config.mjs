@@ -17,12 +17,7 @@ const nextConfig = {
     missingSuspenseWithCSRBailout: false,
   },
 
-  webpack: (webpackConfig, { isServer }) => {
-    if (!isServer) {
-      webpackConfig.output.publicPath = '/spor-okulu/_next/';
-    }
-    return webpackConfig;
-  },
+
   env: {
     WORDPRESS_API_URL: 'https://www.g7spor.org/wp-json/wp/v2',
     WORDPRESS_SITE_URL: 'https://www.g7spor.org',
