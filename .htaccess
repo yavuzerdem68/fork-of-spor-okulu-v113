@@ -11,10 +11,10 @@ RewriteRule ^spor-okulu/_next/(.*)$ /spor-okulu/_next/$1 [L]
 # Handle other static assets (CSS, JS, images, etc.)
 RewriteRule ^spor-okulu/(.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$ /spor-okulu/$1 [L]
 
-# Handle specific pages first - both with and without trailing slash
+# Handle specific pages - direct mapping to .html files
 RewriteRule ^spor-okulu/(login|parent-signup|register|dashboard|coach-dashboard|parent-dashboard|athletes|payments|attendance|reports|settings|forgot-password|coaches|trainings|events-tournaments|inventory-sales|media|messages|documents|leave-requests|performance|system-settings|admin-settings|wordpress-settings)/?$ /spor-okulu/$1.html [L]
 
-# Handle directory-style URLs (e.g., /spor-okulu/trainings/ -> /spor-okulu/trainings/index.html)
+# Handle directory-style URLs - mapping to directory/index.html
 RewriteRule ^spor-okulu/(login|parent-signup|register|dashboard|coach-dashboard|parent-dashboard|athletes|payments|attendance|reports|settings|forgot-password|coaches|trainings|events-tournaments|inventory-sales|media|messages|documents|leave-requests|performance|system-settings|admin-settings|wordpress-settings)/$ /spor-okulu/$1/index.html [L]
 
 # Handle client-side routing for Next.js static export - only for non-static files
