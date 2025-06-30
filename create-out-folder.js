@@ -4,25 +4,42 @@ const path = require('path');
 const outDir = 'out';
 
 function fixAssetPaths(htmlContent) {
-  // Fix _next static asset paths - sadece tek prefix ekle
-  htmlContent = htmlContent.replace(/\/_next\//g, '/spor-okulu/_next/');
-  
-  // Çifte prefix'i düzelt - tüm varyasyonları
+  // Önce tüm çifte prefix'leri temizle - daha kapsamlı regex'ler
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
-  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu/g, '/spor-okulu');
+  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu(?=[\s"'>])/g, '/spor-okulu');
   htmlContent = htmlContent.replace(/"\/spor-okulu\/spor-okulu\//g, '"/spor-okulu/');
   htmlContent = htmlContent.replace(/"\/spor-okulu\/spor-okulu"/g, '"/spor-okulu"');
+  htmlContent = htmlContent.replace(/='\/spor-okulu\/spor-okulu\//g, '="/spor-okulu/');
+  htmlContent = htmlContent.replace(/='\/spor-okulu\/spor-okulu'/g, '="/spor-okulu"');
   
-  // Fix other asset paths that don't already have the prefix
-  htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)/g, 'href="/spor-okulu/');
-  htmlContent = htmlContent.replace(/src="\/(?!spor-okulu)/g, 'src="/spor-okulu/');
+  // Manifest içindeki çifte prefix'leri de temizle
+  htmlContent = htmlContent.replace(/content="\/spor-okulu\/spor-okulu\//g, 'content="/spor-okulu/');
+  htmlContent = htmlContent.replace(/content='\/spor-okulu\/spor-okulu\//g, 'content="/spor-okulu/');
   
-  // Fix manifest ve icon yolları
+  // _next asset paths için özel düzeltme - lookbehind olmadan
+  htmlContent = htmlContent.replace(/\/_next\//g, '/spor-okulu/_next/');
+  // Çifte prefix'i tekrar temizle
+  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\/_next\//g, '/spor-okulu/_next/');
+  
+  // Diğer asset path'leri düzelt (prefix yoksa ekle)
+  htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)(?!http)/g, 'href="/spor-okulu/');
+  htmlContent = htmlContent.replace(/src="\/(?!spor-okulu)(?!http)/g, 'src="/spor-okulu/');
+  htmlContent = htmlContent.replace(/content="\/(?!spor-okulu)(?!http)/g, 'content="/spor-okulu/');
+  
+  // Manifest ve favicon için özel düzeltmeler
   htmlContent = htmlContent.replace(/\/manifest\.json/g, '/spor-okulu/manifest.json');
   htmlContent = htmlContent.replace(/\/favicon\.ico/g, '/spor-okulu/favicon.ico');
   
+  // Icon path'leri için özel düzeltme
+  htmlContent = htmlContent.replace(/\/icons\//g, '/spor-okulu/icons/');
+  
+  // Son temizlik - çifte prefix'leri tekrar temizle
+  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
+  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu(?=[\s"'>])/g, '/spor-okulu');
+  
   return htmlContent;
 }
+=======
 
 // Fix existing HTML files in out directory
 function fixExistingHtmlFiles() {
@@ -85,12 +102,25 @@ function createMissingPages() {
 
   let indexContent = fs.readFileSync(indexPath, 'utf8');
   
+  // Asset path'lerini düzelt
+  indexContent = fixAssetPaths(indexContent);
+  
   pages.forEach(pageName => {
+    // Hem .html dosyası hem de klasör/index.html yapısı oluştur
     const pageHtmlPath = path.join(outDir, `${pageName}.html`);
+    const pageDirPath = path.join(outDir, pageName);
+    const pageIndexPath = path.join(pageDirPath, 'index.html');
     
-    // Her zaman yeniden oluştur (güncel index.html içeriğini kullanmak için)
+    // .html dosyası oluştur
     fs.writeFileSync(pageHtmlPath, indexContent, 'utf8');
     console.log(`✅ ${pageName}.html oluşturuldu/güncellendi`);
+    
+    // Klasör yapısı oluştur
+    if (!fs.existsSync(pageDirPath)) {
+      fs.mkdirSync(pageDirPath, { recursive: true });
+    }
+    fs.writeFileSync(pageIndexPath, indexContent, 'utf8');
+    console.log(`✅ ${pageName}/index.html oluşturuldu/güncellendi`);
   });
 }
 

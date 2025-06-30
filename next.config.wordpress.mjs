@@ -27,7 +27,7 @@ const nextConfig = {
     
     // Static export için asset path'i düzelt
     if (context.isServer === false) {
-      config.output.publicPath = '/_next/';
+      config.output.publicPath = '/spor-okulu/_next/';
     }
     
     return config;
