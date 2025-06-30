@@ -128,9 +128,47 @@ function copyPublicFiles() {
   }
 }
 
+// Eksik HTML sayfalarını oluştur
+function createMissingPages() {
+  const pages = [
+    'login',
+    'parent-signup',
+    'register',
+    'dashboard',
+    'coach-dashboard',
+    'parent-dashboard',
+    'athletes',
+    'payments',
+    'attendance',
+    'reports',
+    'settings',
+    'forgot-password'
+  ];
+
+  // Ana index.html dosyasını template olarak kullan
+  const indexPath = path.join(outDir, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    console.log('❌ index.html bulunamadı, önce build yapın');
+    return;
+  }
+
+  let indexContent = fs.readFileSync(indexPath, 'utf8');
+  
+  pages.forEach(pageName => {
+    const pageHtmlPath = path.join(outDir, `${pageName}.html`);
+    
+    if (!fs.existsSync(pageHtmlPath)) {
+      // Her sayfa için aynı HTML içeriğini kullan (SPA routing için)
+      fs.writeFileSync(pageHtmlPath, indexContent, 'utf8');
+      console.log(`✅ ${pageName}.html oluşturuldu`);
+    }
+  });
+}
+
 // Ana fonksiyon
 console.log('🚀 out klasörü oluşturuluyor...');
 copyHtmlFiles(serverPagesDir, outDir);
 copyStaticFiles();
 copyPublicFiles();
+createMissingPages();
 console.log('✅ out klasörü başarıyla oluşturuldu!');

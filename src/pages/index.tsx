@@ -1,5 +1,6 @@
 import React from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -119,8 +120,12 @@ export default function Home() {
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center space-x-4"
             >
-              <Button variant="ghost" onClick={() => window.location.href = '/login'}>Giriş Yap</Button>
-              <Button onClick={() => window.location.href = '/parent-signup'}>Kayıt Ol</Button>
+              <Link href="/login">
+                <Button variant="ghost">Giriş Yap</Button>
+              </Link>
+              <Link href="/parent-signup">
+                <Button>Kayıt Ol</Button>
+              </Link>
             </motion.div>
           </div>
         </nav>
