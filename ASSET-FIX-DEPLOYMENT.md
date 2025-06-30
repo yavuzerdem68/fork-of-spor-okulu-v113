@@ -9,6 +9,20 @@ The 404 errors for static assets (JS, CSS files) have been resolved by:
 ## Updated Deployment Steps
 
 ### 1. Build Application with Fixed Configuration
+
+**For Windows PowerShell:**
+```powershell
+# Clean previous build
+Remove-Item -Recurse -Force out/, .next/ -ErrorAction SilentlyContinue
+
+# Install dependencies
+npm install
+
+# Build for WordPress/static hosting with fixed paths
+npm run build:wordpress
+```
+
+**For Unix/Linux/Mac:**
 ```bash
 # Clean previous build
 rm -rf out/ .next/
