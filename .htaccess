@@ -12,7 +12,7 @@ RewriteRule ^spor-okulu/_next/(.*)$ /spor-okulu/_next/$1 [L]
 RewriteRule ^spor-okulu/(.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$ /spor-okulu/$1 [L]
 
 # Handle specific pages first
-RewriteRule ^spor-okulu/(login|parent-signup|register|dashboard|coach-dashboard|parent-dashboard|athletes|payments|attendance|reports|settings|forgot-password)/?$ /spor-okulu/$1.html [L]
+RewriteRule ^spor-okulu/(login|parent-signup|register|dashboard|coach-dashboard|parent-dashboard|athletes|payments|attendance|reports|settings|forgot-password|coaches|trainings|events-tournaments|inventory-sales|media|messages|documents|leave-requests|performance|system-settings|admin-settings|wordpress-settings)/?$ /spor-okulu/$1.html [L]
 
 # Handle client-side routing for Next.js static export - only for non-static files
 RewriteCond %{REQUEST_FILENAME} !-f

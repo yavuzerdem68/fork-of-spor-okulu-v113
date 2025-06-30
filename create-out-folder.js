@@ -1,14 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// out klasörünü oluştur
-if (!fs.existsSync('out')) {
-  fs.mkdirSync('out');
-  console.log('✅ out klasörü oluşturuldu');
-}
-
-// .next/server/pages içindeki HTML dosyalarını kopyala ve asset yollarını düzelt
-const serverPagesDir = '.next/server/pages';
 const outDir = 'out';
 
 function fixAssetPaths(htmlContent) {
@@ -22,110 +14,27 @@ function fixAssetPaths(htmlContent) {
   return htmlContent;
 }
 
-function copyHtmlFiles(sourceDir, targetDir) {
-  if (!fs.existsSync(sourceDir)) {
-    console.log('❌ .next/server/pages klasörü bulunamadı');
+// Fix existing HTML files in out directory
+function fixExistingHtmlFiles() {
+  if (!fs.existsSync(outDir)) {
+    console.log('❌ out klasörü bulunamadı, önce build yapın');
     return;
   }
 
-  const files = fs.readdirSync(sourceDir);
+  const files = fs.readdirSync(outDir);
   
   files.forEach(file => {
-    const sourcePath = path.join(sourceDir, file);
-    const stat = fs.statSync(sourcePath);
-    
-    if (stat.isDirectory()) {
-      // Alt klasörleri de kopyala
-      const targetSubDir = path.join(targetDir, file);
-      if (!fs.existsSync(targetSubDir)) {
-        fs.mkdirSync(targetSubDir, { recursive: true });
+    if (file.endsWith('.html')) {
+      const filePath = path.join(outDir, file);
+      let htmlContent = fs.readFileSync(filePath, 'utf8');
+      const fixedContent = fixAssetPaths(htmlContent);
+      
+      if (fixedContent !== htmlContent) {
+        fs.writeFileSync(filePath, fixedContent, 'utf8');
+        console.log(`✅ ${file} asset yolları düzeltildi`);
       }
-      copyHtmlFiles(sourcePath, targetSubDir);
-    } else if (file.endsWith('.html')) {
-      const targetPath = path.join(targetDir, file);
-      
-      // HTML içeriğini oku ve asset yollarını düzelt
-      let htmlContent = fs.readFileSync(sourcePath, 'utf8');
-      htmlContent = fixAssetPaths(htmlContent);
-      
-      // Düzeltilmiş içeriği yaz
-      fs.writeFileSync(targetPath, htmlContent, 'utf8');
-      console.log(`✅ ${file} kopyalandı ve asset yolları düzeltildi`);
     }
   });
-}
-
-// Static dosyaları kopyala
-function copyStaticFiles() {
-  const staticSource = '.next/static';
-  const staticTarget = 'out/_next/static';
-  
-  if (fs.existsSync(staticSource)) {
-    if (!fs.existsSync('out/_next')) {
-      fs.mkdirSync('out/_next', { recursive: true });
-    }
-    
-    // Recursive copy function
-    function copyRecursive(src, dest) {
-      const stat = fs.statSync(src);
-      if (stat.isDirectory()) {
-        if (!fs.existsSync(dest)) {
-          fs.mkdirSync(dest, { recursive: true });
-        }
-        const files = fs.readdirSync(src);
-        files.forEach(file => {
-          copyRecursive(path.join(src, file), path.join(dest, file));
-        });
-      } else {
-        fs.copyFileSync(src, dest);
-      }
-    }
-    
-    copyRecursive(staticSource, staticTarget);
-    console.log('✅ Static dosyalar kopyalandı');
-  }
-}
-
-// Public dosyalarını kopyala
-function copyPublicFiles() {
-  const publicSource = 'public';
-  const publicTarget = 'out';
-  
-  if (fs.existsSync(publicSource)) {
-    const files = fs.readdirSync(publicSource);
-    files.forEach(file => {
-      const sourcePath = path.join(publicSource, file);
-      const targetPath = path.join(publicTarget, file);
-      const stat = fs.statSync(sourcePath);
-      
-      if (stat.isDirectory()) {
-        if (!fs.existsSync(targetPath)) {
-          fs.mkdirSync(targetPath, { recursive: true });
-        }
-        // Recursive copy for directories
-        function copyDir(src, dest) {
-          const files = fs.readdirSync(src);
-          files.forEach(f => {
-            const srcPath = path.join(src, f);
-            const destPath = path.join(dest, f);
-            const stat = fs.statSync(srcPath);
-            if (stat.isDirectory()) {
-              if (!fs.existsSync(destPath)) {
-                fs.mkdirSync(destPath, { recursive: true });
-              }
-              copyDir(srcPath, destPath);
-            } else {
-              fs.copyFileSync(srcPath, destPath);
-            }
-          });
-        }
-        copyDir(sourcePath, targetPath);
-      } else {
-        fs.copyFileSync(sourcePath, targetPath);
-      }
-    });
-    console.log('✅ Public dosyalar kopyalandı');
-  }
 }
 
 // Eksik HTML sayfalarını oluştur
@@ -142,7 +51,19 @@ function createMissingPages() {
     'attendance',
     'reports',
     'settings',
-    'forgot-password'
+    'forgot-password',
+    'coaches',
+    'trainings',
+    'events-tournaments',
+    'inventory-sales',
+    'media',
+    'messages',
+    'documents',
+    'leave-requests',
+    'performance',
+    'system-settings',
+    'admin-settings',
+    'wordpress-settings'
   ];
 
   // Ana index.html dosyasını template olarak kullan
@@ -157,18 +78,39 @@ function createMissingPages() {
   pages.forEach(pageName => {
     const pageHtmlPath = path.join(outDir, `${pageName}.html`);
     
-    if (!fs.existsSync(pageHtmlPath)) {
-      // Her sayfa için aynı HTML içeriğini kullan (SPA routing için)
-      fs.writeFileSync(pageHtmlPath, indexContent, 'utf8');
-      console.log(`✅ ${pageName}.html oluşturuldu`);
-    }
+    // Her zaman yeniden oluştur (güncel index.html içeriğini kullanmak için)
+    fs.writeFileSync(pageHtmlPath, indexContent, 'utf8');
+    console.log(`✅ ${pageName}.html oluşturuldu/güncellendi`);
   });
 }
 
+// Copy .htaccess file
+function copyHtaccess() {
+  const htaccessSource = '.htaccess';
+  const htaccessTarget = path.join(outDir, '.htaccess');
+  
+  if (fs.existsSync(htaccessSource)) {
+    fs.copyFileSync(htaccessSource, htaccessTarget);
+    console.log('✅ .htaccess dosyası kopyalandı');
+  } else {
+    console.log('⚠️ .htaccess dosyası bulunamadı');
+  }
+}
+
 // Ana fonksiyon
-console.log('🚀 out klasörü oluşturuluyor...');
-copyHtmlFiles(serverPagesDir, outDir);
-copyStaticFiles();
-copyPublicFiles();
+console.log('🚀 out klasörü düzenleniyor...');
+
+if (!fs.existsSync(outDir)) {
+  console.log('❌ out klasörü bulunamadı. Önce "npm run build" komutunu çalıştırın.');
+  process.exit(1);
+}
+
+fixExistingHtmlFiles();
 createMissingPages();
-console.log('✅ out klasörü başarıyla oluşturuldu!');
+copyHtaccess();
+
+console.log('✅ out klasörü başarıyla düzenlendi!');
+console.log('📁 Oluşturulan dosyalar:');
+console.log('   - Tüm sayfa HTML dosyaları');
+console.log('   - .htaccess dosyası');
+console.log('   - Asset yolları düzeltildi');
