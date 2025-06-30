@@ -13,6 +13,7 @@ const nextConfig = {
   },
   assetPrefix: '/spor-okulu',
   basePath: '/spor-okulu',
+  distDir: 'out',
   // Static export için optimizasyonlar
   experimental: {
     missingSuspenseWithCSRBailout: false,
@@ -26,14 +27,18 @@ const nextConfig = {
     
     // Static export için asset path'i düzelt - çifte prefix'i önlemek için
     if (context.isServer === false) {
-      config.output.publicPath = '/_next/';
+      config.output.publicPath = '/spor-okulu/_next/';
     }
+    
+    // Ensure proper asset handling
+    config.output.assetModuleFilename = 'static/media/[name].[hash][ext]';
     
     return config;
   },
   env: {
     WORDPRESS_API_URL: 'https://www.g7spor.org/wp-json/wp/v2',
     WORDPRESS_SITE_URL: 'https://www.g7spor.org',
+    NEXT_PUBLIC_BASE_PATH: '/spor-okulu',
   },
   // Force asset prefix in all environments
   publicRuntimeConfig: {

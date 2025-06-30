@@ -20,7 +20,10 @@
     "copy-htaccess-unix": "cp .htaccess out/",
     "create-out": "node create-out-folder.js",
     "build:complete": "npm run build:wordpress && npm run create-out && npm run copy-htaccess",
-    "deploy:wordpress": "npm run build:wordpress && npm run copy-htaccess"
+    "deploy:wordpress": "npm run build:wordpress && npm run copy-htaccess",
+    "deploy:full": "npm run build:wordpress && npm run create-out && npm run copy-htaccess",
+    "clean": "rimraf out .next",
+    "fresh-build": "npm run clean && npm run build:wordpress && npm run create-out && npm run copy-htaccess"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
@@ -112,6 +115,7 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
     "typescript": "^5",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "rimraf": "^5.0.5"
   }
 }

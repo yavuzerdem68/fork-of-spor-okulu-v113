@@ -1,47 +1,76 @@
+# KALICI ÇÖZÜM SİSTEMİ - .HTACCESS
+# WordPress deployment için optimize edilmiş
+
 RewriteEngine On
 
-# Handle static assets first - don't rewrite if file exists
+# 1. ÖNCE MEVCUT DOSYALARI KONTROL ET
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Handle Next.js _next static files specifically
+# 2. FAVICON.ICO İÇİN ÖZEL KURAL (En önemli!)
+RewriteRule ^favicon\.ico$ /spor-okulu/favicon.ico [L]
+RewriteRule ^spor-okulu/favicon\.ico$ /spor-okulu/favicon.ico [L]
+
+# 3. MANIFEST.JSON İÇİN ÖZEL KURAL
+RewriteRule ^manifest\.json$ /spor-okulu/manifest.json [L]
+RewriteRule ^spor-okulu/manifest\.json$ /spor-okulu/manifest.json [L]
+
+# 4. NEXT.JS _NEXT DOSYALARI İÇİN ÖZEL KURAL
+RewriteRule ^_next/(.*)$ /spor-okulu/_next/$1 [L]
 RewriteRule ^spor-okulu/_next/(.*)$ /spor-okulu/_next/$1 [L]
 
-# Handle other static assets (CSS, JS, images, etc.)
-RewriteRule ^spor-okulu/(.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$ /spor-okulu/$1 [L]
+# 5. ICONS KLASÖRÜ İÇİN ÖZEL KURAL
+RewriteRule ^icons/(.*)$ /spor-okulu/icons/$1 [L]
+RewriteRule ^spor-okulu/icons/(.*)$ /spor-okulu/icons/$1 [L]
 
-# Handle specific pages - direct mapping to .html files
+# 6. STATİK ASSET'LER (CSS, JS, PNG, vb.)
+RewriteRule ^spor-okulu/(.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|map))$ /spor-okulu/$1 [L]
+
+# 7. SAYFA ROUTING'İ - Önce .html dosyalarını dene
 RewriteRule ^spor-okulu/(login|parent-signup|register|dashboard|coach-dashboard|parent-dashboard|athletes|payments|attendance|reports|settings|forgot-password|coaches|trainings|events-tournaments|inventory-sales|media|messages|documents|leave-requests|performance|system-settings|admin-settings|wordpress-settings)/?$ /spor-okulu/$1.html [L]
 
-# Handle directory-style URLs - mapping to directory/index.html
-RewriteRule ^spor-okulu/(login|parent-signup|register|dashboard|coach-dashboard|parent-dashboard|athletes|payments|attendance|reports|settings|forgot-password|coaches|trainings|events-tournaments|inventory-sales|media|messages|documents|leave-requests|performance|system-settings|admin-settings|wordpress-settings)/$ /spor-okulu/$1/index.html [L]
+# 8. KLASÖR YAPISI ROUTING'İ
+RewriteRule ^spor-okulu/(login|parent-signup|register|dashboard|coach-dashboard|parent-dashboard|athletes|payments|attendance|reports|settings|forgot-password|coaches|trainings|events-tournaments|inventory-sales|media|messages|documents|leave-requests|performance|system-settings|admin-settings|wordpress-settings)/(.*)$ /spor-okulu/$1/index.html [L]
 
-# Handle client-side routing for Next.js static export - only for non-static files
+# 9. ANA SAYFA ROUTING'İ
+RewriteRule ^spor-okulu/?$ /spor-okulu/index.html [L]
+
+# 10. CLIENT-SIDE ROUTING (Son çare)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_URI} ^/spor-okulu/
 RewriteRule ^spor-okulu/(.*)$ /spor-okulu/index.html [L]
 
-# Redirect root requests to spor-okulu subdirectory
-RewriteCond %{REQUEST_URI} !^/spor-okulu/
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ /spor-okulu/$1 [R=301,L]
+# 11. ROOT REDIRECT (Opsiyonel)
+# RewriteCond %{REQUEST_URI} !^/spor-okulu/
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule ^(.*)$ /spor-okulu/$1 [R=301,L]
 
-# Security headers
-Header always set X-Frame-Options DENY
-Header always set X-Content-Type-Options nosniff
-Header always set Referrer-Policy "strict-origin-when-cross-origin"
+# GÜVENLİK BAŞLIKLARI
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options DENY
+    Header always set X-Content-Type-Options nosniff
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
 
-# Cache static assets
-<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+# CACHE AYARLARI
+<IfModule mod_expires.c>
     ExpiresActive On
-    ExpiresDefault "access plus 1 month"
-    Header set Cache-Control "public, immutable"
-</FilesMatch>
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 month"
+    ExpiresByType font/woff "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 month"
+</IfModule>
 
-# Compress files
+# SIKIŞTIRMA
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
@@ -52,16 +81,27 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
     AddOutputFilterByType DEFLATE application/rss+xml
     AddOutputFilterByType DEFLATE application/javascript
     AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
 </IfModule>
 
-# Prevent access to sensitive files (but allow manifest.json)
-<FilesMatch "\.(log|md)$">
-    Order allow,deny
-    Deny from all
+# GÜVENLİK - Hassas dosyalara erişimi engelle
+<FilesMatch "\.(log|md|txt)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
-# Prevent access to data JSON files but allow manifest.json
+# Data JSON dosyalarını koru (manifest.json hariç)
 <FilesMatch "^(?!manifest\.json$).*\.json$">
-    Order allow,deny
-    Deny from all
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
