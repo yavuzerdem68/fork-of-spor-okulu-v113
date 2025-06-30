@@ -97,6 +97,59 @@ function copyHtaccess() {
   }
 }
 
+// Create missing icon files
+function createMissingIcons() {
+  const iconsDir = path.join(outDir, 'icons');
+  
+  if (!fs.existsSync(iconsDir)) {
+    fs.mkdirSync(iconsDir, { recursive: true });
+    console.log('✅ icons klasörü oluşturuldu');
+  }
+
+  // Create simple placeholder icons (1x1 transparent PNG)
+  const transparentPng = Buffer.from([
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+    0x0B, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+    0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+  ]);
+
+  const iconSizes = ['16x16', '32x32', '152x152', '192x192', '384x384', '512x512'];
+  
+  iconSizes.forEach(size => {
+    const iconPath = path.join(iconsDir, `icon-${size}.png`);
+    if (!fs.existsSync(iconPath)) {
+      fs.writeFileSync(iconPath, transparentPng);
+      console.log(`✅ icon-${size}.png oluşturuldu`);
+    }
+  });
+
+  // Create favicon.ico if missing
+  const faviconPath = path.join(outDir, 'favicon.ico');
+  if (!fs.existsSync(faviconPath)) {
+    fs.writeFileSync(faviconPath, transparentPng);
+    console.log('✅ favicon.ico oluşturuldu');
+  }
+}
+
+// Fix manifest.json paths
+function fixManifestPaths() {
+  const manifestPath = path.join(outDir, 'manifest.json');
+  
+  if (fs.existsSync(manifestPath)) {
+    let manifestContent = fs.readFileSync(manifestPath, 'utf8');
+    
+    // Fix icon paths in manifest
+    manifestContent = manifestContent.replace(/\/icons\//g, '/spor-okulu/icons/');
+    manifestContent = manifestContent.replace(/\/favicon\.ico/g, '/spor-okulu/favicon.ico');
+    
+    fs.writeFileSync(manifestPath, manifestContent, 'utf8');
+    console.log('✅ manifest.json yolları düzeltildi');
+  }
+}
+
 // Ana fonksiyon
 console.log('🚀 out klasörü düzenleniyor...');
 
@@ -108,9 +161,13 @@ if (!fs.existsSync(outDir)) {
 fixExistingHtmlFiles();
 createMissingPages();
 copyHtaccess();
+createMissingIcons();
+fixManifestPaths();
 
 console.log('✅ out klasörü başarıyla düzenlendi!');
 console.log('📁 Oluşturulan dosyalar:');
 console.log('   - Tüm sayfa HTML dosyaları');
 console.log('   - .htaccess dosyası');
+console.log('   - Eksik icon dosyaları');
+console.log('   - manifest.json yolları düzeltildi');
 console.log('   - Asset yolları düzeltildi');
