@@ -7,7 +7,6 @@ const nextConfig = {
   output: 'export',
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
-  distDir: 'out',
   images: {
     unoptimized: true,
     domains: ["assets.co.dev", "images.unsplash.com", "www.g7spor.org"],
