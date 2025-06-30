@@ -8,7 +8,7 @@ const basePath = '/spor-okulu';
 
 // 1. ASSET PATH DÜZELTİCİ FONKSİYONU
 function fixAssetPaths(htmlContent) {
-  console.log('🔧 Asset path'leri düzeltiliyor...');
+  console.log('🔧 Asset pathleri düzeltiliyor...');
   
   // ADIM 1: Tüm çifte/üçlü prefix'leri temizle
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
