@@ -7,12 +7,19 @@ function fixAssetPaths(htmlContent) {
   // Fix _next static asset paths - sadece tek prefix ekle
   htmlContent = htmlContent.replace(/\/_next\//g, '/spor-okulu/_next/');
   
-  // Çifte prefix'i düzelt
+  // Çifte prefix'i düzelt - tüm varyasyonları
   htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu\//g, '/spor-okulu/');
+  htmlContent = htmlContent.replace(/\/spor-okulu\/spor-okulu/g, '/spor-okulu');
+  htmlContent = htmlContent.replace(/"\/spor-okulu\/spor-okulu\//g, '"/spor-okulu/');
+  htmlContent = htmlContent.replace(/"\/spor-okulu\/spor-okulu"/g, '"/spor-okulu"');
   
   // Fix other asset paths that don't already have the prefix
   htmlContent = htmlContent.replace(/href="\/(?!spor-okulu)/g, 'href="/spor-okulu/');
   htmlContent = htmlContent.replace(/src="\/(?!spor-okulu)/g, 'src="/spor-okulu/');
+  
+  // Fix manifest ve icon yolları
+  htmlContent = htmlContent.replace(/\/manifest\.json/g, '/spor-okulu/manifest.json');
+  htmlContent = htmlContent.replace(/\/favicon\.ico/g, '/spor-okulu/favicon.ico');
   
   return htmlContent;
 }
@@ -109,6 +116,24 @@ function createMissingIcons() {
     console.log('✅ icons klasörü oluşturuldu');
   }
 
+  // Copy icon.svg from public/icons if exists
+  const sourceIconSvg = path.join('public', 'icons', 'icon.svg');
+  const targetIconSvg = path.join(iconsDir, 'icon.svg');
+  
+  if (fs.existsSync(sourceIconSvg)) {
+    fs.copyFileSync(sourceIconSvg, targetIconSvg);
+    console.log('✅ icon.svg kopyalandı');
+  } else {
+    // Create a simple SVG icon if source doesn't exist
+    const simpleSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <path d="M16 10a4 4 0 0 1-8 0"/>
+    </svg>`;
+    fs.writeFileSync(targetIconSvg, simpleSvg, 'utf8');
+    console.log('✅ icon.svg oluşturuldu (varsayılan)');
+  }
+
   // Create simple placeholder icons (1x1 transparent PNG)
   const transparentPng = Buffer.from([
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
@@ -129,11 +154,16 @@ function createMissingIcons() {
     }
   });
 
-  // Create favicon.ico if missing
-  const faviconPath = path.join(outDir, 'favicon.ico');
-  if (!fs.existsSync(faviconPath)) {
-    fs.writeFileSync(faviconPath, transparentPng);
-    console.log('✅ favicon.ico oluşturuldu');
+  // Copy favicon.ico from public if exists, otherwise create placeholder
+  const sourceFavicon = path.join('public', 'favicon.ico');
+  const targetFavicon = path.join(outDir, 'favicon.ico');
+  
+  if (fs.existsSync(sourceFavicon)) {
+    fs.copyFileSync(sourceFavicon, targetFavicon);
+    console.log('✅ favicon.ico kopyalandı');
+  } else if (!fs.existsSync(targetFavicon)) {
+    fs.writeFileSync(targetFavicon, transparentPng);
+    console.log('✅ favicon.ico oluşturuldu (placeholder)');
   }
 }
 
