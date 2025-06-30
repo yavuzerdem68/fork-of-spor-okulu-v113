@@ -16,9 +16,7 @@ const nextConfig = {
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
-  generateBuildId: async () => {
-    return 'static-build-' + Date.now();
-  },
+
   webpack: (webpackConfig, { isServer }) => {
     if (!isServer) {
       webpackConfig.output.publicPath = '/spor-okulu/_next/';
