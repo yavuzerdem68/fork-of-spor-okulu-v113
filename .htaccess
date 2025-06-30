@@ -5,11 +5,23 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Handle Next.js _next static files
-RewriteRule ^_next/(.*)$ /spor-okulu/_next/$1 [L]
+# Handle Next.js _next static files specifically
+RewriteRule ^spor-okulu/_next/(.*)$ /spor-okulu/_next/$1 [L]
 
-# Handle client-side routing for Next.js static export
-RewriteRule ^(.*)$ /spor-okulu/index.html [L]
+# Handle other static assets (CSS, JS, images, etc.)
+RewriteRule ^spor-okulu/(.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$ /spor-okulu/$1 [L]
+
+# Handle client-side routing for Next.js static export - only for non-static files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} ^/spor-okulu/
+RewriteRule ^spor-okulu/(.*)$ /spor-okulu/index.html [L]
+
+# Redirect root requests to spor-okulu subdirectory
+RewriteCond %{REQUEST_URI} !^/spor-okulu/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /spor-okulu/$1 [R=301,L]
 
 # Security headers
 Header always set X-Frame-Options DENY

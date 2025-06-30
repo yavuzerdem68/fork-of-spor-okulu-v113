@@ -2,23 +2,23 @@
   "name": "Spor Okulu CRM - Türkiye'nin En Gelişmiş Spor Okulu Yönetim Sistemi",
   "short_name": "Spor CRM",
   "description": "Spor okulları için kapsamlı dijital yönetim sistemi. Sporcu kayıtları, ödeme takibi, yoklama, fatura oluşturma ve daha fazlası.",
-  "start_url": "/",
+  "start_url": "/spor-okulu/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
-  "scope": "/",
+  "scope": "/spor-okulu/",
   "lang": "tr",
   "categories": ["business", "education", "sports"],
   "icons": [
     {
-      "src": "/favicon.ico",
+      "src": "/spor-okulu/favicon.ico",
       "sizes": "16x16 32x32 48x48",
       "type": "image/x-icon",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon.svg",
+      "src": "/spor-okulu/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -29,10 +29,10 @@
       "name": "Sporcu Kayıt",
       "short_name": "Kayıt",
       "description": "Yeni sporcu kaydı oluştur",
-      "url": "/register",
+      "url": "/spor-okulu/register",
       "icons": [
         {
-          "src": "/favicon.ico",
+          "src": "/spor-okulu/favicon.ico",
           "sizes": "32x32"
         }
       ]
@@ -41,10 +41,10 @@
       "name": "Admin Panel",
       "short_name": "Admin",
       "description": "Yönetici paneline git",
-      "url": "/dashboard",
+      "url": "/spor-okulu/dashboard",
       "icons": [
         {
-          "src": "/favicon.ico",
+          "src": "/spor-okulu/favicon.ico",
           "sizes": "32x32"
         }
       ]
@@ -53,10 +53,10 @@
       "name": "Ödemeler",
       "short_name": "Ödeme",
       "description": "Ödeme takibi ve fatura işlemleri",
-      "url": "/payments",
+      "url": "/spor-okulu/payments",
       "icons": [
         {
-          "src": "/favicon.ico",
+          "src": "/spor-okulu/favicon.ico",
           "sizes": "32x32"
         }
       ]
@@ -65,10 +65,10 @@
       "name": "Yoklama",
       "short_name": "Yoklama",
       "description": "Dijital yoklama sistemi",
-      "url": "/attendance",
+      "url": "/spor-okulu/attendance",
       "icons": [
         {
-          "src": "/favicon.ico",
+          "src": "/spor-okulu/favicon.ico",
           "sizes": "32x32"
         }
       ]
@@ -76,14 +76,14 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshots/desktop-home.png",
+      "src": "/spor-okulu/screenshots/desktop-home.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
       "label": "Ana sayfa - Masaüstü görünümü"
     },
     {
-      "src": "/screenshots/mobile-dashboard.png",
+      "src": "/spor-okulu/screenshots/mobile-dashboard.png",
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
