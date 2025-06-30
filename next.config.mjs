@@ -19,16 +19,11 @@ const nextConfig = {
   generateBuildId: async () => {
     return 'static-build-' + Date.now();
   },
-  webpack: (config, context) => {
-    config.optimization.minimize = process.env.NEXT_PUBLIC_CO_DEV_ENV !== "preview";
-    
-    if (context.isServer === false) {
-      config.output.publicPath = '/spor-okulu/_next/';
+  webpack: (webpackConfig, { isServer }) => {
+    if (!isServer) {
+      webpackConfig.output.publicPath = '/spor-okulu/_next/';
     }
-    
-    config.output.assetModuleFilename = 'static/media/[name].[hash][ext]';
-    
-    return config;
+    return webpackConfig;
   },
   env: {
     WORDPRESS_API_URL: 'https://www.g7spor.org/wp-json/wp/v2',
