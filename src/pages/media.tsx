@@ -82,15 +82,15 @@ const saveAlbumsData = (albums: any[]) => {
 };
 
 const sidebarItems = [
-  { icon: Home, label: "Dashboard", href: "/dashboard" },
-  { icon: Users, label: "Sporcular", href: "/athletes" },
-  { icon: CreditCard, label: "Ödemeler", href: "/payments" },
-  { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
-  { icon: UserCheck, label: "Yoklama", href: "/attendance" },
-  { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
-  { icon: Camera, label: "Medya", href: "/media", active: true },
-  { icon: FileText, label: "Raporlar", href: "/reports" },
-  { icon: Settings, label: "Ayarlar", href: "/settings" }
+  { icon: Home, label: "Dashboard", href: "/spor-okulu/dashboard" },
+  { icon: Users, label: "Sporcular", href: "/spor-okulu/athletes" },
+  { icon: CreditCard, label: "Ödemeler", href: "/spor-okulu/payments" },
+  { icon: Calendar, label: "Antrenmanlar", href: "/spor-okulu/trainings" },
+  { icon: UserCheck, label: "Yoklama", href: "/spor-okulu/attendance" },
+  { icon: MessageCircle, label: "Mesajlar", href: "/spor-okulu/messages" },
+  { icon: Camera, label: "Medya", href: "/spor-okulu/media", active: true },
+  { icon: FileText, label: "Raporlar", href: "/spor-okulu/reports" },
+  { icon: Settings, label: "Ayarlar", href: "/spor-okulu/settings" }
 ];
 
 const sports = ["Basketbol", "Futbol", "Voleybol", "Hentbol", "Yüzme", "Satranç", "Akıl ve Zeka Oyunları"];
