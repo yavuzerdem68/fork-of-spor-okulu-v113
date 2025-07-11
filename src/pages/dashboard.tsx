@@ -357,6 +357,7 @@ export default function Dashboard() {
     { icon: Camera, label: "Medya", href: "/media" },
     { icon: FileText, label: "Raporlar", href: "/reports" },
     { icon: Database, label: "Veri Yedekleme", href: "/data-backup" },
+    { icon: AlertTriangle, label: "Veri Temizleme", href: "/data-cleanup" },
     { icon: Settings, label: "Ayarlar", href: "/settings" },
     { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
   ];
@@ -650,6 +651,14 @@ export default function Dashboard() {
                     </Button>
                     <Button 
                       variant="outline" 
+                      className="h-20 flex flex-col space-y-2 border-orange-200 hover:bg-orange-50"
+                      onClick={() => router.push('/data-cleanup')}
+                    >
+                      <AlertTriangle className="h-6 w-6 text-orange-600" />
+                      <span className="text-sm">Veri Temizle</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
                       className="h-20 flex flex-col space-y-2"
                       onClick={() => router.push('/trainings')}
                     >
@@ -663,14 +672,6 @@ export default function Dashboard() {
                     >
                       <Trophy className="h-6 w-6" />
                       <span className="text-sm">Yeni Etkinlik</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/messages')}
-                    >
-                      <MessageCircle className="h-6 w-6" />
-                      <span className="text-sm">Mesaj Gönder</span>
                     </Button>
                   </div>
                 </CardContent>
