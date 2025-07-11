@@ -35,6 +35,7 @@ if !errorlevel! equ 0 (
 echo PNPM bulunamadi, NPM kullanilacak...
 
 REM NPM kontrolu - basit yontem
+echo NPM kontrol ediliyor...
 npm --version >nul 2>&1
 if !errorlevel! equ 0 (
     echo NPM bulundu: 
@@ -54,19 +55,23 @@ if !errorlevel! neq 0 (
     goto :npm_not_found
 )
 
+echo Node.js yolu bulunuyor...
 for /f "tokens=*" %%i in ('where node') do (
     set "NODE_FULL_PATH=%%i"
     goto :process_node_path
 )
 
 :process_node_path
+echo Node.js tam yolu: !NODE_FULL_PATH!
 for %%j in ("!NODE_FULL_PATH!") do set "NODE_DIR=%%~dpj"
 
 echo Node.js dizini: !NODE_DIR!
 
 REM NPM'i cesitli konumlarda ara
+echo NPM aranıyor...
 set "NPM_FOUND=0"
 
+echo Kontrol ediliyor: !NODE_DIR!npm.cmd
 if exist "!NODE_DIR!npm.cmd" (
     echo NPM bulundu: !NODE_DIR!npm.cmd
     set "PACKAGE_MANAGER=!NODE_DIR!npm.cmd"
@@ -74,6 +79,7 @@ if exist "!NODE_DIR!npm.cmd" (
     goto :test_npm
 )
 
+echo Kontrol ediliyor: !NODE_DIR!npm.bat
 if exist "!NODE_DIR!npm.bat" (
     echo NPM bulundu: !NODE_DIR!npm.bat
     set "PACKAGE_MANAGER=!NODE_DIR!npm.bat"
@@ -81,6 +87,7 @@ if exist "!NODE_DIR!npm.bat" (
     goto :test_npm
 )
 
+echo Kontrol ediliyor: !NODE_DIR!npm
 if exist "!NODE_DIR!npm" (
     echo NPM bulundu: !NODE_DIR!npm
     set "PACKAGE_MANAGER=!NODE_DIR!npm"
@@ -88,12 +95,33 @@ if exist "!NODE_DIR!npm" (
     goto :test_npm
 )
 
+echo Kontrol ediliyor: !NODE_DIR!node_modules\npm\bin\npm-cli.js
 if exist "!NODE_DIR!node_modules\npm\bin\npm-cli.js" (
     echo NPM bulundu: !NODE_DIR!node_modules\npm\bin\npm-cli.js
     set "PACKAGE_MANAGER=node !NODE_DIR!node_modules\npm\bin\npm-cli.js"
     set "NPM_FOUND=1"
     goto :test_npm
 )
+
+if !NPM_FOUND! equ 0 goto :npm_not_found
+
+:test_npm
+echo NPM versiyonu kontrol ediliyor...
+echo Calistiriliyor: !PACKAGE_MANAGER! --version
+!PACKAGE_MANAGER! --version >nul 2>&1
+if !errorlevel! neq 0 (
+    echo UYARI: NPM bulundu ama calismiyor!
+    echo Hata kodu: !errorlevel!
+    echo Acil durum scripti kullanilacak...
+    echo.
+    echo emergency-start.bat scriptini calistirmayi deneyin.
+    pause
+    exit /b 1
+)
+
+echo NPM versiyonu: 
+!PACKAGE_MANAGER! --version
+goto :package_manager_found
 
 :npm_not_found
 echo HATA: NPM hicbir konumda bulunamadi!
@@ -107,21 +135,6 @@ echo 3. emergency-start.bat scriptini deneyin
 echo 4. Bilgisayari yeniden baslatip tekrar deneyin
 pause
 exit /b 1
-
-:test_npm
-echo NPM versiyonu kontrol ediliyor...
-!PACKAGE_MANAGER! --version >nul 2>&1
-if !errorlevel! neq 0 (
-    echo UYARI: NPM bulundu ama calismiyor!
-    echo Acil durum scripti kullanilacak...
-    echo.
-    echo emergency-start.bat scriptini calistirmayi deneyin.
-    pause
-    exit /b 1
-)
-
-echo NPM versiyonu: 
-!PACKAGE_MANAGER! --version
 
 :package_manager_found
 
