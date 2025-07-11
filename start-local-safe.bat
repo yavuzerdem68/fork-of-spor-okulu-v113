@@ -29,15 +29,61 @@ if %errorlevel% equ 0 (
     set PACKAGE_MANAGER=pnpm
 ) else (
     echo PNPM bulunamadi, NPM kullanilacak...
-    npm --version >nul 2>&1
+    
+    REM NPM kontrolu - daha detayli diagnostik
+    where npm >nul 2>&1
     if %errorlevel% neq 0 (
-        echo HATA: NPM de bulunamadi! Node.js kurulumunu kontrol edin.
-        pause
-        exit /b 1
+        echo UYARI: NPM PATH'te bulunamadi!
+        echo Node.js kurulum dizinini kontrol ediliyor...
+        
+        REM Node.js kurulum dizininden npm'i bulmaya calis
+        for /f "tokens=*" %%i in ('where node 2^>nul') do (
+            set NODE_PATH=%%i
+            goto :found_node
+        )
+        
+        :found_node
+        if defined NODE_PATH (
+            echo Node.js yolu: %NODE_PATH%
+            REM Node.js dizininde npm.cmd'yi ara
+            for %%j in ("%NODE_PATH%") do set NODE_DIR=%%~dpj
+            if exist "%NODE_DIR%npm.cmd" (
+                echo NPM bulundu: %NODE_DIR%npm.cmd
+                set NPM_PATH=%NODE_DIR%npm.cmd
+                "%NPM_PATH%" --version
+                set PACKAGE_MANAGER="%NPM_PATH%"
+            ) else if exist "%NODE_DIR%npm" (
+                echo NPM bulundu: %NODE_DIR%npm
+                set NPM_PATH=%NODE_DIR%npm
+                "%NPM_PATH%" --version
+                set PACKAGE_MANAGER="%NPM_PATH%"
+            ) else (
+                echo HATA: NPM Node.js dizininde bulunamadi!
+                echo Lutfen Node.js'i yeniden yukleyin veya PATH'i duzeltin.
+                echo.
+                echo Cozum onerileri:
+                echo 1. Node.js'i https://nodejs.org/ adresinden yeniden yukleyin
+                echo 2. Bilgisayari yeniden baslatip tekrar deneyin
+                echo 3. PATH cevre degiskenini kontrol edin
+                pause
+                exit /b 1
+            )
+        ) else (
+            echo HATA: Node.js yolu bulunamadi!
+            pause
+            exit /b 1
+        )
+    ) else (
+        npm --version >nul 2>&1
+        if %errorlevel% neq 0 (
+            echo HATA: NPM calismiyor!
+            pause
+            exit /b 1
+        )
+        echo NPM bulundu: 
+        npm --version
+        set PACKAGE_MANAGER=npm
     )
-    echo NPM bulundu: 
-    npm --version
-    set PACKAGE_MANAGER=npm
 )
 
 REM .env.local dosyasi kontrolu

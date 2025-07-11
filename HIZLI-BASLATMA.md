@@ -81,6 +81,17 @@ Tarayıcınızda: `http://localhost:3000`
 
 ## Sorun Giderme
 
+### Node.js/NPM Sorunları
+Eğer Node.js kurulu olmasına rağmen `npm` bulunamıyor hatası alıyorsanız:
+
+**Diagnostik aracını çalıştırın**:
+```bash
+diagnose-nodejs.bat
+```
+Bu araç sorunu analiz eder ve çözüm önerileri sunar.
+
+**Detaylı çözüm**: [NPM PATH Hatası Çözüm Rehberi](NPM-PATH-HATASI-COZUMU.md)
+
 ### PNPM bulunamadı hatası
 Eğer `pnpm is not recognized` hatası alıyorsanız:
 
@@ -137,6 +148,8 @@ Dosyayı düzenleyip kendi ayarlarınızı girin:
 | `start-local.ps1` | Windows | ✅ En güvenli | PowerShell |
 | `start-local-safe.bat` | Windows | ✅ Güvenli | Yarı otomatik |
 | `start-local.bat` | Windows | ⚠️ Defender uyarısı | Tam otomatik |
+| `emergency-start.bat` | Windows | ✅ Güvenli | Acil durum |
+| `diagnose-nodejs.bat` | Windows | ✅ Güvenli | Sorun tespiti |
 | `start-local.sh` | Mac/Linux | ✅ Güvenli | Tam otomatik |
 
 ---
