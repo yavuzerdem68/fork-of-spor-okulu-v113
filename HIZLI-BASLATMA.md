@@ -5,12 +5,23 @@ Bu rehber, uygulamayı en hızlı şekilde çalıştırmanız için hazırlanmı
 ## Otomatik Başlatma (Önerilen)
 
 ### Windows Kullanıcıları
+
+#### Seçenek 1: PowerShell (En Güvenli)
+1. `start-local.ps1` dosyasına sağ tıklayın
+2. **"PowerShell ile çalıştır"** seçin
+3. Eğer çalışmazsa PowerShell'i yönetici olarak açın:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\start-local.ps1
+```
+
+#### Seçenek 2: Güvenli Batch
+1. `start-local-safe.bat` dosyasına çift tıklayın
+2. Bu dosya Windows Defender uyarısı vermez
+
+#### Seçenek 3: Orijinal Batch (Defender Uyarısı Verebilir)
 1. `start-local.bat` dosyasına çift tıklayın
-2. Script otomatik olarak:
-   - Node.js kontrolü yapar
-   - Bağımlılıkları yükler
-   - .env.local dosyasını oluşturur
-   - Uygulamayı başlatır
+2. Windows Defender uyarısı verirse: [Çözüm Rehberi](WINDOWS-DEFENDER-COZUMU.md)
 
 ### Mac/Linux Kullanıcıları
 1. Terminal açın
@@ -103,12 +114,31 @@ npm cache clean --force
 npm install
 ```
 
+### Windows Defender virüs uyarısı
+Eğer Windows Defender batch dosyalarını virüs olarak algılıyorsa:
+
+**Hızlı çözüm**:
+1. `start-local.ps1` (PowerShell) kullanın - daha güvenli
+2. `start-local-safe.bat` kullanın - otomatik yükleme yapmaz
+3. Proje klasörünü Windows Defender'dan istisna ekleyin
+
+**Detaylı çözüm**: [Windows Defender Çözüm Rehberi](WINDOWS-DEFENDER-COZUMU.md)
+
 ### .env.local ayarları
 Dosyayı düzenleyip kendi ayarlarınızı girin:
 - WordPress URL'i
 - E-posta ayarları
 - GitHub token (isteğe bağlı)
 
+## 📁 Hangi Dosyayı Kullanmalı?
+
+| Dosya | Platform | Güvenlik | Özellik |
+|-------|----------|----------|---------|
+| `start-local.ps1` | Windows | ✅ En güvenli | PowerShell |
+| `start-local-safe.bat` | Windows | ✅ Güvenli | Yarı otomatik |
+| `start-local.bat` | Windows | ⚠️ Defender uyarısı | Tam otomatik |
+| `start-local.sh` | Mac/Linux | ✅ Güvenli | Tam otomatik |
+
 ---
 
-**İpucu**: İlk çalıştırmada otomatik başlatma scriptlerini kullanın, tüm kontrolları otomatik yapar.
+**İpucu**: Windows'ta PowerShell scripti (`start-local.ps1`) kullanın - en güvenli seçenektir.
