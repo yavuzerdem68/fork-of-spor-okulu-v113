@@ -268,7 +268,7 @@ export default function Dashboard() {
       });
     });
 
-    // Calculate pending payments - match payments page calculation exactly
+    // Calculate pending payments - FIXED: Only unpaid balances, not total
     let pendingPayments = 0;
     athletes.forEach((athlete: any) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
@@ -280,13 +280,20 @@ export default function Dashboard() {
       }, 0);
       // Round to 2 decimal places to avoid floating point errors
       const roundedBalance = Math.round(balance * 100) / 100;
+      // Only add positive balances (unpaid debts)
       if (roundedBalance > 0) {
         pendingPayments += roundedBalance;
       }
     });
     
+
+    // Update stats
+=======
     // Round final result to avoid display issues
     pendingPayments = Math.round(pendingPayments * 100) / 100;
+
+    // Update stats
+=======
 
     // Update stats
     setStats([

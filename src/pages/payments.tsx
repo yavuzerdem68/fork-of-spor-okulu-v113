@@ -896,9 +896,9 @@ export default function Payments() {
     console.log('\n=== ULTRA SIMPLE SIBLING SEARCH ===');
     console.log('🎯 Target Athlete:', athlete.studentName, athlete.studentSurname);
     
-    // Get parent identifiers - ULTRA STRICT
+    // Get parent identifiers - ULTRA STRICT - FIXED FIELD NAMES
     const targetParentPhone = athlete.parentPhone ? athlete.parentPhone.toString().replace(/\D/g, '') : '';
-    const targetParentTc = athlete.parentTcNo ? athlete.parentTcNo.toString().replace(/\D/g, '') : '';
+    const targetParentTc = athlete.parentTcNo || athlete.parentTc ? (athlete.parentTcNo || athlete.parentTc).toString().replace(/\D/g, '') : '';
     
     console.log('📋 Target Parent Data:');
     console.log('  - Phone:', targetParentPhone ? targetParentPhone.substring(0, 3) + '***' + targetParentPhone.substring(targetParentPhone.length - 2) : 'MISSING');
