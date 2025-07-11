@@ -342,20 +342,20 @@ export default function Dashboard() {
   };
 
   const sidebarItems = [
-    { icon: Home, label: "Dashboard", href: "/spor-okulu/dashboard", active: true },
-    { icon: Users, label: "Sporcular", href: "/spor-okulu/athletes" },
-    { icon: Zap, label: "Antrenörler", href: "/spor-okulu/coaches" },
-    { icon: Calendar, label: "Antrenmanlar", href: "/spor-okulu/trainings" },
-    { icon: UserCheck, label: "Yoklama", href: "/spor-okulu/attendance" },
-    { icon: CreditCard, label: "Ödemeler", href: "/spor-okulu/payments" },
-    { icon: Package, label: "Stok ve Satış", href: "/spor-okulu/inventory-sales" },
-    { icon: Trophy, label: "Etkinlikler", href: "/spor-okulu/events-tournaments" },
-    { icon: BarChart3, label: "Performans", href: "/spor-okulu/performance" },
-    { icon: MessageCircle, label: "Mesajlar", href: "/spor-okulu/messages" },
-    { icon: Camera, label: "Medya", href: "/spor-okulu/media" },
-    { icon: FileText, label: "Raporlar", href: "/spor-okulu/reports" },
-    { icon: Settings, label: "Ayarlar", href: "/spor-okulu/settings" },
-    { icon: Shield, label: "Yönetici Ayarları", href: "/spor-okulu/admin-settings" }
+    { icon: Home, label: "Dashboard", href: "/dashboard", active: true },
+    { icon: Users, label: "Sporcular", href: "/athletes" },
+    { icon: Zap, label: "Antrenörler", href: "/coaches" },
+    { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
+    { icon: UserCheck, label: "Yoklama", href: "/attendance" },
+    { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+    { icon: Package, label: "Stok ve Satış", href: "/inventory-sales" },
+    { icon: Trophy, label: "Etkinlikler", href: "/events-tournaments" },
+    { icon: BarChart3, label: "Performans", href: "/performance" },
+    { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
+    { icon: Camera, label: "Medya", href: "/media" },
+    { icon: FileText, label: "Raporlar", href: "/reports" },
+    { icon: Settings, label: "Ayarlar", href: "/settings" },
+    { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
   ];
 
   return (
@@ -364,7 +364,7 @@ export default function Dashboard() {
         <title>Dashboard - SportsCRM</title>
         <meta name="description" content="Spor okulu yönetim paneli" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/spor-okulu/favicon.ico" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div className="min-h-screen bg-background flex">
@@ -452,7 +452,7 @@ export default function Dashboard() {
                 <Button variant="outline" size="sm">
                   <Bell className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => router.push('/spor-okulu/system-settings')}>
+                <Button variant="outline" size="sm" onClick={() => router.push('/system-settings')}>
                   <Settings className="h-4 w-4" />
                 </Button>
               </div>
@@ -600,7 +600,7 @@ export default function Dashboard() {
                     <Button 
                       className="w-full mt-4" 
                       variant="outline"
-                      onClick={() => router.push('/spor-okulu/trainings')}
+                      onClick={() => router.push('/trainings')}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Yeni Antrenman
@@ -624,7 +624,7 @@ export default function Dashboard() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/spor-okulu/athletes')}
+                      onClick={() => router.push('/athletes')}
                     >
                       <Users className="h-6 w-6" />
                       <span className="text-sm">Yeni Sporcu</span>
@@ -632,7 +632,7 @@ export default function Dashboard() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/spor-okulu/payments')}
+                      onClick={() => router.push('/payments')}
                     >
                       <CreditCard className="h-6 w-6" />
                       <span className="text-sm">Ödeme Kaydet</span>
@@ -640,7 +640,7 @@ export default function Dashboard() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/spor-okulu/inventory-sales')}
+                      onClick={() => router.push('/inventory-sales')}
                     >
                       <ShoppingCart className="h-6 w-6" />
                       <span className="text-sm">Yeni Satış</span>
@@ -648,7 +648,7 @@ export default function Dashboard() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/spor-okulu/trainings')}
+                      onClick={() => router.push('/trainings')}
                     >
                       <Calendar className="h-6 w-6" />
                       <span className="text-sm">Antrenman Planla</span>
@@ -656,7 +656,7 @@ export default function Dashboard() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/spor-okulu/events-tournaments')}
+                      onClick={() => router.push('/events-tournaments')}
                     >
                       <Trophy className="h-6 w-6" />
                       <span className="text-sm">Yeni Etkinlik</span>
@@ -664,7 +664,7 @@ export default function Dashboard() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/spor-okulu/messages')}
+                      onClick={() => router.push('/messages')}
                     >
                       <MessageCircle className="h-6 w-6" />
                       <span className="text-sm">Mesaj Gönder</span>
