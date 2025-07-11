@@ -286,14 +286,8 @@ export default function Dashboard() {
       }
     });
     
-
-    // Update stats
-=======
     // Round final result to avoid display issues
     pendingPayments = Math.round(pendingPayments * 100) / 100;
-
-    // Update stats
-=======
 
     // Update stats
     setStats([
