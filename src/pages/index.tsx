@@ -299,14 +299,7 @@ export default function Home() {
               antrenman programları ve daha fazlası için kapsamlı CRM sistemi.
             </p>
 
-            {/* Hero Image */}
-            <div className="hidden lg:block">
-              <img 
-                src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/ekran-goruntusu-2025-06-30-131528-8917fbb.jpg"
-                alt="SportsCRM Dashboard"
-                className="rounded-2xl w-full max-w-md mx-auto shadow-2xl border border-border/50"
-              />
-            </div>
+
           </motion.div>
 
           {/* Right Side - Login Form */}
