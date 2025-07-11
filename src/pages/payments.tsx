@@ -758,10 +758,20 @@ export default function Payments() {
     }
   };
 
-  // Step 3: Find matches for each Excel row - COMPLETELY REWRITTEN
+  // Step 3: Find matches for each Excel row - FIXED FOR ACTIVE ATHLETES ONLY
   const findMatches = () => {
-    console.log('\n🔍 STARTING BULLETPROOF MATCHING PROCESS');
+    console.log('\n🔍 STARTING IMPROVED MATCHING PROCESS - ACTIVE ATHLETES ONLY');
     console.log(`📊 Processing ${excelData.length} Excel rows against ${athletes.length} athletes`);
+    
+    // CRITICAL FIX: Filter to only ACTIVE athletes
+    const activeAthletes = athletes.filter(athlete => {
+      const status = athlete.status?.toLowerCase();
+      const isActive = !status || status === 'aktif' || status === 'active';
+      console.log(`👤 ${athlete.studentName} ${athlete.studentSurname}: Status="${athlete.status}" -> ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
+      return isActive;
+    });
+    
+    console.log(`✅ ACTIVE ATHLETES ONLY: ${activeAthletes.length} out of ${athletes.length} total athletes`);
     
     const results: MatchResult[] = [];
     
@@ -786,8 +796,8 @@ export default function Payments() {
       const historicalMatch = matchingHistory[normalizedDescription];
       
       if (historicalMatch && historicalMatch.athleteId) {
-        // Find the athlete from historical match
-        const athlete = athletes.find(a => a.id.toString() === historicalMatch.athleteId);
+        // CRITICAL FIX: Verify historical match is still with an ACTIVE athlete
+        const athlete = activeAthletes.find(a => a.id.toString() === historicalMatch.athleteId);
         if (athlete) {
           bestMatch = {
             excelRow: row,
@@ -800,29 +810,31 @@ export default function Payments() {
             siblingIds: historicalMatch.siblingIds || []
           };
           
-          console.log(`✅ HISTORICAL MATCH FOUND: ${bestMatch.athleteName} for "${row.description}"`);
+          console.log(`✅ HISTORICAL MATCH FOUND (ACTIVE): ${bestMatch.athleteName} for "${row.description}"`);
+        } else {
+          console.log(`❌ HISTORICAL MATCH IGNORED: Athlete no longer active for "${row.description}"`);
         }
       } else {
-        // Try to match with athletes using BULLETPROOF similarity
-        console.log(`🔍 Searching for new matches...`);
+        // Try to match with ACTIVE athletes only using improved similarity
+        console.log(`🔍 Searching for new matches among ${activeAthletes.length} ACTIVE athletes...`);
         
-        athletes.forEach(athlete => {
+        activeAthletes.forEach(athlete => {
           const athleteName = `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim();
           const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
           
           if (!athleteName && !parentName) return;
           
-          // Calculate similarity with BULLETPROOF algorithm
+          // Calculate similarity with improved algorithm
           const athleteSimilarity = calculateSimilarity(row.description, athleteName);
           const parentSimilarity = calculateSimilarity(row.description, parentName);
           
-          // Give slight bonus to parent matches (they often pay)
-          const adjustedParentSimilarity = parentSimilarity > 0 ? parentSimilarity + 5 : 0;
-          const maxSimilarity = Math.max(athleteSimilarity, adjustedParentSimilarity);
+          // IMPROVED: More conservative matching - require higher similarity
+          const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
           
           console.log(`  👤 ${athleteName} (${parentName}): Athlete=${athleteSimilarity}%, Parent=${parentSimilarity}%, Max=${maxSimilarity}%`);
           
-          if (maxSimilarity > bestMatch.similarity) {
+          // CRITICAL FIX: Only accept matches with 60%+ similarity to reduce false positives
+          if (maxSimilarity >= 60 && maxSimilarity > bestMatch.similarity) {
             bestMatch = {
               excelRow: row,
               athleteId: athlete.id.toString(),
@@ -838,6 +850,11 @@ export default function Payments() {
         });
       }
       
+      // IMPROVED: Add warning for low confidence matches
+      if (bestMatch.similarity > 0 && bestMatch.similarity < 80) {
+        console.log(`⚠️  LOW CONFIDENCE MATCH: ${bestMatch.athleteName} (${bestMatch.similarity}%) - REQUIRES MANUAL REVIEW`);
+      }
+      
       console.log(`✅ FINAL MATCH for "${row.description}": ${bestMatch.athleteName || 'NO MATCH'} (${bestMatch.similarity}%)`);
       results.push(bestMatch);
     });
@@ -848,19 +865,28 @@ export default function Payments() {
     // Count different types of matches
     const historicalMatches = results.filter(r => r.similarity === 100 && !r.isManual).length;
     const highConfidenceMatches = results.filter(r => r.similarity >= 80 && r.similarity < 100).length;
-    const mediumConfidenceMatches = results.filter(r => r.similarity >= 50 && r.similarity < 80).length;
-    const lowConfidenceMatches = results.filter(r => r.similarity < 50).length;
+    const mediumConfidenceMatches = results.filter(r => r.similarity >= 60 && r.similarity < 80).length;
+    const lowConfidenceMatches = results.filter(r => r.similarity > 0 && r.similarity < 60).length;
+    const noMatches = results.filter(r => r.similarity === 0).length;
     
-    console.log(`\n📊 MATCHING SUMMARY:`);
-    console.log(`  Historical: ${historicalMatches}`);
-    console.log(`  High (80-99%): ${highConfidenceMatches}`);
-    console.log(`  Medium (50-79%): ${mediumConfidenceMatches}`);
-    console.log(`  Low (<50%): ${lowConfidenceMatches}`);
+    console.log(`\n📊 IMPROVED MATCHING SUMMARY:`);
+    console.log(`  Historical (Active): ${historicalMatches}`);
+    console.log(`  High Confidence (80-99%): ${highConfidenceMatches}`);
+    console.log(`  Medium Confidence (60-79%): ${mediumConfidenceMatches}`);
+    console.log(`  Low Confidence (<60%): ${lowConfidenceMatches}`);
+    console.log(`  No Match: ${noMatches}`);
     
-    if (historicalMatches > 0) {
-      toast.success(`Eşleştirme tamamlandı! ${historicalMatches} geçmiş eşleştirme otomatik uygulandı.`);
+    // Improved success message
+    if (noMatches > 0) {
+      toast.success(
+        `Eşleştirme tamamlandı!\n\n` +
+        `✅ Güvenilir: ${historicalMatches + highConfidenceMatches}\n` +
+        `⚠️ Manuel kontrol gerekli: ${mediumConfidenceMatches + lowConfidenceMatches}\n` +
+        `❌ Eşleşmedi: ${noMatches} (eski sporcu ödemeleri olabilir)`,
+        { duration: 8000 }
+      );
     } else {
-      toast.success(`Eşleştirme tamamlandı! ${highConfidenceMatches} yüksek güvenilirlik, ${mediumConfidenceMatches} orta güvenilirlik.`);
+      toast.success(`Eşleştirme tamamlandı! ${historicalMatches + highConfidenceMatches} güvenilir eşleştirme bulundu.`);
     }
   };
 
@@ -885,7 +911,7 @@ export default function Payments() {
     toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
   };
 
-  // COMPLETELY REWRITTEN SIBLING SYSTEM - ULTRA SIMPLE AND RELIABLE
+  // IMPROVED SIBLING SYSTEM - ACTIVE ATHLETES ONLY
   const findSiblings = (athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) {
@@ -893,8 +919,16 @@ export default function Payments() {
       return [];
     }
     
-    console.log('\n=== ULTRA SIMPLE SIBLING SEARCH ===');
+    console.log('\n=== IMPROVED SIBLING SEARCH - ACTIVE ONLY ===');
     console.log('🎯 Target Athlete:', athlete.studentName, athlete.studentSurname);
+    
+    // CRITICAL FIX: Only search among ACTIVE athletes
+    const activeAthletes = athletes.filter(a => {
+      const status = a.status?.toLowerCase();
+      return !status || status === 'aktif' || status === 'active';
+    });
+    
+    console.log(`📊 Searching among ${activeAthletes.length} ACTIVE athletes (out of ${athletes.length} total)`);
     
     // Get parent identifiers - ULTRA STRICT - FIXED FIELD NAMES
     const targetParentPhone = athlete.parentPhone ? athlete.parentPhone.toString().replace(/\D/g, '') : '';
@@ -910,17 +944,16 @@ export default function Payments() {
       return [];
     }
     
-    // Find siblings with EXACT matching only
-    const siblings = athletes.filter(candidate => {
-      // Skip self and inactive athletes
+    // Find siblings with EXACT matching only - ACTIVE ATHLETES ONLY
+    const siblings = activeAthletes.filter(candidate => {
+      // Skip self
       if (candidate.id === athlete.id) return false;
-      if (candidate.status === 'Pasif') return false;
       
       // Get candidate parent data
       const candidateParentPhone = candidate.parentPhone ? candidate.parentPhone.toString().replace(/\D/g, '') : '';
-      const candidateParentTc = candidate.parentTc ? candidate.parentTc.toString().replace(/\D/g, '') : '';
+      const candidateParentTc = candidate.parentTcNo || candidate.parentTc ? (candidate.parentTcNo || candidate.parentTc).toString().replace(/\D/g, '') : '';
       
-      console.log(`\n🔍 Checking: ${candidate.studentName} ${candidate.studentSurname}`);
+      console.log(`\n🔍 Checking ACTIVE: ${candidate.studentName} ${candidate.studentSurname}`);
       console.log('  Parent Data:');
       console.log('    - Phone:', candidateParentPhone ? candidateParentPhone.substring(0, 3) + '***' + candidateParentPhone.substring(candidateParentPhone.length - 2) : 'MISSING');
       console.log('    - TC:', candidateParentTc ? candidateParentTc.substring(0, 3) + '***' + candidateParentTc.substring(candidateParentTc.length - 2) : 'MISSING');
@@ -942,15 +975,15 @@ export default function Payments() {
         console.log(`    ❌ NO EXACT MATCH`);
       }
       
-      console.log(`  🎯 DECISION: ${isSibling ? '✅ SIBLING' : '❌ NOT SIBLING'}`);
+      console.log(`  🎯 DECISION: ${isSibling ? '✅ ACTIVE SIBLING' : '❌ NOT SIBLING'}`);
       
       return isSibling;
     });
     
-    console.log(`\n🎉 SIBLING SEARCH COMPLETE`);
-    console.log(`✅ Found ${siblings.length} confirmed siblings for ${athlete.studentName} ${athlete.studentSurname}:`);
+    console.log(`\n🎉 ACTIVE SIBLING SEARCH COMPLETE`);
+    console.log(`✅ Found ${siblings.length} confirmed ACTIVE siblings for ${athlete.studentName} ${athlete.studentSurname}:`);
     siblings.forEach((s, index) => {
-      console.log(`  ${index + 1}. ${s.studentName} ${s.studentSurname} (Parent: ${s.parentName} ${s.parentSurname})`);
+      console.log(`  ${index + 1}. ${s.studentName} ${s.studentSurname} (Parent: ${s.parentName} ${s.parentSurname}) - STATUS: ${s.status || 'ACTIVE'}`);
     });
     
     return siblings;
