@@ -16,6 +16,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import TermsModal from "@/components/TermsModal";
 import { KvkkModal } from "@/components/KvkkModal";
+import { WordPressJWTAPI, WordPressUserRoles, WordPressSessionManager } from "@/lib/wordpress-jwt-api";
+import { hashPassword } from "@/utils/security";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -47,6 +49,7 @@ export default function Register() {
   const [success, setSuccess] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [isParentLoggedIn, setIsParentLoggedIn] = useState(false);
+  const [wpAPI] = useState(() => new WordPressJWTAPI(process.env.NEXT_PUBLIC_WORDPRESS_URL || ''));
   const [tcErrors, setTcErrors] = useState({
     studentTcNo: "",
     parentTcNo: ""
@@ -54,23 +57,38 @@ export default function Register() {
 
   // Check if parent is logged in
   useEffect(() => {
-    const userRole = localStorage.getItem('userRole');
-    const currentUser = localStorage.getItem('currentUser');
-    
-    if (userRole === 'parent' && currentUser) {
+    // Check WordPress session first
+    const { isValid, session } = WordPressSessionManager.validateSession();
+    if (isValid && session && session.userRole === 'parent') {
       setIsParentLoggedIn(true);
-      const user = JSON.parse(currentUser);
-      // Pre-fill parent information
+      // Pre-fill parent information from WordPress session
       setFormData(prev => ({
         ...prev,
-        parentName: user.firstName,
-        parentSurname: user.lastName,
-        parentEmail: user.email,
-        parentPhone: user.phone
+        parentName: session.displayName.split(' ')[0] || '',
+        parentSurname: session.displayName.split(' ').slice(1).join(' ') || '',
+        parentEmail: session.email,
+        parentPhone: '' // Phone not available in WordPress session
       }));
     } else {
-      // Redirect to parent signup if not logged in
-      router.push('/parent-signup');
+      // Fallback to legacy session check
+      const userRole = localStorage.getItem('userRole');
+      const currentUser = localStorage.getItem('currentUser');
+      
+      if (userRole === 'parent' && currentUser) {
+        setIsParentLoggedIn(true);
+        const user = JSON.parse(currentUser);
+        // Pre-fill parent information
+        setFormData(prev => ({
+          ...prev,
+          parentName: user.firstName || user.name || '',
+          parentSurname: user.lastName || user.surname || '',
+          parentEmail: user.email,
+          parentPhone: user.phone || ''
+        }));
+      } else {
+        // Redirect to parent signup if not logged in
+        router.push('/parent-signup');
+      }
     }
   }, [router]);
 

@@ -13,6 +13,7 @@ import { useRouter } from "next/router";
 import { verifyPassword, hashPassword } from "@/utils/security";
 import { RateLimiter, SessionManager } from "@/utils/security";
 import { sanitizeInput } from "@/utils/security";
+import { WordPressJWTAPI, WordPressUserRoles, WordPressSessionManager } from "@/lib/wordpress-jwt-api";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -29,11 +30,12 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [rateLimiter] = useState(() => new RateLimiter(5, 15 * 60 * 1000)); // 5 attempts per 15 minutes
+  const [wpAPI] = useState(() => new WordPressJWTAPI(process.env.NEXT_PUBLIC_WORDPRESS_URL || ''));
 
   // Check if user is already logged in
   useEffect(() => {
-    // Immediate check without delay to prevent flickering
-    const { isValid, session } = SessionManager.validateSession();
+    // Check WordPress session first
+    const { isValid, session } = WordPressSessionManager.validateSession();
     if (isValid && session) {
       // Redirect based on role immediately
       switch (session.userRole) {
@@ -47,7 +49,25 @@ export default function Login() {
           router.replace('/spor-okulu/parent-dashboard');
           break;
         default:
-          SessionManager.destroySession();
+          WordPressSessionManager.destroySession();
+      }
+    } else {
+      // Fallback to legacy session check for backward compatibility
+      const legacySession = SessionManager.validateSession();
+      if (legacySession.isValid && legacySession.session) {
+        switch (legacySession.session.userRole) {
+          case 'admin':
+            router.replace('/spor-okulu/dashboard');
+            break;
+          case 'coach':
+            router.replace('/spor-okulu/coach-dashboard');
+            break;
+          case 'parent':
+            router.replace('/spor-okulu/parent-dashboard');
+            break;
+          default:
+            SessionManager.destroySession();
+        }
       }
     }
   }, [router]);
@@ -71,65 +91,100 @@ export default function Login() {
     }
 
     try {
-      // Initialize default admin if no admin users exist
-      let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
-      
-      if (adminUsers.length === 0) {
-        // Create default admin with hashed password
-        const hashedPassword = await hashPassword('admin123');
-        const defaultAdmin = {
-          id: 'default-admin',
-          name: 'Sistem',
-          surname: 'Yöneticisi',
-          email: 'admin@sportscr.com',
-          password: hashedPassword,
-          role: 'admin',
-          createdAt: new Date().toISOString(),
-          isDefault: true
-        };
-        adminUsers = [defaultAdmin];
-        localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
-      }
+      // Try WordPress JWT authentication first
+      try {
+        const authResponse = await wpAPI.login(email, password);
+        const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
+        
+        // Check if user has admin privileges
+        if (userRole !== 'admin') {
+          setError("Bu hesap yönetici yetkisine sahip değil");
+          setLoading(false);
+          return;
+        }
 
-      // Find admin by email
-      const admin = adminUsers.find((a: any) => a.email === email);
+        // Create WordPress session
+        const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
+        
+        // Set legacy localStorage for compatibility
+        localStorage.setItem("userRole", "admin");
+        localStorage.setItem("currentUser", JSON.stringify({
+          id: authResponse.user_id,
+          name: authResponse.user_display_name.split(' ')[0] || 'Admin',
+          surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
+          email: authResponse.user_email,
+          role: 'admin'
+        }));
+        localStorage.setItem("userEmail", authResponse.user_email);
 
-      if (admin) {
-        // Verify password
-        const isPasswordValid = admin.isDefault && admin.password === 'admin123' 
-          ? password === 'admin123' // Backward compatibility for default admin
-          : await verifyPassword(password, admin.password);
+        // Reset rate limiter on successful login
+        rateLimiter.reset(clientId);
+        
+        router.push("/spor-okulu/dashboard");
+        return;
+      } catch (wpError: any) {
+        console.log('WordPress login failed, trying fallback:', wpError.message);
+        
+        // Fallback to localStorage-based authentication for backward compatibility
+        let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+        
+        if (adminUsers.length === 0) {
+          // Create default admin with hashed password
+          const hashedPassword = await hashPassword('admin123');
+          const defaultAdmin = {
+            id: 'default-admin',
+            name: 'Sistem',
+            surname: 'Yöneticisi',
+            email: 'admin@sportscr.com',
+            password: hashedPassword,
+            role: 'admin',
+            createdAt: new Date().toISOString(),
+            isDefault: true
+          };
+          adminUsers = [defaultAdmin];
+          localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
+        }
 
-        if (isPasswordValid) {
-          // If using old plain text password, update to hashed
-          if (admin.isDefault && admin.password === 'admin123') {
-            admin.password = await hashPassword('admin123');
+        // Find admin by email
+        const admin = adminUsers.find((a: any) => a.email === email);
+
+        if (admin) {
+          // Verify password
+          const isPasswordValid = admin.isDefault && admin.password === 'admin123' 
+            ? password === 'admin123' // Backward compatibility for default admin
+            : await verifyPassword(password, admin.password);
+
+          if (isPasswordValid) {
+            // If using old plain text password, update to hashed
+            if (admin.isDefault && admin.password === 'admin123') {
+              admin.password = await hashPassword('admin123');
+              const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+              localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+            }
+
+            // Create secure session
+            const sessionId = SessionManager.createSession(admin.id, 'admin');
+            
+            // Update last login
+            admin.lastLogin = new Date().toISOString();
             const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
             localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+
+            // Set legacy localStorage for compatibility
+            localStorage.setItem("userRole", "admin");
+            localStorage.setItem("currentUser", JSON.stringify(admin));
+            localStorage.setItem("userEmail", admin.email);
+
+            // Reset rate limiter on successful login
+            rateLimiter.reset(clientId);
+            
+            router.push("/spor-okulu/dashboard");
+          } else {
+            setError("Geçersiz email veya şifre");
           }
-
-          // Create secure session
-          const sessionId = SessionManager.createSession(admin.id, 'admin');
-          
-          // Update last login
-          admin.lastLogin = new Date().toISOString();
-          const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-          localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
-
-          // Set legacy localStorage for compatibility
-          localStorage.setItem("userRole", "admin");
-          localStorage.setItem("currentUser", JSON.stringify(admin));
-          localStorage.setItem("userEmail", admin.email);
-
-          // Reset rate limiter on successful login
-          rateLimiter.reset(clientId);
-          
-          router.push("/spor-okulu/dashboard");
         } else {
           setError("Geçersiz email veya şifre");
         }
-      } else {
-        setError("Geçersiz email veya şifre");
       }
     } catch (error) {
       console.error('Admin login error:', error);
@@ -158,40 +213,75 @@ export default function Login() {
     }
 
     try {
-      // Check against registered coaches
-      const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
-      const coach = coaches.find((c: any) => c.email === email);
+      // Try WordPress JWT authentication first
+      try {
+        const authResponse = await wpAPI.login(email, password);
+        const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
+        
+        // Check if user has coach privileges
+        if (userRole !== 'coach') {
+          setError("Bu hesap antrenör yetkisine sahip değil");
+          setLoading(false);
+          return;
+        }
 
-      if (coach) {
-        // Verify password (handle both hashed and plain text for backward compatibility)
-        const isPasswordValid = coach.password && coach.password.length > 50
-          ? await verifyPassword(password, coach.password)
-          : password === coach.password;
+        // Create WordPress session
+        const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
+        
+        // Set legacy localStorage for compatibility
+        localStorage.setItem("userRole", "coach");
+        localStorage.setItem("currentUser", JSON.stringify({
+          id: authResponse.user_id,
+          name: authResponse.user_display_name.split(' ')[0] || 'Coach',
+          surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
+          email: authResponse.user_email,
+          role: 'coach'
+        }));
+        localStorage.setItem("userEmail", authResponse.user_email);
 
-        if (isPasswordValid) {
-          // If using old plain text password, update to hashed
-          if (coach.password && coach.password.length <= 50) {
-            coach.password = await hashPassword(coach.password);
-            const updatedCoaches = coaches.map((c: any) => c.id === coach.id ? coach : c);
-            localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+        // Reset rate limiter on successful login
+        rateLimiter.reset(clientId);
+        
+        router.push("/spor-okulu/coach-dashboard");
+        return;
+      } catch (wpError: any) {
+        console.log('WordPress coach login failed, trying fallback:', wpError.message);
+        
+        // Fallback to localStorage-based authentication for backward compatibility
+        const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
+        const coach = coaches.find((c: any) => c.email === email);
+
+        if (coach) {
+          // Verify password (handle both hashed and plain text for backward compatibility)
+          const isPasswordValid = coach.password && coach.password.length > 50
+            ? await verifyPassword(password, coach.password)
+            : password === coach.password;
+
+          if (isPasswordValid) {
+            // If using old plain text password, update to hashed
+            if (coach.password && coach.password.length <= 50) {
+              coach.password = await hashPassword(coach.password);
+              const updatedCoaches = coaches.map((c: any) => c.id === coach.id ? coach : c);
+              localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+            }
+
+            // Create secure session
+            const sessionId = SessionManager.createSession(coach.id, 'coach');
+            
+            // Set legacy localStorage for compatibility
+            localStorage.setItem("userRole", "coach");
+            localStorage.setItem("currentUser", JSON.stringify(coach));
+
+            // Reset rate limiter on successful login
+            rateLimiter.reset(clientId);
+            
+            router.push("/spor-okulu/coach-dashboard");
+          } else {
+            setError("Geçersiz email veya şifre");
           }
-
-          // Create secure session
-          const sessionId = SessionManager.createSession(coach.id, 'coach');
-          
-          // Set legacy localStorage for compatibility
-          localStorage.setItem("userRole", "coach");
-          localStorage.setItem("currentUser", JSON.stringify(coach));
-
-          // Reset rate limiter on successful login
-          rateLimiter.reset(clientId);
-          
-          router.push("/spor-okulu/coach-dashboard");
         } else {
           setError("Geçersiz email veya şifre");
         }
-      } else {
-        setError("Geçersiz email veya şifre");
       }
     } catch (error) {
       console.error('Coach login error:', error);
@@ -220,43 +310,78 @@ export default function Login() {
     }
 
     try {
-      // Check against registered parent users
-      const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
-      const user = parentUsers.find((u: any) => 
-        u.email === emailOrUsername || u.username === emailOrUsername
-      );
+      // Try WordPress JWT authentication first
+      try {
+        const authResponse = await wpAPI.login(emailOrUsername, password);
+        const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
+        
+        // Check if user has parent privileges
+        if (userRole !== 'parent') {
+          setError("Bu hesap veli yetkisine sahip değil");
+          setLoading(false);
+          return;
+        }
 
-      if (user) {
-        // Verify password (handle both hashed and plain text for backward compatibility)
-        const isPasswordValid = user.password && user.password.length > 50
-          ? await verifyPassword(password, user.password)
-          : password === user.password;
+        // Create WordPress session
+        const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
+        
+        // Set legacy localStorage for compatibility
+        localStorage.setItem("userRole", "parent");
+        localStorage.setItem("currentUser", JSON.stringify({
+          id: authResponse.user_id,
+          name: authResponse.user_display_name.split(' ')[0] || 'Parent',
+          surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
+          email: authResponse.user_email,
+          role: 'parent'
+        }));
+        localStorage.setItem("userEmail", authResponse.user_email);
 
-        if (isPasswordValid) {
-          // If using old plain text password, update to hashed
-          if (user.password && user.password.length <= 50) {
-            user.password = await hashPassword(user.password);
-            const updatedUsers = parentUsers.map((u: any) => u.id === user.id ? user : u);
-            localStorage.setItem('parentUsers', JSON.stringify(updatedUsers));
+        // Reset rate limiter on successful login
+        rateLimiter.reset(clientId);
+        
+        router.push("/spor-okulu/parent-dashboard");
+        return;
+      } catch (wpError: any) {
+        console.log('WordPress parent login failed, trying fallback:', wpError.message);
+        
+        // Fallback to localStorage-based authentication for backward compatibility
+        const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+        const user = parentUsers.find((u: any) => 
+          u.email === emailOrUsername || u.username === emailOrUsername
+        );
+
+        if (user) {
+          // Verify password (handle both hashed and plain text for backward compatibility)
+          const isPasswordValid = user.password && user.password.length > 50
+            ? await verifyPassword(password, user.password)
+            : password === user.password;
+
+          if (isPasswordValid) {
+            // If using old plain text password, update to hashed
+            if (user.password && user.password.length <= 50) {
+              user.password = await hashPassword(user.password);
+              const updatedUsers = parentUsers.map((u: any) => u.id === user.id ? user : u);
+              localStorage.setItem('parentUsers', JSON.stringify(updatedUsers));
+            }
+
+            // Create secure session
+            const sessionId = SessionManager.createSession(user.id, 'parent');
+            
+            // Set legacy localStorage for compatibility
+            localStorage.setItem("userRole", "parent");
+            localStorage.setItem("currentUser", JSON.stringify(user));
+            localStorage.setItem("userEmail", user.email);
+
+            // Reset rate limiter on successful login
+            rateLimiter.reset(clientId);
+            
+            router.push("/spor-okulu/parent-dashboard");
+          } else {
+            setError("Geçersiz kullanıcı adı/email veya şifre");
           }
-
-          // Create secure session
-          const sessionId = SessionManager.createSession(user.id, 'parent');
-          
-          // Set legacy localStorage for compatibility
-          localStorage.setItem("userRole", "parent");
-          localStorage.setItem("currentUser", JSON.stringify(user));
-          localStorage.setItem("userEmail", user.email);
-
-          // Reset rate limiter on successful login
-          rateLimiter.reset(clientId);
-          
-          router.push("/spor-okulu/parent-dashboard");
         } else {
           setError("Geçersiz kullanıcı adı/email veya şifre");
         }
-      } else {
-        setError("Geçersiz kullanıcı adı/email veya şifre");
       }
     } catch (error) {
       console.error('Parent login error:', error);
