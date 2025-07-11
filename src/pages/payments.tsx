@@ -43,76 +43,13 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
-
-// COMPLETELY REWRITTEN MATCHING SYSTEM - SIMPLE AND RELIABLE
-
-// Simple Turkish character normalization - FIXED VERSION
-const normalizeTurkish = (text: string): string => {
-  if (!text) return '';
-  
-  return text
-    .toLowerCase()
-    .replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u')
-    .replace(/ş/g, 's')
-    .replace(/ı/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c')
-    .replace(/[^\w\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
-
-// BULLETPROOF similarity calculation - COMPLETELY REWRITTEN
-const calculateSimilarity = (str1: string, str2: string): number => {
-  if (!str1 || !str2) return 0;
-  
-  // Normalize both strings
-  const norm1 = normalizeTurkish(str1);
-  const norm2 = normalizeTurkish(str2);
-  
-  console.log(`Comparing: "${norm1}" vs "${norm2}"`);
-  
-  // EXACT MATCH - This should be 100%
-  if (norm1 === norm2) {
-    console.log('✅ EXACT MATCH - 100%');
-    return 100;
-  }
-  
-  // Check if one contains the other completely
-  if (norm1.includes(norm2) || norm2.includes(norm1)) {
-    console.log('✅ COMPLETE CONTAINMENT - 95%');
-    return 95;
-  }
-  
-  // Word-based matching - IMPROVED
-  const words1 = norm1.split(' ').filter(w => w.length > 1);
-  const words2 = norm2.split(' ').filter(w => w.length > 1);
-  
-  if (words1.length === 0 || words2.length === 0) return 0;
-  
-  // Count exact word matches
-  let exactMatches = 0;
-  const totalWords = Math.max(words1.length, words2.length);
-  
-  for (const word1 of words1) {
-    if (words2.includes(word1)) {
-      exactMatches++;
-    }
-  }
-  
-  // If all words match, it's a perfect match
-  if (exactMatches === words1.length && exactMatches === words2.length) {
-    console.log('✅ ALL WORDS MATCH - 100%');
-    return 100;
-  }
-  
-  // Calculate word match percentage
-  const wordMatchPercentage = (exactMatches / totalWords) * 100;
-  console.log(`📊 Word match: ${exactMatches}/${totalWords} = ${wordMatchPercentage}%`);
-  
-  return Math.round(wordMatchPercentage);
-};
+import { 
+  normalizeTurkish, 
+  calculateTurkishSimilarity, 
+  findTurkishMatches, 
+  TurkishMatchingMemory,
+  type ManualMatch 
+} from '@/lib/turkish-matching';
 
 // Parse Turkish date formats
 const parseTurkishDate = (dateStr: string): Date | null => {
@@ -758,149 +695,80 @@ export default function Payments() {
     }
   };
 
-  // Step 3: Find matches for each Excel row - FIXED FOR ACTIVE ATHLETES ONLY
+  // Step 3: Find matches using Turkish-aware matching system
   const findMatches = () => {
-    console.log('\n🔍 STARTING IMPROVED MATCHING PROCESS - ACTIVE ATHLETES ONLY');
-    console.log(`📊 Processing ${excelData.length} Excel rows against ${athletes.length} athletes`);
+    console.log('\n🇹🇷 STARTING TURKISH-AWARE MATCHING PROCESS');
     
-    // CRITICAL FIX: Filter to only ACTIVE athletes
-    const activeAthletes = athletes.filter(athlete => {
-      const status = athlete.status?.toLowerCase();
-      const isActive = !status || status === 'aktif' || status === 'active';
-      console.log(`👤 ${athlete.studentName} ${athlete.studentSurname}: Status="${athlete.status}" -> ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
-      return isActive;
-    });
+    // Use the new Turkish matching system
+    const results = findTurkishMatches(excelData, athletes);
     
-    console.log(`✅ ACTIVE ATHLETES ONLY: ${activeAthletes.length} out of ${athletes.length} total athletes`);
+    // Convert results to MatchResult format
+    const matchResults: MatchResult[] = results.map(result => ({
+      excelRow: result.excelRow,
+      athleteId: result.athleteId,
+      athleteName: result.athleteName,
+      parentName: result.parentName,
+      similarity: result.similarity,
+      isManual: result.isManual || false,
+      isSiblingPayment: result.isSiblingPayment || false,
+      siblingIds: result.siblingIds
+    }));
     
-    const results: MatchResult[] = [];
-    
-    // Load payment matching history
-    const matchingHistory = JSON.parse(localStorage.getItem('paymentMatchingHistory') || '{}');
-    
-    excelData.forEach((row, index) => {
-      console.log(`\n--- Processing Row ${index + 1}: "${row.description}" ---`);
-      
-      let bestMatch: MatchResult = {
-        excelRow: row,
-        athleteId: null,
-        athleteName: '',
-        parentName: '',
-        similarity: 0,
-        isManual: false,
-        isSiblingPayment: false
-      };
-      
-      // First, check if we have a historical match for this description
-      const normalizedDescription = normalizeTurkish(row.description);
-      const historicalMatch = matchingHistory[normalizedDescription];
-      
-      if (historicalMatch && historicalMatch.athleteId) {
-        // CRITICAL FIX: Verify historical match is still with an ACTIVE athlete
-        const athlete = activeAthletes.find(a => a.id.toString() === historicalMatch.athleteId);
-        if (athlete) {
-          bestMatch = {
-            excelRow: row,
-            athleteId: athlete.id.toString(),
-            athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
-            parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-            similarity: 100,
-            isManual: false,
-            isSiblingPayment: historicalMatch.isSiblingPayment || false,
-            siblingIds: historicalMatch.siblingIds || []
-          };
-          
-          console.log(`✅ HISTORICAL MATCH FOUND (ACTIVE): ${bestMatch.athleteName} for "${row.description}"`);
-        } else {
-          console.log(`❌ HISTORICAL MATCH IGNORED: Athlete no longer active for "${row.description}"`);
-        }
-      } else {
-        // Try to match with ACTIVE athletes only using improved similarity
-        console.log(`🔍 Searching for new matches among ${activeAthletes.length} ACTIVE athletes...`);
-        
-        activeAthletes.forEach(athlete => {
-          const athleteName = `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim();
-          const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
-          
-          if (!athleteName && !parentName) return;
-          
-          // Calculate similarity with improved algorithm
-          const athleteSimilarity = calculateSimilarity(row.description, athleteName);
-          const parentSimilarity = calculateSimilarity(row.description, parentName);
-          
-          // IMPROVED: More conservative matching - require higher similarity
-          const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
-          
-          console.log(`  👤 ${athleteName} (${parentName}): Athlete=${athleteSimilarity}%, Parent=${parentSimilarity}%, Max=${maxSimilarity}%`);
-          
-          // CRITICAL FIX: Only accept matches with 60%+ similarity to reduce false positives
-          if (maxSimilarity >= 60 && maxSimilarity > bestMatch.similarity) {
-            bestMatch = {
-              excelRow: row,
-              athleteId: athlete.id.toString(),
-              athleteName: athleteName,
-              parentName: parentName,
-              similarity: maxSimilarity,
-              isManual: false,
-              isSiblingPayment: false
-            };
-            
-            console.log(`  🎯 NEW BEST MATCH: ${athleteName} with ${maxSimilarity}%`);
-          }
-        });
-      }
-      
-      // IMPROVED: Add warning for low confidence matches
-      if (bestMatch.similarity > 0 && bestMatch.similarity < 80) {
-        console.log(`⚠️  LOW CONFIDENCE MATCH: ${bestMatch.athleteName} (${bestMatch.similarity}%) - REQUIRES MANUAL REVIEW`);
-      }
-      
-      console.log(`✅ FINAL MATCH for "${row.description}": ${bestMatch.athleteName || 'NO MATCH'} (${bestMatch.similarity}%)`);
-      results.push(bestMatch);
-    });
-    
-    setMatchResults(results);
+    setMatchResults(matchResults);
     setStep('confirm');
     
     // Count different types of matches
-    const historicalMatches = results.filter(r => r.similarity === 100 && !r.isManual).length;
-    const highConfidenceMatches = results.filter(r => r.similarity >= 80 && r.similarity < 100).length;
-    const mediumConfidenceMatches = results.filter(r => r.similarity >= 60 && r.similarity < 80).length;
-    const lowConfidenceMatches = results.filter(r => r.similarity > 0 && r.similarity < 60).length;
-    const noMatches = results.filter(r => r.similarity === 0).length;
+    const historicalMatches = matchResults.filter(r => r.similarity === 100 && !r.isManual).length;
+    const highConfidenceMatches = matchResults.filter(r => r.similarity >= 85 && r.similarity < 100).length;
+    const mediumConfidenceMatches = matchResults.filter(r => r.similarity >= 70 && r.similarity < 85).length;
+    const lowConfidenceMatches = matchResults.filter(r => r.similarity > 0 && r.similarity < 70).length;
+    const noMatches = matchResults.filter(r => r.similarity === 0).length;
     
-    console.log(`\n📊 IMPROVED MATCHING SUMMARY:`);
-    console.log(`  Historical (Active): ${historicalMatches}`);
-    console.log(`  High Confidence (80-99%): ${highConfidenceMatches}`);
-    console.log(`  Medium Confidence (60-79%): ${mediumConfidenceMatches}`);
-    console.log(`  Low Confidence (<60%): ${lowConfidenceMatches}`);
-    console.log(`  No Match: ${noMatches}`);
-    
-    // Improved success message
+    // Show Turkish-aware success message
     if (noMatches > 0) {
       toast.success(
-        `Eşleştirme tamamlandı!\n\n` +
+        `🇹🇷 Türkçe Karakter Destekli Eşleştirme Tamamlandı!\n\n` +
         `✅ Güvenilir: ${historicalMatches + highConfidenceMatches}\n` +
         `⚠️ Manuel kontrol gerekli: ${mediumConfidenceMatches + lowConfidenceMatches}\n` +
-        `❌ Eşleşmedi: ${noMatches} (eski sporcu ödemeleri olabilir)`,
-        { duration: 8000 }
+        `❌ Eşleşmedi: ${noMatches} (eski sporcu ödemeleri olabilir)\n\n` +
+        `🔤 Türkçe karakterler (İ,ı,ç,Ç,ğ,Ğ,Ü,ü) doğru işlendi!`,
+        { duration: 10000 }
       );
     } else {
-      toast.success(`Eşleştirme tamamlandı! ${historicalMatches + highConfidenceMatches} güvenilir eşleştirme bulundu.`);
+      toast.success(
+        `🇹🇷 Türkçe Karakter Destekli Eşleştirme Başarılı!\n\n` +
+        `✅ ${historicalMatches + highConfidenceMatches} güvenilir eşleştirme bulundu\n` +
+        `🔤 Türkçe karakterler doğru işlendi!`,
+        { duration: 6000 }
+      );
     }
   };
 
-  // Manual match update - CLEAN VERSION
+  // Manual match update - ENHANCED WITH TURKISH MEMORY
   const updateManualMatch = (index: number, athleteId: string) => {
     const athlete = athletes.find(a => a.id.toString() === athleteId);
     if (!athlete) return;
+    
+    const result = matchResults[index];
+    const athleteName = `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim();
+    const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+    
+    // Save this manual match to Turkish matching memory for future use
+    TurkishMatchingMemory.saveManualMatch(
+      result.excelRow.description,
+      athleteId,
+      athleteName,
+      parentName,
+      false, // Not a sibling payment initially
+      undefined
+    );
     
     const updatedResults = [...matchResults];
     updatedResults[index] = {
       ...updatedResults[index],
       athleteId: athleteId,
-      athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
-      parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
+      athleteName: athleteName,
+      parentName: parentName,
       similarity: 100,
       isManual: true,
       isSiblingPayment: false, // Reset sibling payment flag
@@ -908,7 +776,12 @@ export default function Payments() {
     };
     
     setMatchResults(updatedResults);
-    toast.success(`Manuel eşleştirme yapıldı: ${athlete.studentName} ${athlete.studentSurname}`);
+    toast.success(
+      `🇹🇷 Manuel eşleştirme yapıldı ve hatırlandı!\n\n` +
+      `✅ ${athlete.studentName} ${athlete.studentSurname}\n` +
+      `🧠 Bu eşleştirme gelecek aylar için kaydedildi`,
+      { duration: 5000 }
+    );
   };
 
   // IMPROVED SIBLING SYSTEM - ACTIVE ATHLETES ONLY
@@ -1133,7 +1006,17 @@ export default function Payments() {
         const entryDate = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
         const displayDate = parsedDate ? parsedDate.toLocaleDateString('tr-TR') : match.excelRow.date;
         
-        // Save this match to history for future use
+        // Save this match to Turkish matching memory for future use
+        TurkishMatchingMemory.saveManualMatch(
+          match.excelRow.description,
+          match.athleteId!,
+          match.athleteName,
+          match.parentName,
+          match.isSiblingPayment || false,
+          match.siblingIds
+        );
+        
+        // Also save to old format for backward compatibility
         const normalizedDescription = normalizeTurkish(match.excelRow.description);
         matchingHistory[normalizedDescription] = {
           athleteId: match.athleteId,
