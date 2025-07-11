@@ -55,7 +55,7 @@ if %errorlevel% equ 0 (
             node "%NODE_DIR%node_modules\npm\bin\npm-cli.js" install
             if %errorlevel% equ 0 (
                 echo Bagimliliklar yuklendi.
-                set NPM_CMD=node "%NODE_DIR%node_modules\npm\bin\npm-cli.js"
+                set "NPM_CMD=node "%NODE_DIR%node_modules\npm\bin\npm-cli.js""
             ) else (
                 echo HATA: Bagimliliklar yuklenemedi!
                 goto :npm_error

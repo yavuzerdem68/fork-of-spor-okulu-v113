@@ -58,7 +58,7 @@ REM NPM'i Node.js ile çalıştır
 echo NPM Node.js üzerinden çalıştırılacak...
 if exist "!NODE_DIR!node_modules\npm\bin\npm-cli.js" (
     echo NPM bulundu: !NODE_DIR!node_modules\npm\bin\npm-cli.js
-    set "PACKAGE_MANAGER=node !NODE_DIR!node_modules\npm\bin\npm-cli.js"
+    set "PACKAGE_MANAGER=node "!NODE_DIR!node_modules\npm\bin\npm-cli.js""
     goto :package_manager_found
 )
 
