@@ -4,27 +4,29 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  output: 'export',
+  // Temporarily disabled for local development - use next.config.wordpress.mjs for production
+  // output: 'export',
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
   images: {
     unoptimized: true,
-    domains: ["assets.co.dev", "images.unsplash.com", "www.g7spor.org"],
+    domains: ["assets.co.dev", "images.unsplash.com", "www.g7spor.org", "localhost"],
   },
-  assetPrefix: '/spor-okulu',
-  basePath: '/spor-okulu',
+  // Temporarily disabled for local development
+  // assetPrefix: '/spor-okulu',
+  // basePath: '/spor-okulu',
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
 
-
   env: {
-    WORDPRESS_API_URL: 'https://www.g7spor.org/wp-json/wp/v2',
-    WORDPRESS_SITE_URL: 'https://www.g7spor.org',
-    NEXT_PUBLIC_BASE_PATH: '/spor-okulu',
+    // Local development settings
+    WORDPRESS_API_URL: process.env.NEXT_PUBLIC_WORDPRESS_URL ? `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wp/v2` : 'http://localhost/wordpress/wp-json/wp/v2',
+    WORDPRESS_SITE_URL: process.env.NEXT_PUBLIC_WORDPRESS_URL || 'http://localhost/wordpress',
+    NEXT_PUBLIC_BASE_PATH: '', // Empty for local development
   },
   publicRuntimeConfig: {
-    basePath: '/spor-okulu',
+    basePath: '', // Empty for local development
   }
 };
 
