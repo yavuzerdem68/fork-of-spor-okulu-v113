@@ -82,6 +82,10 @@ Write-Host "Durdurmak için Ctrl+C basın" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor Green
 Write-Host ""
 
-& $packageManager run dev:local
+if ($packageManager -eq "npm") {
+    & $packageManager run dev:local-win
+} else {
+    & $packageManager run dev:local
+}
 
 Read-Host "Uygulama durduruldu. Çıkmak için Enter'a basın"

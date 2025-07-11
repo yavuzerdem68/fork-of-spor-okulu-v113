@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:local": "cross-env NEXT_CONFIG_FILE=next.config.local.mjs next dev",
+    "dev:local-win": "set NEXT_CONFIG_FILE=next.config.local.mjs && next dev",
     "dev:local-unix": "NEXT_CONFIG_FILE=next.config.local.mjs next dev",
     "build": "next build",
     "build:local": "cross-env NEXT_CONFIG_FILE=next.config.local.mjs next build",

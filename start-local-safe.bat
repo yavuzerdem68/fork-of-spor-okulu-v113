@@ -82,6 +82,6 @@ echo Durdurmak icin Ctrl+C basin
 echo ================================
 echo.
 
-%PACKAGE_MANAGER% run dev:local
+%PACKAGE_MANAGER% run dev:local-win
 
 pause

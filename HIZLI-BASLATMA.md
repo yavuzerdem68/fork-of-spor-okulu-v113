@@ -52,9 +52,9 @@ cp .env.local.example .env.local
 ### 3. Çalıştırma
 ```bash
 # Windows
-pnpm run dev:local
+pnpm run dev:local-win
 # veya
-npm run dev:local
+npm run dev:local-win
 
 # Mac/Linux
 pnpm run dev:local-unix
