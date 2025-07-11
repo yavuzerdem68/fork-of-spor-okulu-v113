@@ -49,24 +49,32 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
-    router.push("/spor-okulu/");
+    // Lokal geliştirme için basePath kontrolü
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    router.push(basePath ? `${basePath}/` : "/");
+  };
+
+  // Lokal geliştirme için basePath kontrolü
+  const getHref = (path: string) => {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    return basePath ? `${basePath}${path}` : path;
   };
 
   const sidebarItems = [
-    { icon: Home, label: "Dashboard", href: "/spor-okulu/dashboard" },
-    { icon: Users, label: "Sporcular", href: "/spor-okulu/athletes" },
-    { icon: Zap, label: "Antrenörler", href: "/spor-okulu/coaches" },
-    { icon: Calendar, label: "Antrenmanlar", href: "/spor-okulu/trainings" },
-    { icon: UserCheck, label: "Yoklama", href: "/spor-okulu/attendance" },
-    { icon: CreditCard, label: "Ödemeler", href: "/spor-okulu/payments" },
-    { icon: Package, label: "Stok ve Satış", href: "/spor-okulu/inventory-sales" },
-    { icon: Trophy, label: "Etkinlikler", href: "/spor-okulu/events-tournaments" },
-    { icon: BarChart3, label: "Performans", href: "/spor-okulu/performance" },
-    { icon: MessageCircle, label: "Mesajlar", href: "/spor-okulu/messages" },
-    { icon: Camera, label: "Medya", href: "/spor-okulu/media" },
-    { icon: FileText, label: "Raporlar", href: "/spor-okulu/reports" },
-    { icon: Settings, label: "Ayarlar", href: "/spor-okulu/settings" },
-    { icon: Shield, label: "Yönetici Ayarları", href: "/spor-okulu/admin-settings" }
+    { icon: Home, label: "Dashboard", href: getHref("/dashboard") },
+    { icon: Users, label: "Sporcular", href: getHref("/athletes") },
+    { icon: Zap, label: "Antrenörler", href: getHref("/coaches") },
+    { icon: Calendar, label: "Antrenmanlar", href: getHref("/trainings") },
+    { icon: UserCheck, label: "Yoklama", href: getHref("/attendance") },
+    { icon: CreditCard, label: "Ödemeler", href: getHref("/payments") },
+    { icon: Package, label: "Stok ve Satış", href: getHref("/inventory-sales") },
+    { icon: Trophy, label: "Etkinlikler", href: getHref("/events-tournaments") },
+    { icon: BarChart3, label: "Performans", href: getHref("/performance") },
+    { icon: MessageCircle, label: "Mesajlar", href: getHref("/messages") },
+    { icon: Camera, label: "Medya", href: getHref("/media") },
+    { icon: FileText, label: "Raporlar", href: getHref("/reports") },
+    { icon: Settings, label: "Ayarlar", href: getHref("/settings") },
+    { icon: Shield, label: "Yönetici Ayarları", href: getHref("/admin-settings") }
   ];
 
   const isActive = (href: string) => {

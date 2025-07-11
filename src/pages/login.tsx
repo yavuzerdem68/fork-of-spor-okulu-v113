@@ -32,6 +32,12 @@ export default function Login() {
   const [rateLimiter] = useState(() => new RateLimiter(5, 15 * 60 * 1000)); // 5 attempts per 15 minutes
   const [wpAPI] = useState(() => new WordPressJWTAPI(process.env.NEXT_PUBLIC_WORDPRESS_URL || ''));
 
+  // Helper function to get redirect path with basePath
+  const getRedirectPath = (path: string) => {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    return basePath ? `${basePath}${path}` : path;
+  };
+
   // Check if user is already logged in
   useEffect(() => {
     // Check WordPress session first
@@ -40,13 +46,13 @@ export default function Login() {
       // Redirect based on role immediately
       switch (session.userRole) {
         case 'admin':
-          router.replace('/spor-okulu/dashboard');
+          router.replace(getRedirectPath('/dashboard'));
           break;
         case 'coach':
-          router.replace('/spor-okulu/coach-dashboard');
+          router.replace(getRedirectPath('/coach-dashboard'));
           break;
         case 'parent':
-          router.replace('/spor-okulu/parent-dashboard');
+          router.replace(getRedirectPath('/parent-dashboard'));
           break;
         default:
           WordPressSessionManager.destroySession();
@@ -57,13 +63,13 @@ export default function Login() {
       if (legacySession.isValid && legacySession.session) {
         switch (legacySession.session.userRole) {
           case 'admin':
-            router.replace('/spor-okulu/dashboard');
+            router.replace(getRedirectPath('/dashboard'));
             break;
           case 'coach':
-            router.replace('/spor-okulu/coach-dashboard');
+            router.replace(getRedirectPath('/coach-dashboard'));
             break;
           case 'parent':
-            router.replace('/spor-okulu/parent-dashboard');
+            router.replace(getRedirectPath('/parent-dashboard'));
             break;
           default:
             SessionManager.destroySession();
@@ -120,7 +126,7 @@ export default function Login() {
         // Reset rate limiter on successful login
         rateLimiter.reset(clientId);
         
-        router.push("/spor-okulu/dashboard");
+        router.push(getRedirectPath("/dashboard"));
         return;
       } catch (wpError: any) {
         console.log('WordPress login failed, trying fallback:', wpError.message);
@@ -178,7 +184,7 @@ export default function Login() {
             // Reset rate limiter on successful login
             rateLimiter.reset(clientId);
             
-            router.push("/spor-okulu/dashboard");
+            router.push(getRedirectPath("/dashboard"));
           } else {
             setError("Geçersiz email veya şifre");
           }
@@ -242,7 +248,7 @@ export default function Login() {
         // Reset rate limiter on successful login
         rateLimiter.reset(clientId);
         
-        router.push("/spor-okulu/coach-dashboard");
+        router.push(getRedirectPath("/coach-dashboard"));
         return;
       } catch (wpError: any) {
         console.log('WordPress coach login failed, trying fallback:', wpError.message);
@@ -275,7 +281,7 @@ export default function Login() {
             // Reset rate limiter on successful login
             rateLimiter.reset(clientId);
             
-            router.push("/spor-okulu/coach-dashboard");
+            router.push(getRedirectPath("/coach-dashboard"));
           } else {
             setError("Geçersiz email veya şifre");
           }
@@ -339,7 +345,7 @@ export default function Login() {
         // Reset rate limiter on successful login
         rateLimiter.reset(clientId);
         
-        router.push("/spor-okulu/parent-dashboard");
+        router.push(getRedirectPath("/parent-dashboard"));
         return;
       } catch (wpError: any) {
         console.log('WordPress parent login failed, trying fallback:', wpError.message);
@@ -375,7 +381,7 @@ export default function Login() {
             // Reset rate limiter on successful login
             rateLimiter.reset(clientId);
             
-            router.push("/spor-okulu/parent-dashboard");
+            router.push(getRedirectPath("/parent-dashboard"));
           } else {
             setError("Geçersiz kullanıcı adı/email veya şifre");
           }
