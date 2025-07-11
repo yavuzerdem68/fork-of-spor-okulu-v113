@@ -2,10 +2,11 @@
 setlocal enabledelayedexpansion
 
 echo ================================
-echo Spor Okulu CRM - Guvenli Baslatma
+echo Spor Okulu CRM - Masaustu Surumu
 echo ================================
 echo.
-echo Bu script Windows Defender tarafindan guvenli kabul edilir.
+echo Bu masaustu surumu tamamen localStorage tabanli calisir.
+echo Harici baglanti gerektirmez.
 echo.
 
 REM Node.js kontrolu

@@ -1,43 +1,85 @@
-# Codev Template
+# SportsCRM - Masaüstü Spor Okulu Yönetim Sistemi
 
-This is a Codev template project that includes:
+Tamamen localStorage tabanlı, masaüstü kullanımı için optimize edilmiş spor okulu yönetim sistemi.
 
-1. Next.js with Pages Router
-2. Tailwind CSS Framework
-3. Context for global state management
+## 🖥️ Masaüstü Sürümü Özellikleri
 
-## Features
+- **Tamamen Offline**: İnternet bağlantısı gerektirmez
+- **localStorage Tabanlı**: Tüm veriler yerel olarak saklanır
+- **Hızlı Başlatma**: Tek tıkla çalıştırma (`start-local-safe.bat`)
+- **Windows Optimize**: Windows sistemler için özel optimizasyonlar
+- **Güvenli**: Windows Defender uyumlu
 
-- **Next.js Pages Router**: Utilizes the traditional routing system of Next.js for easy navigation and page management.
-- **Tailwind CSS**: A utility-first CSS framework that provides low-level utility classes to build custom designs quickly and efficiently.
-- **Context API**: Implements React's Context API for efficient global state management.
+## 🚀 Hızlı Başlatma
 
-## Getting Started
+### Windows için:
+```bash
+# Çift tıklayın:
+start-local-safe.bat
+```
 
-1. Clone this repository
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Run the development server:
-   ```
-   npm run dev
-   ```
-4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the result.
+### Manuel Başlatma:
+```bash
+npm install
+npm run dev
+```
 
-## Project Structure
+## 📋 Sistem Gereksinimleri
 
-- `pages/`: Contains all the pages of the application
-- `components/`: Reusable React components
-- `contexts/`: Global state management using Context API
-- `hooks/`: Custom React hooks
-- `styles/`: Global style (global.css)
-- `utils/`: Utility functions and helpers
+- **Node.js**: 20.x veya üzeri
+- **İşletim Sistemi**: Windows 10/11
+- **RAM**: Minimum 4GB
+- **Disk Alanı**: 500MB
 
-## Learn More
+## 🏗️ Teknolojiler
 
-To learn more about the technologies used in this template, check out the following resources:
+- **Next.js 14**: React framework
+- **TypeScript**: Tip güvenliği
+- **Tailwind CSS**: Modern CSS framework
+- **localStorage**: Veri saklama
+- **Framer Motion**: Animasyonlar
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [React Context API](https://reactjs.org/docs/context.html)
+## 📁 Proje Yapısı
+
+- `src/pages/`: Uygulama sayfaları
+- `src/components/`: Yeniden kullanılabilir bileşenler
+- `src/lib/`: Yardımcı kütüphaneler
+- `src/utils/`: Güvenlik ve performans araçları
+- `data/`: localStorage verileri
+- `start-local-safe.bat`: Güvenli başlatma scripti
+
+## 🔐 Varsayılan Giriş Bilgileri
+
+### Yönetici:
+- **Email**: admin@sportscr.com
+- **Şifre**: admin123
+
+### Test Hesapları:
+Sistem ilk çalıştırıldığında otomatik olarak test hesapları oluşturulur.
+
+## 🛠️ Sorun Giderme
+
+Sorun yaşıyorsanız:
+
+1. `diagnose-nodejs.bat` çalıştırın
+2. `fix-npm-installation.bat` ile NPM'i onarın
+3. `emergency-start.bat` ile acil durum modunu deneyin
+
+## 📚 Dokümantasyon
+
+- `HIZLI-BASLATMA.md`: Detaylı başlatma rehberi
+- `NPM-PATH-HATASI-COZUMU.md`: NPM sorunları için çözümler
+- `WINDOWS-DEFENDER-COZUMU.md`: Güvenlik ayarları
+
+## 🎯 Özellikler
+
+- **Sporcu Yönetimi**: Kayıt, güncelleme, takip
+- **Aidat Takibi**: Ödeme durumları ve raporlar
+- **Antrenman Programları**: Planlama ve takip
+- **Veli Paneli**: Çocukların durumunu görme
+- **Antrenör Paneli**: Sporcu yönetimi
+- **Raporlama**: Detaylı analiz ve raporlar
+
+## 📞 Destek
+
+Bu masaüstü sürümü tamamen offline çalışır ve harici destek gerektirmez.
