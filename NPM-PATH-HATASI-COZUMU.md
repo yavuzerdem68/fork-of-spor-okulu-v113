@@ -6,8 +6,11 @@ Node.js kurulu olmasına rağmen `npm` komutu bulunamıyor hatası alıyorsunuz.
 
 ## Hızlı Çözümler
 
-### 1. Bilgisayarı Yeniden Başlatın
-En basit çözüm - Node.js kurulumundan sonra bilgisayarı yeniden başlatmak PATH değişkenlerini yeniler.
+### 1. NPM Onarma Aracını Çalıştırın
+```bash
+fix-npm-installation.bat
+```
+Bu araç eksik NPM kurulumunu otomatik olarak onarır.
 
 ### 2. Diagnostik Aracını Çalıştırın
 ```bash
@@ -15,7 +18,10 @@ diagnose-nodejs.bat
 ```
 Bu araç sorunu detaylı olarak analiz eder ve çözüm önerileri sunar.
 
-### 3. Manuel PATH Kontrolü
+### 3. Bilgisayarı Yeniden Başlatın
+En basit çözüm - Node.js kurulumundan sonra bilgisayarı yeniden başlatmak PATH değişkenlerini yeniler.
+
+### 4. Manuel PATH Kontrolü
 
 #### Windows 10/11:
 1. `Windows + R` tuşlarına basın

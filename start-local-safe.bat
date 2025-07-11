@@ -45,26 +45,70 @@ if %errorlevel% equ 0 (
         :found_node
         if defined NODE_PATH (
             echo Node.js yolu: %NODE_PATH%
-            REM Node.js dizininde npm.cmd'yi ara
+            REM Node.js dizininde npm'i ara - cesitli konumlarda
             for %%j in ("%NODE_PATH%") do set NODE_DIR=%%~dpj
+            
+            REM Cesitli npm konumlarini kontrol et
+            set NPM_FOUND=0
+            
+            REM 1. Ayni dizinde npm.cmd
             if exist "%NODE_DIR%npm.cmd" (
                 echo NPM bulundu: %NODE_DIR%npm.cmd
                 set NPM_PATH=%NODE_DIR%npm.cmd
-                "%NPM_PATH%" --version
-                set PACKAGE_MANAGER="%NPM_PATH%"
+                set NPM_FOUND=1
             ) else if exist "%NODE_DIR%npm" (
                 echo NPM bulundu: %NODE_DIR%npm
                 set NPM_PATH=%NODE_DIR%npm
-                "%NPM_PATH%" --version
-                set PACKAGE_MANAGER="%NPM_PATH%"
+                set NPM_FOUND=1
+            ) else if exist "%NODE_DIR%npm.bat" (
+                echo NPM bulundu: %NODE_DIR%npm.bat
+                set NPM_PATH=%NODE_DIR%npm.bat
+                set NPM_FOUND=1
             ) else (
-                echo HATA: NPM Node.js dizininde bulunamadi!
-                echo Lutfen Node.js'i yeniden yukleyin veya PATH'i duzeltin.
+                REM 2. node_modules dizininde npm
+                if exist "%NODE_DIR%node_modules\npm\bin\npm-cli.js" (
+                    echo NPM bulundu: %NODE_DIR%node_modules\npm\bin\npm-cli.js
+                    set NPM_PATH=node "%NODE_DIR%node_modules\npm\bin\npm-cli.js"
+                    set NPM_FOUND=1
+                ) else (
+                    REM 3. Alternatif konumlar
+                    for %%k in ("%NODE_DIR%..\npm" "%NODE_DIR%..\..\npm" "%APPDATA%\npm") do (
+                        if exist "%%k\npm.cmd" (
+                            echo NPM bulundu: %%k\npm.cmd
+                            set NPM_PATH=%%k\npm.cmd
+                            set NPM_FOUND=1
+                            goto :npm_found
+                        )
+                    )
+                )
+            )
+            
+            :npm_found
+            if %NPM_FOUND%==1 (
+                echo NPM versiyonu kontrol ediliyor...
+                %NPM_PATH% --version >nul 2>&1
+                if %errorlevel% equ 0 (
+                    echo NPM versiyonu: 
+                    %NPM_PATH% --version
+                    set PACKAGE_MANAGER=%NPM_PATH%
+                ) else (
+                    echo UYARI: NPM bulundu ama calismiyor!
+                    echo Acil durum scripti kullanilacak...
+                    echo.
+                    echo emergency-start.bat scriptini calistirmayi deneyin.
+                    pause
+                    exit /b 1
+                )
+            ) else (
+                echo HATA: NPM hicbir konumda bulunamadi!
+                echo.
+                echo Node.js kurulumunuz eksik gorunuyor.
                 echo.
                 echo Cozum onerileri:
-                echo 1. Node.js'i https://nodejs.org/ adresinden yeniden yukleyin
-                echo 2. Bilgisayari yeniden baslatip tekrar deneyin
-                echo 3. PATH cevre degiskenini kontrol edin
+                echo 1. diagnose-nodejs.bat scriptini calistirin
+                echo 2. Node.js'i https://nodejs.org/ adresinden yeniden yukleyin
+                echo 3. emergency-start.bat scriptini deneyin
+                echo 4. Bilgisayari yeniden baslatip tekrar deneyin
                 pause
                 exit /b 1
             )

@@ -84,6 +84,12 @@ Tarayıcınızda: `http://localhost:3000`
 ### Node.js/NPM Sorunları
 Eğer Node.js kurulu olmasına rağmen `npm` bulunamıyor hatası alıyorsanız:
 
+**NPM onarma aracını çalıştırın**:
+```bash
+fix-npm-installation.bat
+```
+Bu araç eksik NPM kurulumunu otomatik olarak onarır.
+
 **Diagnostik aracını çalıştırın**:
 ```bash
 diagnose-nodejs.bat
@@ -150,6 +156,7 @@ Dosyayı düzenleyip kendi ayarlarınızı girin:
 | `start-local.bat` | Windows | ⚠️ Defender uyarısı | Tam otomatik |
 | `emergency-start.bat` | Windows | ✅ Güvenli | Acil durum |
 | `diagnose-nodejs.bat` | Windows | ✅ Güvenli | Sorun tespiti |
+| `fix-npm-installation.bat` | Windows | ✅ Güvenli | NPM onarma |
 | `start-local.sh` | Mac/Linux | ✅ Güvenli | Tam otomatik |
 
 ---
