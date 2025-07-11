@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -49,32 +50,26 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
-    // Lokal geliştirme için basePath kontrolü
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-    router.push(basePath ? `${basePath}/` : "/");
+    // Masaüstü sürümü - direkt ana sayfaya yönlendir
+    router.push("/");
   };
 
-  // Lokal geliştirme için basePath kontrolü
-  const getHref = (path: string) => {
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-    return basePath ? `${basePath}${path}` : path;
-  };
-
+  // Masaüstü sürümü - basePath yok, direkt path'ler kullan
   const sidebarItems = [
-    { icon: Home, label: "Dashboard", href: getHref("/dashboard") },
-    { icon: Users, label: "Sporcular", href: getHref("/athletes") },
-    { icon: Zap, label: "Antrenörler", href: getHref("/coaches") },
-    { icon: Calendar, label: "Antrenmanlar", href: getHref("/trainings") },
-    { icon: UserCheck, label: "Yoklama", href: getHref("/attendance") },
-    { icon: CreditCard, label: "Ödemeler", href: getHref("/payments") },
-    { icon: Package, label: "Stok ve Satış", href: getHref("/inventory-sales") },
-    { icon: Trophy, label: "Etkinlikler", href: getHref("/events-tournaments") },
-    { icon: BarChart3, label: "Performans", href: getHref("/performance") },
-    { icon: MessageCircle, label: "Mesajlar", href: getHref("/messages") },
-    { icon: Camera, label: "Medya", href: getHref("/media") },
-    { icon: FileText, label: "Raporlar", href: getHref("/reports") },
-    { icon: Settings, label: "Ayarlar", href: getHref("/settings") },
-    { icon: Shield, label: "Yönetici Ayarları", href: getHref("/admin-settings") }
+    { icon: Home, label: "Dashboard", href: "/dashboard" },
+    { icon: Users, label: "Sporcular", href: "/athletes" },
+    { icon: Zap, label: "Antrenörler", href: "/coaches" },
+    { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
+    { icon: UserCheck, label: "Yoklama", href: "/attendance" },
+    { icon: CreditCard, label: "Ödemeler", href: "/payments" },
+    { icon: Package, label: "Stok ve Satış", href: "/inventory-sales" },
+    { icon: Trophy, label: "Etkinlikler", href: "/events-tournaments" },
+    { icon: BarChart3, label: "Performans", href: "/performance" },
+    { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
+    { icon: Camera, label: "Medya", href: "/media" },
+    { icon: FileText, label: "Raporlar", href: "/reports" },
+    { icon: Settings, label: "Ayarlar", href: "/settings" },
+    { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
   ];
 
   const isActive = (href: string) => {
@@ -111,7 +106,7 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
               animate="animate"
               transition={{ delay: index * 0.1 }}
             >
-              <a
+              <Link
                 href={item.href}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                   isActive(item.href)
@@ -121,7 +116,7 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
               >
                 <item.icon className="h-5 w-5" />
                 {sidebarOpen && <span>{item.label}</span>}
-              </a>
+              </Link>
             </motion.li>
           ))}
         </ul>

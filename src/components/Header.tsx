@@ -32,7 +32,8 @@ const Header = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("currentUser");
     localStorage.removeItem("userEmail");
-    router.push("/login");
+    // Masaüstü sürümü - ana sayfaya yönlendir
+    router.push("/");
   };
 
   const getNavigationItems = () => {
@@ -159,7 +160,7 @@ const Header = () => {
 
           {/* Login Button for non-authenticated users */}
           {!userRole && (
-            <Button onClick={() => router.push("/login")}>
+            <Button onClick={() => router.push("/")}>
               Giriş Yap
             </Button>
           )}
