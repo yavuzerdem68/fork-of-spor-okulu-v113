@@ -44,7 +44,8 @@ import {
   AlertTriangle,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Database
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/router";
@@ -355,6 +356,7 @@ export default function Dashboard() {
     { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
     { icon: Camera, label: "Medya", href: "/media" },
     { icon: FileText, label: "Raporlar", href: "/reports" },
+    { icon: Database, label: "Veri Yedekleme", href: "/data-backup" },
     { icon: Settings, label: "Ayarlar", href: "/settings" },
     { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
   ];
@@ -641,10 +643,10 @@ export default function Dashboard() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col space-y-2"
-                      onClick={() => router.push('/inventory-sales')}
+                      onClick={() => router.push('/data-backup')}
                     >
-                      <ShoppingCart className="h-6 w-6" />
-                      <span className="text-sm">Yeni Satış</span>
+                      <Database className="h-6 w-6" />
+                      <span className="text-sm">Veri Yedekle</span>
                     </Button>
                     <Button 
                       variant="outline" 
