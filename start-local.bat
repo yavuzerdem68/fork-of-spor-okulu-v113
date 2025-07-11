@@ -17,18 +17,42 @@ if %errorlevel% neq 0 (
 echo Node.js bulundu: 
 node --version
 
-REM PNPM kontrolu
+REM Paket yoneticisi kontrolu
 echo.
-echo PNPM kontrol ediliyor...
+echo Paket yoneticisi kontrol ediliyor...
+
+REM Once pnpm var mi kontrol et
 pnpm --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo PNPM bulunamadi, NPM kullanilacak...
-    set PACKAGE_MANAGER=npm
-) else (
+if %errorlevel% equ 0 (
     echo PNPM bulundu: 
     pnpm --version
     set PACKAGE_MANAGER=pnpm
+    goto package_manager_found
 )
+
+REM pnpm yoksa npm ile yukle
+echo PNPM bulunamadi, otomatik yukleniyor...
+npm install -g pnpm >nul 2>&1
+if %errorlevel% equ 0 (
+    echo PNPM basariyla yuklendi!
+    pnpm --version
+    set PACKAGE_MANAGER=pnpm
+    goto package_manager_found
+)
+
+REM pnpm yuklenemezse npm kullan
+echo PNPM yuklenemedi, NPM kullanilacak...
+npm --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo HATA: NPM de bulunamadi! Node.js kurulumunu kontrol edin.
+    pause
+    exit /b 1
+)
+echo NPM bulundu: 
+npm --version
+set PACKAGE_MANAGER=npm
+
+:package_manager_found
 
 REM .env.local dosyasi kontrolu
 echo.

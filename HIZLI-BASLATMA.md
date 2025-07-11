@@ -70,17 +70,37 @@ Tarayıcınızda: `http://localhost:3000`
 
 ## Sorun Giderme
 
+### PNPM bulunamadı hatası
+Eğer `pnpm is not recognized` hatası alıyorsanız:
+
+**Otomatik çözüm**: Güncellenmiş `start-local.bat` veya `start-local.sh` scriptlerini kullanın - otomatik olarak pnpm yükler.
+
+**Manuel çözüm**:
+```bash
+# PNPM'i global olarak yükle
+npm install -g pnpm
+
+# Veya NPM kullan
+npm install
+npm run dev:local
+```
+
 ### Port 3000 kullanımda
 ```bash
 pnpm run dev:local -- -p 3001
+# veya
+npm run dev:local -- -p 3001
 ```
 
 ### Bağımlılık hataları
 ```bash
-# Cache temizle
+# PNPM ile
 pnpm store prune
-# Tekrar yükle
 pnpm install
+
+# NPM ile
+npm cache clean --force
+npm install
 ```
 
 ### .env.local ayarları

@@ -15,15 +15,31 @@ fi
 
 echo "Node.js bulundu: $(node --version)"
 
-# PNPM kontrolü
+# Paket yöneticisi kontrolü
 echo
-echo "PNPM kontrol ediliyor..."
+echo "Paket yöneticisi kontrol ediliyor..."
+
+# Önce pnpm var mı kontrol et
 if command -v pnpm &> /dev/null; then
     echo "PNPM bulundu: $(pnpm --version)"
     PACKAGE_MANAGER="pnpm"
 else
-    echo "PNPM bulunamadı, NPM kullanılacak..."
-    PACKAGE_MANAGER="npm"
+    # pnpm yoksa npm ile yükle
+    echo "PNPM bulunamadı, otomatik yükleniyor..."
+    if npm install -g pnpm &> /dev/null; then
+        echo "PNPM başarıyla yüklendi!"
+        echo "PNPM versiyonu: $(pnpm --version)"
+        PACKAGE_MANAGER="pnpm"
+    else
+        # pnpm yüklenemezse npm kullan
+        echo "PNPM yüklenemedi, NPM kullanılacak..."
+        if ! command -v npm &> /dev/null; then
+            echo "HATA: NPM de bulunamadı! Node.js kurulumunu kontrol edin."
+            exit 1
+        fi
+        echo "NPM bulundu: $(npm --version)"
+        PACKAGE_MANAGER="npm"
+    fi
 fi
 
 # .env.local dosyası kontrolü
