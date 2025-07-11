@@ -290,9 +290,21 @@ export default function Athletes() {
 
   const activeAthletes = athletes.filter(a => a.status === 'Aktif').length;
   const thisMonthRegistrations = athletes.filter(a => {
-    const regDate = new Date(a.registrationDate || a.createdAt);
-    const thisMonth = new Date();
-    return regDate.getMonth() === thisMonth.getMonth() && regDate.getFullYear() === thisMonth.getFullYear();
+    try {
+      const dateValue = a.registrationDate || a.createdAt;
+      if (!dateValue || dateValue === 'Z' || typeof dateValue !== 'string') {
+        return false;
+      }
+      const regDate = new Date(dateValue);
+      if (isNaN(regDate.getTime())) {
+        return false;
+      }
+      const thisMonth = new Date();
+      return regDate.getMonth() === thisMonth.getMonth() && regDate.getFullYear() === thisMonth.getFullYear();
+    } catch (error) {
+      console.warn('Invalid date value in athlete registration:', a.registrationDate, a.createdAt);
+      return false;
+    }
   }).length;
 
   const loadAccountEntries = (athleteId: string) => {
@@ -1592,7 +1604,21 @@ export default function Athletes() {
                               <div>
                                 <p className="font-medium">{athlete.studentName} {athlete.studentSurname}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  Kayıt: {new Date(athlete.registrationDate || athlete.createdAt).toLocaleDateString('tr-TR')}
+                                  Kayıt: {(() => {
+                                    try {
+                                      const dateValue = athlete.registrationDate || athlete.createdAt;
+                                      if (!dateValue || dateValue === 'Z' || typeof dateValue !== 'string') {
+                                        return '-';
+                                      }
+                                      const date = new Date(dateValue);
+                                      if (isNaN(date.getTime())) {
+                                        return '-';
+                                      }
+                                      return date.toLocaleDateString('tr-TR');
+                                    } catch (error) {
+                                      return '-';
+                                    }
+                                  })()}
                                 </p>
                               </div>
                             </div>
