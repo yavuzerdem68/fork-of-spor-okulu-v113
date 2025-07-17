@@ -256,12 +256,7 @@ export default function Payments() {
     type: 'debit'
   });
 
-  // Bulk payment entry states
-  const [isBulkPaymentDialogOpen, setIsBulkPaymentDialogOpen] = useState(false);
-  const [bulkPayments, setBulkPayments] = useState<any[]>([]);
-  const [bulkPaymentDate, setBulkPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [editingBulkPayment, setEditingBulkPayment] = useState<any>(null);
-  const [isEditBulkDialogOpen, setIsEditBulkDialogOpen] = useState(false);
+
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -1915,10 +1910,7 @@ export default function Payments() {
                           Excel Yükle
                         </Button>
 
-                        <Button variant="outline" onClick={() => setIsBulkPaymentDialogOpen(true)}>
-                          <FileSpreadsheet className="h-4 w-4 mr-2" />
-                          Toplu Aidat Girişi
-                        </Button>
+
 
                         <Button variant="outline">
                           <Send className="h-4 w-4 mr-2" />
