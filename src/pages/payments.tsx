@@ -56,6 +56,7 @@ import {
   VAT_RATE_OPTIONS,
   roundToWholeNumber 
 } from '@/lib/vat-utils';
+import { DuplicatePreventionSystem } from '@/lib/duplicate-prevention';
 
 // Parse Turkish date formats
 const parseTurkishDate = (dateStr: string): Date | null => {
@@ -1235,6 +1236,32 @@ export default function Payments() {
       return;
     }
 
+    // MÜKERRER KONTROL
+    const duplicateCheck = DuplicatePreventionSystem.checkPaymentDuplicate({
+      athleteId: newPayment.athleteId,
+      amount: parseFloat(newPayment.amount),
+      date: newPayment.paymentDate,
+      method: newPayment.method,
+      description: newPayment.description
+    });
+
+    if (duplicateCheck.isDuplicate) {
+      const confirmOverride = confirm(
+        `⚠️ MÜKERRER ÖDEME TESPİT EDİLDİ!\n\n` +
+        `Sebep: ${duplicateCheck.reason}\n\n` +
+        `Mevcut ödeme:\n` +
+        `- Sporcu: ${duplicateCheck.existingPayment?.athleteName}\n` +
+        `- Tutar: ₺${duplicateCheck.existingPayment?.amount}\n` +
+        `- Tarih: ${duplicateCheck.existingPayment?.paymentDate}\n\n` +
+        `Yine de kaydetmek istediğinizden emin misiniz?`
+      );
+      
+      if (!confirmOverride) {
+        toast.error("Ödeme kaydı iptal edildi - Mükerrer giriş önlendi");
+        return;
+      }
+    }
+
     const payment = {
       id: Date.now(),
       athleteId: selectedAthlete.id,
@@ -1388,6 +1415,32 @@ export default function Payments() {
     // KDV hesaplaması - yeni utility fonksiyonunu kullan
     const { vatAmount, amountIncludingVat } = calculateVatBreakdown(amountExcluding, vatRate);
 
+    // CARİ HESAP MÜKERRER KONTROL
+    const duplicateCheck = DuplicatePreventionSystem.checkAccountEntryDuplicate(selectedAthlete.id, {
+      athleteId: selectedAthlete.id,
+      amount: amountIncludingVat,
+      month: newEntry.month,
+      description: newEntry.description,
+      type: newEntry.type as 'debit' | 'credit'
+    });
+
+    if (duplicateCheck.isDuplicate) {
+      const confirmOverride = confirm(
+        `⚠️ MÜKERRER CARİ HESAP KAYDI TESPİT EDİLDİ!\n\n` +
+        `Sebep: ${duplicateCheck.reason}\n\n` +
+        `Mevcut kayıt:\n` +
+        `- Ay: ${duplicateCheck.existingEntry?.month}\n` +
+        `- Açıklama: ${duplicateCheck.existingEntry?.description}\n` +
+        `- Tutar: ₺${duplicateCheck.existingEntry?.amountIncludingVat}\n\n` +
+        `Yine de kaydetmek istediğinizden emin misiniz?`
+      );
+      
+      if (!confirmOverride) {
+        toast.error("Cari hesap kaydı iptal edildi - Mükerrer giriş önlendi");
+        return;
+      }
+    }
+
     const entry = {
       id: Date.now(),
       date: new Date().toISOString(),
@@ -1497,11 +1550,43 @@ export default function Payments() {
       return;
     }
 
+    // TOPLU ÖDEME MÜKERRER KONTROL
+    const bulkValidation = DuplicatePreventionSystem.validateBulkPayments(
+      validEntries.map(entry => ({
+        ...entry,
+        paymentDate: bulkPaymentDate
+      }))
+    );
+
+    if (bulkValidation.duplicates.length > 0) {
+      const duplicateDetails = bulkValidation.duplicates.map((dup, index) => 
+        `${index + 1}. ${dup.payment.athleteName} - ${dup.reason}`
+      ).join('\n');
+      
+      const confirmOverride = confirm(
+        `⚠️ ${bulkValidation.duplicates.length} MÜKERRER KAYIT TESPİT EDİLDİ!\n\n` +
+        `Mükerrer kayıtlar:\n${duplicateDetails}\n\n` +
+        `Sadece ${bulkValidation.validPayments.length} geçerli kayıt işlenecek.\n\n` +
+        `Devam etmek istediğinizden emin misiniz?`
+      );
+      
+      if (!confirmOverride) {
+        toast.error("Toplu ödeme iptal edildi - Mükerrer girişler önlendi");
+        return;
+      }
+      
+      // Show warning about duplicates
+      toast.warning(`${bulkValidation.duplicates.length} mükerrer kayıt atlandı, ${bulkValidation.validPayments.length} kayıt işlenecek`);
+    }
+
+    // Use only validated payments
+    const finalValidEntries = bulkValidation.validPayments;
+
     try {
       const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
       let processedCount = 0;
 
-      for (const entry of validEntries) {
+      for (const entry of finalValidEntries) {
         const athlete = athletes.find(a => a.id.toString() === entry.athleteId);
         if (!athlete) continue;
 
