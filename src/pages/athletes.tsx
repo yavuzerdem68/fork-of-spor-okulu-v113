@@ -95,6 +95,7 @@ export default function Athletes() {
   const [invoiceVatRate, setInvoiceVatRate] = useState('20');
   const [bulkUploadFile, setBulkUploadFile] = useState<File | null>(null);
   const [bulkFeeUploadFile, setBulkFeeUploadFile] = useState<File | null>(null);
+  const [bulkFeeUploadDate, setBulkFeeUploadDate] = useState(new Date().toISOString().split('T')[0]);
   
   // Bulk payment entry states - synchronized with payments page
   const [bulkPayments, setBulkPayments] = useState<any[]>([]);
@@ -430,7 +431,7 @@ export default function Athletes() {
     alert(`${activeAthletesList.length} aktif sporcu Excel dosyasına aktarıldı! (${fileName})`);
   };
 
-  // Generate bulk fee template
+  // Generate bulk fee template with date field
   const generateBulkFeeTemplate = () => {
     const activeAthletesList = athletes.filter(athlete => athlete.status === 'Aktif' || !athlete.status);
     
@@ -445,7 +446,8 @@ export default function Athletes() {
       'Tutar': '',
       'KDV Oranı (%)': '10',
       'Toplam': '',
-      'Birim Kod': 'Ay'
+      'Birim Kod': 'Ay',
+      'Tarih (DD/MM/YYYY)': new Date().toLocaleDateString('tr-TR')
     }));
 
     const ws = XLSX.utils.json_to_sheet(templateData);
@@ -459,7 +461,8 @@ export default function Athletes() {
       { wch: 12 }, // Tutar
       { wch: 15 }, // KDV Oranı
       { wch: 12 }, // Toplam
-      { wch: 12 }  // Birim Kod
+      { wch: 12 }, // Birim Kod
+      { wch: 18 }  // Tarih
     ];
     ws['!cols'] = colWidths;
     
@@ -475,7 +478,7 @@ export default function Athletes() {
     const fileName = `Toplu_Aidat_Sablonu_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`;
     XLSX.writeFile(wb, fileName);
     
-    alert(`${activeAthletesList.length} sporcu için toplu aidat şablonu oluşturuldu! (${fileName})\n\nŞablonu doldurup tekrar yükleyebilirsiniz.`);
+    alert(`${activeAthletesList.length} sporcu için toplu aidat şablonu oluşturuldu! (${fileName})\n\n📋 Şablon Özellikleri:\n• Tarih alanı eklendi (DD/MM/YYYY formatında)\n• Her sporcu için ayrı tarih girilebilir\n• Varsayılan tarih: Bugün\n\nŞablonu doldurup tekrar yükleyebilirsiniz.`);
   };
 
   // Generate username and password for parent
@@ -1057,7 +1060,7 @@ export default function Athletes() {
     }
   };
 
-  // Process bulk fee entry
+  // Process bulk fee entry with date support
   const processBulkFeeEntry = async () => {
     if (!bulkFeeUploadFile) return;
 
@@ -1078,11 +1081,6 @@ export default function Athletes() {
       let processedCount = 0;
       let errorCount = 0;
       const currentMonth = new Date().toISOString().slice(0, 7);
-      
-      // Calculate the last day of the current month for payment due date
-      const currentDate = new Date();
-      const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      const dueDate = lastDayOfMonth.toISOString();
 
       for (const row of jsonData) {
         try {
@@ -1117,15 +1115,56 @@ export default function Athletes() {
             continue;
           }
 
+          // Parse date from Excel (DD/MM/YYYY format)
+          let entryDate = new Date();
+          let entryMonth = currentMonth;
+          let dueDate = new Date();
+
+          const dateField = feeData['Tarih (DD/MM/YYYY)'] || feeData['Tarih'];
+          if (dateField) {
+            try {
+              const dateStr = dateField.toString().trim();
+              
+              // Handle DD/MM/YYYY or DD.MM.YYYY format
+              const turkishMatch = dateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})$/);
+              if (turkishMatch) {
+                let day = parseInt(turkishMatch[1]);
+                let month = parseInt(turkishMatch[2]);
+                let year = parseInt(turkishMatch[3]);
+                
+                // Handle 2-digit years
+                if (year < 100) {
+                  year = year <= 30 ? 2000 + year : 1900 + year;
+                }
+                
+                if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2030) {
+                  const testDate = new Date(year, month - 1, day);
+                  if (testDate.getFullYear() === year && 
+                      testDate.getMonth() === month - 1 && 
+                      testDate.getDate() === day) {
+                    entryDate = testDate;
+                    entryMonth = `${year}-${month.toString().padStart(2, '0')}`;
+                    
+                    // Set due date to last day of the entry month
+                    dueDate = new Date(year, month, 0); // Last day of the month
+                  }
+                }
+              }
+            } catch (error) {
+              console.warn(`Error parsing date for athlete ${athleteName}:`, error);
+              // Use default date if parsing fails
+            }
+          }
+
           // Calculate VAT with proper rounding
           const vatAmount = Math.round((amountExcludingVat * vatRate) / 100 * 100) / 100;
           const amountIncludingVat = Math.round((amountExcludingVat + vatAmount) * 100) / 100;
 
-          // Create account entry with due date set to last day of the month
+          // Create account entry with parsed date
           const entry = {
             id: Date.now() + Math.random(),
-            date: new Date().toISOString(),
-            month: currentMonth,
+            date: entryDate.toISOString(),
+            month: entryMonth,
             description: description,
             amountExcludingVat: amountExcludingVat,
             vatRate: vatRate,
@@ -1133,7 +1172,7 @@ export default function Athletes() {
             amountIncludingVat: amountIncludingVat,
             unitCode: unitCode,
             type: 'debit',
-            dueDate: dueDate // Set due date to last day of the month
+            dueDate: dueDate.toISOString()
           };
 
           // Save to athlete's account
@@ -1160,8 +1199,8 @@ export default function Athletes() {
       if (errorCount > 0) {
         message += `• Hatalı kayıt: ${errorCount}\n`;
       }
-      message += `• Dönem: ${new Date(currentMonth + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}\n`;
-      message += `• Son ödeme tarihi: ${lastDayOfMonth.toLocaleDateString('tr-TR')}`;
+      message += `• Tarih desteği: Excel'den gelen tarihler kullanıldı\n`;
+      message += `• Format: DD/MM/YYYY veya DD.MM.YYYY desteklenir`;
       
       alert(message);
       
@@ -2244,196 +2283,332 @@ export default function Athletes() {
             <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5" />
+                  <FileSpreadsheet className="h-5 w-5" />
                   <span>Toplu Aidat Girişi</span>
                 </DialogTitle>
                 <DialogDescription>
-                  Birden fazla sporcu için aynı anda ödeme kaydı oluşturun
+                  Excel dosyası ile toplu aidat girişi yapın veya manuel olarak ödeme kayıtları oluşturun
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-6">
-                {/* Payment Date Selection */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Ödeme Tarihi</CardTitle>
-                    <CardDescription>
-                      Tüm ödemeler için geçerli olacak tarihi seçin (DD/MM/YYYY formatında)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-w-sm">
-                      <Label htmlFor="bulkPaymentDate">Ödeme Tarihi</Label>
-                      <Input
-                        id="bulkPaymentDate"
-                        type="date"
-                        value={bulkPaymentDate}
-                        onChange={(e) => setBulkPaymentDate(e.target.value)}
-                      />
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Seçilen tarih: {bulkPaymentDate ? new Date(bulkPaymentDate).toLocaleDateString('tr-TR') : 'Seçilmedi'}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Method Selection Tabs */}
+                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                  <Button
+                    variant={bulkPayments.length === 0 ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setBulkPayments([])}
+                    className="flex-1"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Excel Upload
+                  </Button>
+                  <Button
+                    variant={bulkPayments.length > 0 ? "default" : "ghost"}
+                    size="sm"
+                    onClick={addBulkPaymentEntry}
+                    className="flex-1"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Manuel Giriş
+                  </Button>
+                </div>
 
-                {/* Bulk Payment Entries */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Ödeme Kayıtları</CardTitle>
-                    <CardDescription>
-                      Her sporcu için ödeme bilgilerini girin
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {bulkPayments.map((entry, index) => (
-                        <Card key={entry.id} className={`border ${entry.isValid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-                          <CardContent className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                              <div>
-                                <Label>Sporcu</Label>
-                                <Select 
-                                  value={entry.athleteId} 
-                                  onValueChange={(value) => updateBulkPaymentEntry(entry.id, 'athleteId', value)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Sporcu seçin" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {athletes.map(athlete => (
-                                      <SelectItem key={athlete.id} value={athlete.id.toString()}>
-                                        <div className="flex flex-col">
-                                          <span className="font-medium">{athlete.studentName} {athlete.studentSurname}</span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {athlete.parentName} {athlete.parentSurname}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                {/* Excel Upload Section */}
+                {bulkPayments.length === 0 && (
+                  <>
+                    {/* Template Download */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">1. Excel Şablonunu İndir</CardTitle>
+                        <CardDescription>
+                          Önce şablonu indirin ve aidat bilgilerini doldurun
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Button onClick={generateBulkFeeTemplate} variant="outline" className="w-full">
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          Toplu Aidat Şablonunu İndir
+                        </Button>
+                        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                          <h4 className="font-medium text-blue-900 mb-2">Şablon Özellikleri:</h4>
+                          <ul className="text-sm text-blue-800 space-y-1">
+                            <li>• <strong>Tarih alanı:</strong> DD/MM/YYYY formatında (her sporcu için farklı tarih girilebilir)</li>
+                            <li>• <strong>Sporcu Adı Soyadı:</strong> Tam ad ve soyad</li>
+                            <li>• <strong>Açıklama:</strong> Aidat açıklaması (örn: "Haziran Aidatı")</li>
+                            <li>• <strong>Tutar:</strong> KDV hariç tutar</li>
+                            <li>• <strong>KDV Oranı:</strong> Varsayılan %10</li>
+                            <li>• <strong>Toplam:</strong> Otomatik hesaplanır</li>
+                            <li>• <strong>Birim Kod:</strong> Varsayılan "Ay"</li>
+                          </ul>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                              <div>
-                                <Label>Tutar (₺)</Label>
-                                <Input
-                                  type="number"
-                                  placeholder="350"
-                                  value={entry.amount}
-                                  onChange={(e) => updateBulkPaymentEntry(entry.id, 'amount', e.target.value)}
-                                />
-                              </div>
+                    {/* File Upload */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">2. Doldurulmuş Excel Dosyasını Yükle</CardTitle>
+                        <CardDescription>
+                          Şablonu doldurduktan sonra buradan yükleyin
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <input
+                              type="file"
+                              accept=".xlsx,.xls"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setBulkFeeUploadFile(file);
+                              }}
+                              className="hidden"
+                              id="bulk-fee-upload-file"
+                            />
+                            <label htmlFor="bulk-fee-upload-file" className="cursor-pointer">
+                              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                              <p className="text-lg font-medium text-gray-900 mb-2">
+                                Excel dosyasını seçin
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                .xlsx veya .xls formatında olmalıdır
+                              </p>
+                            </label>
+                          </div>
 
-                              <div>
-                                <Label>Ödeme Yöntemi</Label>
-                                <Select 
-                                  value={entry.method} 
-                                  onValueChange={(value) => updateBulkPaymentEntry(entry.id, 'method', value)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {paymentMethods.map(method => (
-                                      <SelectItem key={method} value={method}>{method}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div>
-                                <Label>Açıklama (Opsiyonel)</Label>
-                                <Input
-                                  placeholder="Ödeme açıklaması"
-                                  value={entry.description}
-                                  onChange={(e) => updateBulkPaymentEntry(entry.id, 'description', e.target.value)}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex justify-between items-center mt-4">
-                              <div className="text-sm text-muted-foreground">
-                                {entry.athleteName && (
-                                  <span>
-                                    <strong>{entry.athleteName}</strong> - {entry.parentName} - {entry.sport}
-                                  </span>
-                                )}
+                          {bulkFeeUploadFile && (
+                            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                              <div className="flex items-center space-x-2">
+                                <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                                <span className="text-sm font-medium text-green-900">
+                                  {bulkFeeUploadFile.name}
+                                </span>
                               </div>
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                onClick={() => removeBulkPaymentEntry(entry.id)}
-                                className="text-red-600 hover:text-red-700"
+                                onClick={() => setBulkFeeUploadFile(null)}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <X className="h-4 w-4" />
                               </Button>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                          )}
 
-                      <Button
-                        variant="outline"
-                        onClick={addBulkPaymentEntry}
-                        className="w-full"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Yeni Ödeme Ekle
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                          {bulkFeeUploadFile && (
+                            <div className="space-y-4">
+                              <Alert>
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                  Excel dosyasındaki tarih bilgileri kullanılacak. Her sporcu için farklı tarih girişi yapılabilir.
+                                </AlertDescription>
+                              </Alert>
+                              
+                              <Button 
+                                onClick={processBulkFeeEntry}
+                                className="w-full"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Excel Dosyasını İşle ve Aidat Kayıtları Oluştur
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
 
-                {/* Summary */}
+                {/* Manual Entry Section */}
                 {bulkPayments.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Özet</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Toplam Kayıt</p>
-                          <p className="text-2xl font-bold">{bulkPayments.length}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Geçerli Kayıt</p>
-                          <p className="text-2xl font-bold text-green-600">
-                            {bulkPayments.filter(entry => entry.isValid).length}
+                  <>
+                    {/* Payment Date Selection */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Ödeme Tarihi</CardTitle>
+                        <CardDescription>
+                          Tüm ödemeler için geçerli olacak tarihi seçin (DD/MM/YYYY formatında)
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="max-w-sm">
+                          <Label htmlFor="bulkPaymentDate">Ödeme Tarihi</Label>
+                          <Input
+                            id="bulkPaymentDate"
+                            type="date"
+                            value={bulkPaymentDate}
+                            onChange={(e) => setBulkPaymentDate(e.target.value)}
+                          />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Seçilen tarih: {bulkPaymentDate ? new Date(bulkPaymentDate).toLocaleDateString('tr-TR') : 'Seçilmedi'}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Toplam Tutar</p>
-                          <p className="text-2xl font-bold">
-                            ₺{bulkPayments
-                              .filter(entry => entry.isValid)
-                              .reduce((sum, entry) => sum + parseFloat(entry.amount || '0'), 0)
-                              .toLocaleString()}
+                      </CardContent>
+                    </Card>
+
+                    {/* Bulk Payment Entries */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Ödeme Kayıtları</CardTitle>
+                        <CardDescription>
+                          Her sporcu için ödeme bilgilerini girin
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {bulkPayments.map((entry, index) => (
+                            <Card key={entry.id} className={`border ${entry.isValid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                              <CardContent className="p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                  <div>
+                                    <Label>Sporcu</Label>
+                                    <Select 
+                                      value={entry.athleteId} 
+                                      onValueChange={(value) => updateBulkPaymentEntry(entry.id, 'athleteId', value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Sporcu seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {athletes.map(athlete => (
+                                          <SelectItem key={athlete.id} value={athlete.id.toString()}>
+                                            <div className="flex flex-col">
+                                              <span className="font-medium">{athlete.studentName} {athlete.studentSurname}</span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {athlete.parentName} {athlete.parentSurname}
+                                              </span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div>
+                                    <Label>Tutar (₺)</Label>
+                                    <Input
+                                      type="number"
+                                      placeholder="350"
+                                      value={entry.amount}
+                                      onChange={(e) => updateBulkPaymentEntry(entry.id, 'amount', e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <Label>Ödeme Yöntemi</Label>
+                                    <Select 
+                                      value={entry.method} 
+                                      onValueChange={(value) => updateBulkPaymentEntry(entry.id, 'method', value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {paymentMethods.map(method => (
+                                          <SelectItem key={method} value={method}>{method}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div>
+                                    <Label>Açıklama (Opsiyonel)</Label>
+                                    <Input
+                                      placeholder="Ödeme açıklaması"
+                                      value={entry.description}
+                                      onChange={(e) => updateBulkPaymentEntry(entry.id, 'description', e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex justify-between items-center mt-4">
+                                  <div className="text-sm text-muted-foreground">
+                                    {entry.athleteName && (
+                                      <span>
+                                        <strong>{entry.athleteName}</strong> - {entry.parentName} - {entry.sport}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeBulkPaymentEntry(entry.id)}
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+
+                          <Button
+                            variant="outline"
+                            onClick={addBulkPaymentEntry}
+                            className="w-full"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Yeni Ödeme Ekle
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Summary */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Özet</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Toplam Kayıt</p>
+                            <p className="text-2xl font-bold">{bulkPayments.length}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Geçerli Kayıt</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              {bulkPayments.filter(entry => entry.isValid).length}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Toplam Tutar</p>
+                            <p className="text-2xl font-bold">
+                              ₺{bulkPayments
+                                .filter(entry => entry.isValid)
+                                .reduce((sum, entry) => sum + parseFloat(entry.amount || '0'), 0)
+                                .toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-blue-800">
+                            <strong>Seçilen Tarih:</strong> {bulkPaymentDate ? new Date(bulkPaymentDate).toLocaleDateString('tr-TR') : 'Tarih seçilmedi'}
                           </p>
                         </div>
-                      </div>
-                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          <strong>Seçilen Tarih:</strong> {bulkPaymentDate ? new Date(bulkPaymentDate).toLocaleDateString('tr-TR') : 'Tarih seçilmedi'}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </>
                 )}
               </div>
 
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setIsBulkFeeDialogOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  setIsBulkFeeDialogOpen(false);
+                  setBulkPayments([]);
+                  setBulkFeeUploadFile(null);
+                }}>
                   İptal
                 </Button>
-                <Button 
-                  onClick={saveBulkPayments}
-                  disabled={bulkPayments.filter(entry => entry.isValid).length === 0}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {bulkPayments.filter(entry => entry.isValid).length} Ödeme Kaydet
-                </Button>
+                {bulkPayments.length > 0 && (
+                  <Button 
+                    onClick={saveBulkPayments}
+                    disabled={bulkPayments.filter(entry => entry.isValid).length === 0}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {bulkPayments.filter(entry => entry.isValid).length} Ödeme Kaydet
+                  </Button>
+                )}
               </div>
             </DialogContent>
           </Dialog>
