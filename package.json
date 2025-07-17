@@ -28,7 +28,6 @@
     "deploy:vercel": "cp next.config.cloud.mjs next.config.mjs && vercel --prod",
     "deploy:preview": "cp next.config.cloud.mjs next.config.mjs && vercel"
   },
-=======
   "dependencies": {
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
