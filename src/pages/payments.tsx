@@ -50,6 +50,12 @@ import {
   TurkishMatchingMemory,
   type ManualMatch 
 } from '@/lib/turkish-matching';
+import { 
+  calculateVatBreakdown, 
+  formatCurrency, 
+  VAT_RATE_OPTIONS,
+  roundToWholeNumber 
+} from '@/lib/vat-utils';
 
 // Parse Turkish date formats
 const parseTurkishDate = (dateStr: string): Date | null => {
@@ -1371,18 +1377,19 @@ export default function Payments() {
 
     const amountExcluding = parseFloat(newEntry.amountExcludingVat);
     const vatRate = parseFloat(newEntry.vatRate);
-    const vatAmount = (amountExcluding * vatRate) / 100;
-    const amountIncluding = amountExcluding + vatAmount;
+    
+    // KDV hesaplaması - yeni utility fonksiyonunu kullan
+    const { vatAmount, amountIncludingVat } = calculateVatBreakdown(amountExcluding, vatRate);
 
     const entry = {
       id: Date.now(),
       date: new Date().toISOString(),
       month: newEntry.month,
       description: newEntry.description,
-      amountExcludingVat: amountExcluding,
+      amountExcludingVat: Math.round(amountExcluding * 100) / 100,
       vatRate: vatRate,
       vatAmount: vatAmount,
-      amountIncludingVat: amountIncluding,
+      amountIncludingVat: amountIncludingVat,
       unitCode: newEntry.unitCode,
       type: newEntry.type
     };
@@ -1406,14 +1413,15 @@ export default function Payments() {
   const calculateVatAmount = (excludingVat: string, vatRate: string) => {
     const excluding = parseFloat(excludingVat) || 0;
     const rate = parseFloat(vatRate) || 0;
-    const vatAmount = (excluding * rate) / 100;
-    const including = excluding + vatAmount;
+    
+    // KDV hesaplaması - yeni utility fonksiyonunu kullan
+    const { vatAmount, amountIncludingVat } = calculateVatBreakdown(excluding, rate);
     
     setNewEntry(prev => ({
       ...prev,
       amountExcludingVat: excludingVat,
       vatRate: vatRate,
-      amountIncludingVat: including.toFixed(2)
+      amountIncludingVat: amountIncludingVat.toFixed(2)
     }));
   };
 
@@ -2237,7 +2245,7 @@ export default function Payments() {
                       <div>
                         <p className="text-sm text-muted-foreground">Toplam Bakiye</p>
                         <p className={`text-2xl font-bold ${getTotalBalance() >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ₺{getTotalBalance().toFixed(2)}
+                          ₺{Math.round(getTotalBalance() * 100) / 100}
                         </p>
                       </div>
                       <div className="text-right">
@@ -2303,8 +2311,11 @@ export default function Payments() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="10">10</SelectItem>
-                            <SelectItem value="20">20</SelectItem>
+                            {VAT_RATE_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value.toString()}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -2359,10 +2370,10 @@ export default function Payments() {
                                   {entry.type === 'debit' ? 'Borç' : 'Alacak'}
                                 </Badge>
                               </TableCell>
-                              <TableCell>₺{entry.amountExcludingVat.toFixed(2)}</TableCell>
-                              <TableCell>₺{entry.vatAmount.toFixed(2)} (%{entry.vatRate})</TableCell>
+                              <TableCell>₺{Math.round(entry.amountExcludingVat * 100) / 100}</TableCell>
+                              <TableCell>₺{Math.round(entry.vatAmount * 100) / 100} (%{entry.vatRate})</TableCell>
                               <TableCell className={entry.type === 'debit' ? 'text-red-600' : 'text-green-600'}>
-                                {entry.type === 'debit' ? '+' : '-'}₺{entry.amountIncludingVat.toFixed(2)}
+                                {entry.type === 'debit' ? '+' : '-'}₺{Math.round(entry.amountIncludingVat * 100) / 100}
                               </TableCell>
                             </TableRow>
                           ))}
