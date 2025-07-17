@@ -1115,7 +1115,7 @@ export default function Athletes() {
             continue;
           }
 
-          // Parse date from Excel (DD/MM/YYYY format) - FIXED TO USE EXCEL DATE
+          // Parse date from Excel (supports DD/MM/YYYY, DD.MM.YYYY, and Excel serial dates)
           let entryDate = new Date(); // Default fallback
           let entryMonth = new Date().toISOString().slice(0, 7); // Default fallback
           let dueDate = new Date(); // Default fallback
@@ -1127,31 +1127,58 @@ export default function Athletes() {
               const dateStr = dateField.toString().trim();
               console.log(`🔍 Processing date for ${athleteName}: "${dateStr}"`);
               
-              // Handle DD/MM/YYYY or DD.MM.YYYY format
-              const turkishMatch = dateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})$/);
-              if (turkishMatch) {
-                let day = parseInt(turkishMatch[1]);
-                let month = parseInt(turkishMatch[2]);
-                let year = parseInt(turkishMatch[3]);
+              // Check if it's an Excel serial date (numeric value)
+              const numericValue = parseFloat(dateStr);
+              if (!isNaN(numericValue) && numericValue > 1 && numericValue < 100000) {
+                console.log(`📅 Detected Excel serial date for ${athleteName}: ${numericValue}`);
                 
-                // Handle 2-digit years
-                if (year < 100) {
-                  year = year <= 30 ? 2000 + year : 1900 + year;
+                // Convert Excel serial date to JavaScript Date
+                // Excel serial date starts from January 1, 1900 (with leap year bug adjustment)
+                const excelEpoch = new Date(1900, 0, 1); // January 1, 1900
+                const daysSinceEpoch = numericValue - 1; // Excel counts from 1, not 0
+                
+                // Account for Excel's leap year bug (treats 1900 as leap year)
+                const adjustedDays = numericValue > 59 ? daysSinceEpoch - 1 : daysSinceEpoch;
+                
+                entryDate = new Date(excelEpoch.getTime() + (adjustedDays * 24 * 60 * 60 * 1000));
+                
+                // Validate the converted date
+                if (!isNaN(entryDate.getTime()) && entryDate.getFullYear() >= 1900 && entryDate.getFullYear() <= 2030) {
+                  entryMonth = `${entryDate.getFullYear()}-${(entryDate.getMonth() + 1).toString().padStart(2, '0')}`;
+                  dueDate = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0); // Last day of the month
+                  dateParseSuccess = true;
+                  
+                  console.log(`✅ Excel serial date converted successfully for ${athleteName}: ${numericValue} -> ${entryDate.toLocaleDateString('tr-TR')} (Month: ${entryMonth})`);
+                } else {
+                  console.warn(`⚠️ Invalid Excel serial date conversion for ${athleteName}: ${numericValue}`);
                 }
-                
-                if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2030) {
-                  const testDate = new Date(year, month - 1, day);
-                  if (testDate.getFullYear() === year && 
-                      testDate.getMonth() === month - 1 && 
-                      testDate.getDate() === day) {
-                    entryDate = testDate;
-                    entryMonth = `${year}-${month.toString().padStart(2, '0')}`;
-                    
-                    // Set due date to last day of the entry month
-                    dueDate = new Date(year, month, 0); // Last day of the month
-                    dateParseSuccess = true;
-                    
-                    console.log(`✅ Date parsed successfully for ${athleteName}: ${dateStr} -> ${entryDate.toLocaleDateString('tr-TR')} (Month: ${entryMonth})`);
+              } else {
+                // Handle DD/MM/YYYY or DD.MM.YYYY format
+                const turkishMatch = dateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})$/);
+                if (turkishMatch) {
+                  let day = parseInt(turkishMatch[1]);
+                  let month = parseInt(turkishMatch[2]);
+                  let year = parseInt(turkishMatch[3]);
+                  
+                  // Handle 2-digit years
+                  if (year < 100) {
+                    year = year <= 30 ? 2000 + year : 1900 + year;
+                  }
+                  
+                  if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2030) {
+                    const testDate = new Date(year, month - 1, day);
+                    if (testDate.getFullYear() === year && 
+                        testDate.getMonth() === month - 1 && 
+                        testDate.getDate() === day) {
+                      entryDate = testDate;
+                      entryMonth = `${year}-${month.toString().padStart(2, '0')}`;
+                      
+                      // Set due date to last day of the entry month
+                      dueDate = new Date(year, month, 0); // Last day of the month
+                      dateParseSuccess = true;
+                      
+                      console.log(`✅ Turkish date format parsed successfully for ${athleteName}: ${dateStr} -> ${entryDate.toLocaleDateString('tr-TR')} (Month: ${entryMonth})`);
+                    }
                   }
                 }
               }
