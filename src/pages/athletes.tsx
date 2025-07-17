@@ -1060,7 +1060,7 @@ export default function Athletes() {
     }
   };
 
-  // Process bulk fee entry with date support
+  // Process bulk fee entry with date support and duplicate prevention
   const processBulkFeeEntry = async () => {
     if (!bulkFeeUploadFile) return;
 
@@ -1080,7 +1080,7 @@ export default function Athletes() {
 
       let processedCount = 0;
       let errorCount = 0;
-      const currentMonth = new Date().toISOString().slice(0, 7);
+      let duplicateCount = 0;
 
       for (const row of jsonData) {
         try {
@@ -1115,9 +1115,9 @@ export default function Athletes() {
             continue;
           }
 
-          // Parse date from Excel (DD/MM/YYYY format)
+          // Parse date from Excel (DD/MM/YYYY format) - FIXED TO USE EXCEL DATE
           let entryDate = new Date();
-          let entryMonth = currentMonth;
+          let entryMonth = new Date().toISOString().slice(0, 7);
           let dueDate = new Date();
 
           const dateField = feeData['Tarih (DD/MM/YYYY)'] || feeData['Tarih'];
@@ -1147,6 +1147,8 @@ export default function Athletes() {
                     
                     // Set due date to last day of the entry month
                     dueDate = new Date(year, month, 0); // Last day of the month
+                    
+                    console.log(`✅ Date parsed successfully for ${athleteName}: ${dateStr} -> ${entryDate.toLocaleDateString('tr-TR')}`);
                   }
                 }
               }
@@ -1160,11 +1162,26 @@ export default function Athletes() {
           const vatAmount = Math.round((amountExcludingVat * vatRate) / 100 * 100) / 100;
           const amountIncludingVat = Math.round((amountExcludingVat + vatAmount) * 100) / 100;
 
-          // Create account entry with parsed date
+          // Check for duplicates before creating entry
+          const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+          const isDuplicate = existingEntries.some((entry: any) => 
+            entry.month === entryMonth &&
+            entry.description === description &&
+            Math.abs(entry.amountIncludingVat - amountIncludingVat) < 0.01 &&
+            entry.type === 'debit'
+          );
+
+          if (isDuplicate) {
+            console.warn(`Duplicate entry detected for ${athleteName} in ${entryMonth}`);
+            duplicateCount++;
+            continue;
+          }
+
+          // Create account entry with parsed date - FIXED TO USE EXCEL DATE
           const entry = {
             id: Date.now() + Math.random(),
-            date: entryDate.toISOString(),
-            month: entryMonth,
+            date: entryDate.toISOString(), // Use Excel date
+            month: entryMonth, // Use Excel month
             description: description,
             amountExcludingVat: amountExcludingVat,
             vatRate: vatRate,
@@ -1176,7 +1193,6 @@ export default function Athletes() {
           };
 
           // Save to athlete's account
-          const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
           const updatedEntries = [...existingEntries, entry];
           localStorage.setItem(`account_${athlete.id}`, JSON.stringify(updatedEntries));
 
@@ -1188,7 +1204,7 @@ export default function Athletes() {
         }
       }
 
-      if (processedCount === 0) {
+      if (processedCount === 0 && duplicateCount === 0) {
         alert('İşlenecek geçerli aidat kaydı bulunamadı!');
         return;
       }
@@ -1196,10 +1212,13 @@ export default function Athletes() {
       let message = `✅ Toplu aidat girişi tamamlandı!\n\n`;
       message += `📊 İşlem Özeti:\n`;
       message += `• İşlenen aidat kaydı: ${processedCount}\n`;
+      if (duplicateCount > 0) {
+        message += `• Mükerrer kayıt atlandı: ${duplicateCount}\n`;
+      }
       if (errorCount > 0) {
         message += `• Hatalı kayıt: ${errorCount}\n`;
       }
-      message += `• Tarih desteği: Excel'den gelen tarihler kullanıldı\n`;
+      message += `• ✅ Tarih desteği: Excel'den gelen tarihler kullanıldı\n`;
       message += `• Format: DD/MM/YYYY veya DD.MM.YYYY desteklenir`;
       
       alert(message);

@@ -1923,14 +1923,7 @@ export default function Payments() {
                           Toplu Hatırlatma
                         </Button>
                         
-                        <Dialog open={isBulkPaymentDialogOpen} onOpenChange={setIsBulkPaymentDialogOpen}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline">
-                              <Users className="h-4 w-4 mr-2" />
-                              Toplu Aidat Girişi
-                            </Button>
-                          </DialogTrigger>
-                        </Dialog>
+=======
 
                         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                           <DialogTrigger asChild>
