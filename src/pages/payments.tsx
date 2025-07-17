@@ -1904,15 +1904,6 @@ export default function Payments() {
                       </div>
                       
                       <div className="flex gap-2">
-                        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline">
-                              <Upload className="h-4 w-4 mr-2" />
-                              Excel Extre Yükle
-                            </Button>
-                          </DialogTrigger>
-                        </Dialog>
-
                         <Button variant="outline" onClick={exportPaymentsToExcel}>
                           <Download className="h-4 w-4 mr-2" />
                           Excel Dışa Aktar

@@ -1116,14 +1116,16 @@ export default function Athletes() {
           }
 
           // Parse date from Excel (DD/MM/YYYY format) - FIXED TO USE EXCEL DATE
-          let entryDate = new Date();
-          let entryMonth = new Date().toISOString().slice(0, 7);
-          let dueDate = new Date();
+          let entryDate = new Date(); // Default fallback
+          let entryMonth = new Date().toISOString().slice(0, 7); // Default fallback
+          let dueDate = new Date(); // Default fallback
+          let dateParseSuccess = false;
 
           const dateField = feeData['Tarih (DD/MM/YYYY)'] || feeData['Tarih'];
           if (dateField) {
             try {
               const dateStr = dateField.toString().trim();
+              console.log(`🔍 Processing date for ${athleteName}: "${dateStr}"`);
               
               // Handle DD/MM/YYYY or DD.MM.YYYY format
               const turkishMatch = dateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})$/);
@@ -1147,15 +1149,22 @@ export default function Athletes() {
                     
                     // Set due date to last day of the entry month
                     dueDate = new Date(year, month, 0); // Last day of the month
+                    dateParseSuccess = true;
                     
-                    console.log(`✅ Date parsed successfully for ${athleteName}: ${dateStr} -> ${entryDate.toLocaleDateString('tr-TR')}`);
+                    console.log(`✅ Date parsed successfully for ${athleteName}: ${dateStr} -> ${entryDate.toLocaleDateString('tr-TR')} (Month: ${entryMonth})`);
                   }
                 }
               }
+              
+              if (!dateParseSuccess) {
+                console.warn(`⚠️ Date parsing failed for ${athleteName}: "${dateStr}" - using current date as fallback`);
+              }
             } catch (error) {
-              console.warn(`Error parsing date for athlete ${athleteName}:`, error);
+              console.warn(`❌ Error parsing date for athlete ${athleteName}:`, error);
               // Use default date if parsing fails
             }
+          } else {
+            console.log(`ℹ️ No date field found for ${athleteName} - using current date`);
           }
 
           // Calculate VAT with proper rounding
