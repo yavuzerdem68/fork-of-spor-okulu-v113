@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import Head from "next/head";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -300,58 +299,6 @@ export default function Home() {
               antrenman programları ve daha fazlası için kapsamlı CRM sistemi.
             </p>
 
-            {/* Sports Images */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="relative overflow-hidden rounded-lg shadow-lg"
-              >
-                <Image
-                  src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/1-bdbef90.jpg"
-                  alt="Spor Okulu Aktiviteleri"
-                  width={300}
-                  height={200}
-                  className="object-cover w-full h-32 hover:scale-105 transition-transform duration-300"
-                />
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-                className="relative overflow-hidden rounded-lg shadow-lg"
-              >
-                <Image
-                  src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/2-776160b.jpg"
-                  alt="Spor Okulu Antrenmanları"
-                  width={300}
-                  height={200}
-                  className="object-cover w-full h-32 hover:scale-105 transition-transform duration-300"
-                />
-              </motion.div>
-            </div>
-
-            {/* Features */}
-            <motion.div 
-              className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.8 }}
-            >
-              <div className="flex flex-col items-center space-y-2">
-                <Users className="h-8 w-8 text-primary" />
-                <span className="text-sm font-medium text-foreground">Sporcu Yönetimi</span>
-              </div>
-              <div className="flex flex-col items-center space-y-2">
-                <Trophy className="h-8 w-8 text-primary" />
-                <span className="text-sm font-medium text-foreground">Performans Takibi</span>
-              </div>
-              <div className="flex flex-col items-center space-y-2">
-                <Shield className="h-8 w-8 text-primary" />
-                <span className="text-sm font-medium text-foreground">Güvenli Sistem</span>
-              </div>
-            </motion.div>
 
           </motion.div>
 

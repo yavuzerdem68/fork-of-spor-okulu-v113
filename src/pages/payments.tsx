@@ -1909,6 +1909,17 @@ export default function Payments() {
                           Excel Dışa Aktar
                         </Button>
                         
+
+                        <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Excel Yükle
+                        </Button>
+
+                        <Button variant="outline" onClick={() => setIsBulkPaymentDialogOpen(true)}>
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          Toplu Aidat Girişi
+                        </Button>
+
                         <Button variant="outline">
                           <Send className="h-4 w-4 mr-2" />
                           Toplu Hatırlatma
