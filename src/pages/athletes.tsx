@@ -95,6 +95,13 @@ export default function Athletes() {
   const [invoiceVatRate, setInvoiceVatRate] = useState('20');
   const [bulkUploadFile, setBulkUploadFile] = useState<File | null>(null);
   const [bulkFeeUploadFile, setBulkFeeUploadFile] = useState<File | null>(null);
+  
+  // Bulk payment entry states - synchronized with payments page
+  const [bulkPayments, setBulkPayments] = useState<any[]>([]);
+  const [bulkPaymentDate, setBulkPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [editingBulkPayment, setEditingBulkPayment] = useState<any>(null);
+  const [isEditBulkDialogOpen, setIsEditBulkDialogOpen] = useState(false);
+  
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
@@ -1166,6 +1173,250 @@ export default function Athletes() {
     }
   };
 
+  // Bulk payment functions - synchronized with payments page
+  const paymentMethods = ["Kredi Kartı", "Nakit", "Havale/EFT", "Çek"];
+
+  const addBulkPaymentEntry = () => {
+    const newBulkEntry = {
+      id: Date.now() + Math.random(),
+      athleteId: '',
+      athleteName: '',
+      parentName: '',
+      amount: '',
+      description: '',
+      sport: '',
+      method: 'Nakit',
+      isValid: false
+    };
+    setBulkPayments([...bulkPayments, newBulkEntry]);
+  };
+
+  const updateBulkPaymentEntry = (id: number, field: string, value: string) => {
+    setBulkPayments(prev => prev.map(entry => {
+      if (entry.id === id) {
+        const updated = { ...entry, [field]: value };
+        
+        // If athlete is selected, auto-fill related fields
+        if (field === 'athleteId' && value) {
+          const athlete = athletes.find(a => a.id.toString() === value);
+          if (athlete) {
+            updated.athleteName = `${athlete.studentName} ${athlete.studentSurname}`;
+            updated.parentName = `${athlete.parentName} ${athlete.parentSurname}`;
+            updated.sport = athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel';
+          }
+        }
+        
+        // Validate entry
+        updated.isValid = updated.athleteId && updated.amount && parseFloat(updated.amount) > 0;
+        
+        return updated;
+      }
+      return entry;
+    }));
+  };
+
+  const removeBulkPaymentEntry = (id: number) => {
+    setBulkPayments(prev => prev.filter(entry => entry.id !== id));
+  };
+
+  const saveBulkPayments = async () => {
+    const validEntries = bulkPayments.filter(entry => entry.isValid);
+    
+    if (validEntries.length === 0) {
+      alert("Geçerli ödeme kaydı bulunamadı!");
+      return;
+    }
+
+    if (!bulkPaymentDate) {
+      alert("Lütfen ödeme tarihi seçin!");
+      return;
+    }
+
+    try {
+      const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+      let processedCount = 0;
+
+      for (const entry of validEntries) {
+        const athlete = athletes.find(a => a.id.toString() === entry.athleteId);
+        if (!athlete) continue;
+
+        // Create payment record
+        const newPayment = {
+          id: `bulk_${entry.id}_${Date.now()}`,
+          athleteId: athlete.id,
+          athleteName: entry.athleteName,
+          parentName: entry.parentName,
+          amount: parseFloat(entry.amount),
+          status: "Ödendi",
+          paymentDate: bulkPaymentDate,
+          method: entry.method,
+          sport: entry.sport,
+          invoiceNumber: `BULK-${Date.now()}-${athlete.id}`,
+          dueDate: bulkPaymentDate,
+          description: entry.description || `Toplu ödeme girişi - ${new Date(bulkPaymentDate).toLocaleDateString('tr-TR')}`,
+          isGenerated: false,
+          isBulkEntry: true,
+          bulkEntryDate: new Date().toISOString()
+        };
+
+        existingPayments.push(newPayment);
+
+        // Add to athlete's account as credit
+        const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+        const paymentEntry = {
+          id: Date.now() + Math.random(),
+          date: new Date(bulkPaymentDate).toISOString(),
+          month: bulkPaymentDate.slice(0, 7),
+          description: `Toplu Ödeme - ${new Date(bulkPaymentDate).toLocaleDateString('tr-TR')} - ${entry.method} - ${entry.description || 'Toplu ödeme girişi'}`,
+          amountExcludingVat: parseFloat(entry.amount),
+          vatRate: 0,
+          vatAmount: 0,
+          amountIncludingVat: parseFloat(entry.amount),
+          unitCode: 'Adet',
+          type: 'credit'
+        };
+        
+        existingEntries.push(paymentEntry);
+        localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+        processedCount++;
+      }
+
+      // Save updated payments
+      localStorage.setItem('payments', JSON.stringify(existingPayments));
+
+      // Reset form
+      setBulkPayments([]);
+      setBulkPaymentDate(new Date().toISOString().split('T')[0]);
+      setIsBulkFeeDialogOpen(false);
+
+      alert(`${processedCount} toplu ödeme kaydı başarıyla oluşturuldu!`);
+
+    } catch (error) {
+      console.error('Error saving bulk payments:', error);
+      alert("Toplu ödemeler kaydedilirken hata oluştu");
+    }
+  };
+
+  // Edit bulk payment functions
+  const openEditBulkPayment = (payment: any) => {
+    if (!payment.isBulkEntry) {
+      alert("Bu ödeme toplu giriş ile oluşturulmamış, düzenlenemez!");
+      return;
+    }
+    
+    setEditingBulkPayment({
+      id: payment.id,
+      athleteId: payment.athleteId,
+      athleteName: payment.athleteName,
+      parentName: payment.parentName,
+      amount: payment.amount.toString(),
+      description: payment.description || '',
+      method: payment.method || 'Nakit',
+      paymentDate: payment.paymentDate,
+      sport: payment.sport
+    });
+    setIsEditBulkDialogOpen(true);
+  };
+
+  const saveEditedBulkPayment = async () => {
+    if (!editingBulkPayment) return;
+
+    try {
+      const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+      const paymentIndex = existingPayments.findIndex((p: any) => p.id === editingBulkPayment.id);
+      
+      if (paymentIndex === -1) {
+        alert("Düzenlenecek ödeme bulunamadı!");
+        return;
+      }
+
+      const athlete = athletes.find(a => a.id.toString() === editingBulkPayment.athleteId);
+      if (!athlete) {
+        alert("Sporcu bulunamadı!");
+        return;
+      }
+
+      // Update payment record
+      const oldPayment = existingPayments[paymentIndex];
+      const updatedPayment = {
+        ...oldPayment,
+        athleteId: athlete.id,
+        athleteName: editingBulkPayment.athleteName,
+        parentName: editingBulkPayment.parentName,
+        amount: parseFloat(editingBulkPayment.amount),
+        method: editingBulkPayment.method,
+        paymentDate: editingBulkPayment.paymentDate,
+        description: editingBulkPayment.description,
+        sport: editingBulkPayment.sport,
+        lastModified: new Date().toISOString()
+      };
+
+      existingPayments[paymentIndex] = updatedPayment;
+
+      // Update athlete's account entry
+      const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      const entryIndex = existingEntries.findIndex((entry: any) => 
+        entry.description.includes('Toplu Ödeme') && 
+        Math.abs(entry.amountIncludingVat - oldPayment.amount) < 0.01
+      );
+
+      if (entryIndex !== -1) {
+        existingEntries[entryIndex] = {
+          ...existingEntries[entryIndex],
+          date: new Date(editingBulkPayment.paymentDate).toISOString(),
+          month: editingBulkPayment.paymentDate.slice(0, 7),
+          description: `Toplu Ödeme (Düzenlendi) - ${new Date(editingBulkPayment.paymentDate).toLocaleDateString('tr-TR')} - ${editingBulkPayment.method} - ${editingBulkPayment.description || 'Toplu ödeme girişi'}`,
+          amountExcludingVat: parseFloat(editingBulkPayment.amount),
+          amountIncludingVat: parseFloat(editingBulkPayment.amount)
+        };
+        localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+      }
+
+      // Save updated payments
+      localStorage.setItem('payments', JSON.stringify(existingPayments));
+
+      setIsEditBulkDialogOpen(false);
+      setEditingBulkPayment(null);
+
+      alert("Toplu ödeme kaydı başarıyla güncellendi!");
+
+    } catch (error) {
+      console.error('Error updating bulk payment:', error);
+      alert("Toplu ödeme güncellenirken hata oluştu");
+    }
+  };
+
+  const deleteBulkPayment = async (payment: any) => {
+    if (!payment.isBulkEntry) {
+      alert("Bu ödeme toplu giriş ile oluşturulmamış, silinemez!");
+      return;
+    }
+
+    const confirmed = confirm(`${payment.athleteName} için ${payment.amount} TL tutarındaki toplu ödeme kaydını silmek istediğinizden emin misiniz?`);
+    
+    if (!confirmed) return;
+
+    try {
+      const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+      const filteredPayments = existingPayments.filter((p: any) => p.id !== payment.id);
+      
+      // Remove from athlete's account
+      const existingEntries = JSON.parse(localStorage.getItem(`account_${payment.athleteId}`) || '[]');
+      const filteredEntries = existingEntries.filter((entry: any) => 
+        !(entry.description.includes('Toplu Ödeme') && Math.abs(entry.amountIncludingVat - payment.amount) < 0.01)
+      );
+      
+      localStorage.setItem(`account_${payment.athleteId}`, JSON.stringify(filteredEntries));
+      localStorage.setItem('payments', JSON.stringify(filteredPayments));
+
+      alert("Toplu ödeme kaydı başarıyla silindi!");
+
+    } catch (error) {
+      console.error('Error deleting bulk payment:', error);
+      alert("Toplu ödeme silinirken hata oluştu");
+    }
+  };
+
   // Process bulk upload with duplicate merging and parent credential generation
   const processBulkUpload = async () => {
     if (!bulkUploadFile) return;
@@ -1990,116 +2241,298 @@ export default function Athletes() {
 
           {/* Bulk Fee Entry Dialog */}
           <Dialog open={isBulkFeeDialogOpen} onOpenChange={setIsBulkFeeDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center space-x-2">
-                  <Calculator className="h-5 w-5" />
+                  <Users className="h-5 w-5" />
                   <span>Toplu Aidat Girişi</span>
                 </DialogTitle>
                 <DialogDescription>
-                  Excel dosyası ile birden fazla sporcu için aidat girişi yapın
+                  Birden fazla sporcu için aynı anda ödeme kaydı oluşturun
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-6">
-                {/* Template Download */}
+                {/* Payment Date Selection */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">1. Şablon İndir</CardTitle>
+                    <CardTitle>Ödeme Tarihi</CardTitle>
                     <CardDescription>
-                      Önce Excel şablonunu indirin ve aidat bilgilerini doldurun
+                      Tüm ödemeler için geçerli olacak tarihi seçin (DD/MM/YYYY formatında)
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button onClick={generateBulkFeeTemplate} variant="outline" className="w-full">
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Toplu Aidat Şablonunu İndir
-                    </Button>
-                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-2">Şablon Bilgileri:</h4>
-                      <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• Aktif sporcuların listesini içerir</li>
-                        <li>• Açıklama, Tutar, KDV Oranı alanlarını doldurun</li>
-                        <li>• Toplam otomatik hesaplanır</li>
-                        <li>• Birim kodu varsayılan olarak "Ay" gelir</li>
-                      </ul>
+                    <div className="max-w-sm">
+                      <Label htmlFor="bulkPaymentDate">Ödeme Tarihi</Label>
+                      <Input
+                        id="bulkPaymentDate"
+                        type="date"
+                        value={bulkPaymentDate}
+                        onChange={(e) => setBulkPaymentDate(e.target.value)}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Seçilen tarih: {bulkPaymentDate ? new Date(bulkPaymentDate).toLocaleDateString('tr-TR') : 'Seçilmedi'}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* File Upload */}
+                {/* Bulk Payment Entries */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">2. Dosya Yükle</CardTitle>
+                    <CardTitle>Ödeme Kayıtları</CardTitle>
                     <CardDescription>
-                      Doldurduğunuz Excel dosyasını seçin
+                      Her sporcu için ödeme bilgilerini girin
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <input
-                          type="file"
-                          accept=".xlsx,.xls"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) setBulkFeeUploadFile(file);
-                          }}
-                          className="hidden"
-                          id="bulk-fee-file"
-                        />
-                        <label htmlFor="bulk-fee-file" className="cursor-pointer">
-                          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                          <p className="text-lg font-medium text-gray-900 mb-2">
-                            Excel dosyasını seçin
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            .xlsx veya .xls formatında olmalıdır
-                          </p>
-                        </label>
-                      </div>
+                      {bulkPayments.map((entry, index) => (
+                        <Card key={entry.id} className={`border ${entry.isValid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                          <CardContent className="p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                              <div>
+                                <Label>Sporcu</Label>
+                                <Select 
+                                  value={entry.athleteId} 
+                                  onValueChange={(value) => updateBulkPaymentEntry(entry.id, 'athleteId', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Sporcu seçin" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {athletes.map(athlete => (
+                                      <SelectItem key={athlete.id} value={athlete.id.toString()}>
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{athlete.studentName} {athlete.studentSurname}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {athlete.parentName} {athlete.parentSurname}
+                                          </span>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                      {bulkFeeUploadFile && (
-                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                          <div className="flex items-center space-x-2">
-                            <FileSpreadsheet className="h-5 w-5 text-green-600" />
-                            <span className="text-sm font-medium text-green-900">
-                              {bulkFeeUploadFile.name}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setBulkFeeUploadFile(null)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                              <div>
+                                <Label>Tutar (₺)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="350"
+                                  value={entry.amount}
+                                  onChange={(e) => updateBulkPaymentEntry(entry.id, 'amount', e.target.value)}
+                                />
+                              </div>
 
-                      {bulkFeeUploadFile && (
-                        <Button 
-                          onClick={processBulkFeeEntry}
-                          className="w-full"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Toplu Aidat Girişini İşle
-                        </Button>
-                      )}
+                              <div>
+                                <Label>Ödeme Yöntemi</Label>
+                                <Select 
+                                  value={entry.method} 
+                                  onValueChange={(value) => updateBulkPaymentEntry(entry.id, 'method', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {paymentMethods.map(method => (
+                                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <Label>Açıklama (Opsiyonel)</Label>
+                                <Input
+                                  placeholder="Ödeme açıklaması"
+                                  value={entry.description}
+                                  onChange={(e) => updateBulkPaymentEntry(entry.id, 'description', e.target.value)}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-4">
+                              <div className="text-sm text-muted-foreground">
+                                {entry.athleteName && (
+                                  <span>
+                                    <strong>{entry.athleteName}</strong> - {entry.parentName} - {entry.sport}
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeBulkPaymentEntry(entry.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      <Button
+                        variant="outline"
+                        onClick={addBulkPaymentEntry}
+                        className="w-full"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Yeni Ödeme Ekle
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Summary */}
+                {bulkPayments.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Özet</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Toplam Kayıt</p>
+                          <p className="text-2xl font-bold">{bulkPayments.length}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Geçerli Kayıt</p>
+                          <p className="text-2xl font-bold text-green-600">
+                            {bulkPayments.filter(entry => entry.isValid).length}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Toplam Tutar</p>
+                          <p className="text-2xl font-bold">
+                            ₺{bulkPayments
+                              .filter(entry => entry.isValid)
+                              .reduce((sum, entry) => sum + parseFloat(entry.amount || '0'), 0)
+                              .toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <strong>Seçilen Tarih:</strong> {bulkPaymentDate ? new Date(bulkPaymentDate).toLocaleDateString('tr-TR') : 'Tarih seçilmedi'}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
-              <div className="flex justify-end space-x-2 mt-6">
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setIsBulkFeeDialogOpen(false)}>
+                  İptal
+                </Button>
                 <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsBulkFeeDialogOpen(false);
-                    setBulkFeeUploadFile(null);
-                  }}
+                  onClick={saveBulkPayments}
+                  disabled={bulkPayments.filter(entry => entry.isValid).length === 0}
                 >
-                  Kapat
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {bulkPayments.filter(entry => entry.isValid).length} Ödeme Kaydet
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Bulk Payment Dialog */}
+          <Dialog open={isEditBulkDialogOpen} onOpenChange={setIsEditBulkDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Toplu Ödeme Düzenle</DialogTitle>
+                <DialogDescription>
+                  Toplu ödeme kaydını düzenleyin
+                </DialogDescription>
+              </DialogHeader>
+
+              {editingBulkPayment && (
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editAthlete">Sporcu</Label>
+                    <Select 
+                      value={editingBulkPayment.athleteId} 
+                      onValueChange={(value) => setEditingBulkPayment(prev => ({ ...prev, athleteId: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sporcu seçin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {athletes.map(athlete => (
+                          <SelectItem key={athlete.id} value={athlete.id.toString()}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{athlete.studentName} {athlete.studentSurname}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {athlete.parentName} {athlete.parentSurname} - {athlete.sportsBranches?.[0] || 'Genel'}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="editAmount">Tutar (₺)</Label>
+                    <Input
+                      id="editAmount"
+                      type="number"
+                      placeholder="350"
+                      value={editingBulkPayment.amount}
+                      onChange={(e) => setEditingBulkPayment(prev => ({ ...prev, amount: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="editMethod">Ödeme Yöntemi</Label>
+                    <Select 
+                      value={editingBulkPayment.method} 
+                      onValueChange={(value) => setEditingBulkPayment(prev => ({ ...prev, method: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Yöntem seçin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentMethods.map(method => (
+                          <SelectItem key={method} value={method}>{method}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="editPaymentDate">Ödeme Tarihi</Label>
+                    <Input
+                      id="editPaymentDate"
+                      type="date"
+                      value={editingBulkPayment.paymentDate}
+                      onChange={(e) => setEditingBulkPayment(prev => ({ ...prev, paymentDate: e.target.value }))}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Seçilen tarih: {editingBulkPayment.paymentDate ? new Date(editingBulkPayment.paymentDate).toLocaleDateString('tr-TR') : 'Seçilmedi'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="editDescription">Açıklama (Opsiyonel)</Label>
+                    <Input
+                      id="editDescription"
+                      placeholder="Ödeme açıklaması"
+                      value={editingBulkPayment.description}
+                      onChange={(e) => setEditingBulkPayment(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsEditBulkDialogOpen(false)}>
+                  İptal
+                </Button>
+                <Button onClick={saveEditedBulkPayment}>
+                  Güncelle
                 </Button>
               </div>
             </DialogContent>
