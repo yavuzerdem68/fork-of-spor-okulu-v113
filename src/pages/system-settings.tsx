@@ -45,8 +45,6 @@ const SystemSettings = () => {
     email: 'info@sporokulu.com',
     address: 'Spor Okulu Adresi',
     website: 'www.sporokulu.com',
-    whatsappNumber: '+90 XXX XXX XX XX',
-    enableWhatsapp: true,
     enableEmailNotifications: true,
     enableSmsNotifications: false,
     invoicePrefix: 'SPR',
@@ -282,12 +280,19 @@ const SystemSettings = () => {
           )}
 
           <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general">Genel Bilgiler</TabsTrigger>
             <TabsTrigger value="branding">Marka & Logo</TabsTrigger>
             <TabsTrigger value="contact">İletişim</TabsTrigger>
             <TabsTrigger value="email">E-posta Ayarları</TabsTrigger>
-            <TabsTrigger value="financial">Mali Bilgiler</TabsTrigger>
+            <TabsTrigger value="admins">Admin Hesapları</TabsTrigger>
+          </TabsList>
+=======
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="general">Genel Bilgiler</TabsTrigger>
+            <TabsTrigger value="branding">Marka & Logo</TabsTrigger>
+            <TabsTrigger value="contact">İletişim</TabsTrigger>
+            <TabsTrigger value="email">E-posta Ayarları</TabsTrigger>
             <TabsTrigger value="admins">Admin Hesapları</TabsTrigger>
           </TabsList>
 
@@ -363,17 +368,6 @@ const SystemSettings = () => {
                 <div className="space-y-4">
                   <Label>Bildirim Ayarları</Label>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label htmlFor="whatsapp">WhatsApp Bildirimleri</Label>
-                        <p className="text-sm text-muted-foreground">Devamsızlık ve ödemeler için WhatsApp mesajı gönder</p>
-                      </div>
-                      <Switch
-                        id="whatsapp"
-                        checked={settings.enableWhatsapp}
-                        onCheckedChange={(checked) => handleInputChange('enableWhatsapp', checked)}
-                      />
-                    </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <Label htmlFor="email">E-posta Bildirimleri</Label>
@@ -505,32 +499,17 @@ const SystemSettings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefon</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        value={settings.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                        placeholder="+90 XXX XXX XX XX"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsappNumber">WhatsApp Numarası</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="whatsappNumber"
-                        value={settings.whatsappNumber}
-                        onChange={(e) => handleInputChange('whatsappNumber', e.target.value)}
-                        placeholder="+90 XXX XXX XX XX"
-                        className="pl-10"
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefon</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      value={settings.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      placeholder="+90 XXX XXX XX XX"
+                      className="pl-10"
+                    />
                   </div>
                 </div>
 
@@ -696,68 +675,7 @@ const SystemSettings = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="financial">
-            <Card>
-              <CardHeader>
-                <CardTitle>Mali Bilgiler</CardTitle>
-                <CardDescription>
-                  Fatura ve ödeme bilgileri
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="invoicePrefix">Fatura Ön Eki</Label>
-                    <Input
-                      id="invoicePrefix"
-                      value={settings.invoicePrefix}
-                      onChange={(e) => handleInputChange('invoicePrefix', e.target.value)}
-                      placeholder="SPR"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="taxNumber">Vergi Numarası</Label>
-                    <Input
-                      id="taxNumber"
-                      value={settings.taxNumber}
-                      onChange={(e) => handleInputChange('taxNumber', e.target.value)}
-                      placeholder="1234567890"
-                    />
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="taxOffice">Vergi Dairesi</Label>
-                  <Input
-                    id="taxOffice"
-                    value={settings.taxOffice}
-                    onChange={(e) => handleInputChange('taxOffice', e.target.value)}
-                    placeholder="Vergi dairesi adı"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="bankAccount">Banka Hesap No</Label>
-                  <Input
-                    id="bankAccount"
-                    value={settings.bankAccount}
-                    onChange={(e) => handleInputChange('bankAccount', e.target.value)}
-                    placeholder="1234567890"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="iban">IBAN</Label>
-                  <Input
-                    id="iban"
-                    value={settings.iban}
-                    onChange={(e) => handleInputChange('iban', e.target.value)}
-                    placeholder="TR00 0000 0000 0000 0000 0000 00"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="admins">
             <Card>
