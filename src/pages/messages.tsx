@@ -1029,7 +1029,7 @@ export default function Messages() {
                                     <p className="text-orange-600"><strong>Durum:</strong> Email ayarları yapılandırılmamış</p>
                                     <div className="flex items-center mt-2">
                                       <AlertCircle className="h-4 w-4 text-orange-600 mr-1" />
-                                      <span className="text-orange-600 text-xs">Sistem Ayarları > E-posta Ayarları'ndan yapılandırın</span>
+                                      <span className="text-orange-600 text-xs">Sistem Ayarları - E-posta Ayarları bölümünden yapılandırın</span>
                                     </div>
                                     <Button 
                                       variant="outline" 
