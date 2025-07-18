@@ -151,10 +151,38 @@ export default function Attendance() {
   };
 
   const openAttendanceDialog = (training: any) => {
+    // Check if current time is within training time window
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    const currentDate = now.toISOString().split('T')[0];
+    
+    // Only check time if it's today's training
+    if (selectedDate === currentDate) {
+      const trainingStart = training.startTime;
+      const trainingEnd = training.endTime;
+      
+      // Allow attendance 15 minutes before start time and until end time
+      const startBuffer = subtractMinutes(trainingStart, 15);
+      
+      if (currentTime < startBuffer || currentTime > trainingEnd) {
+        toast.error(`Bu antrenmanın yoklaması sadece ${startBuffer} - ${trainingEnd} saatleri arasında alınabilir. Şu anki saat: ${currentTime}`);
+        return;
+      }
+    }
+    
     setSelectedTraining(training);
     setAttendanceData(training.students.map((student: any) => ({ ...student })));
     setIsAttendanceDialogOpen(true);
   };
+
+  // Helper function to subtract minutes from time string
+  const subtractMinutes = (timeString: string, minutes: number) => {
+    const [hours, mins] = timeString.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, mins - minutes, 0, 0);
+    return date.toTimeString().slice(0, 5);
+  };
+=======
 
   const handleAttendanceChange = (studentId: number, present: boolean) => {
     setAttendanceData(prev => 
@@ -408,6 +436,31 @@ export default function Attendance() {
                       const notTakenCount = training.students.filter((s: any) => s.present === null).length;
                       const isCompleted = notTakenCount === 0;
                       
+                      // Check if attendance can be taken based on current time
+                      const now = new Date();
+                      const currentTime = now.toTimeString().slice(0, 5);
+                      const currentDate = now.toISOString().split('T')[0];
+                      const isToday = selectedDate === currentDate;
+                      
+                      let canTakeAttendance = true;
+                      let timeMessage = '';
+                      
+                      if (isToday) {
+                        const trainingStart = training.startTime;
+                        const trainingEnd = training.endTime;
+                        const startBuffer = subtractMinutes(trainingStart, 15);
+                        
+                        if (currentTime < startBuffer) {
+                          canTakeAttendance = false;
+                          timeMessage = `Yoklama ${startBuffer}'da başlayacak`;
+                        } else if (currentTime > trainingEnd) {
+                          canTakeAttendance = false;
+                          timeMessage = `Yoklama süresi ${trainingEnd}'da sona erdi`;
+                        } else {
+                          timeMessage = `Yoklama alınabilir (${startBuffer} - ${trainingEnd})`;
+                        }
+                      }
+                      
                       return (
                         <Card key={training.id} className="border-l-4 border-l-primary">
                           <CardContent className="p-6">
@@ -483,12 +536,28 @@ export default function Attendance() {
                                     </p>
                                   </div>
                                 )}
+
+                                {/* Time Status for Today's Trainings */}
+                                {isToday && timeMessage && (
+                                  <div className="mt-3">
+                                    <div className={`flex items-center space-x-2 text-xs ${
+                                      canTakeAttendance 
+                                        ? 'text-green-600' 
+                                        : 'text-orange-600'
+                                    }`}>
+                                      <Clock className="w-3 h-3" />
+                                      <span>{timeMessage}</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               
                               <div className="flex flex-col space-y-2">
                                 <Button 
                                   onClick={() => openAttendanceDialog(training)}
                                   variant={isCompleted ? "outline" : "default"}
+                                  disabled={isToday && !canTakeAttendance && !isCompleted}
+                                  className={isToday && !canTakeAttendance && !isCompleted ? "opacity-50 cursor-not-allowed" : ""}
                                 >
                                   <UserCheck className="w-4 h-4 mr-2" />
                                   {isCompleted ? 'Yoklamayı Düzenle' : 'Yoklama Al'}
