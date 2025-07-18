@@ -150,6 +150,14 @@ export default function Attendance() {
     setTodayTrainings(trainingsToShow);
   };
 
+  // Helper function to subtract minutes from time string
+  const subtractMinutes = (timeString: string, minutes: number) => {
+    const [hours, mins] = timeString.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, mins - minutes, 0, 0);
+    return date.toTimeString().slice(0, 5);
+  };
+
   const openAttendanceDialog = (training: any) => {
     // Check if current time is within training time window
     const now = new Date();
@@ -174,15 +182,6 @@ export default function Attendance() {
     setAttendanceData(training.students.map((student: any) => ({ ...student })));
     setIsAttendanceDialogOpen(true);
   };
-
-  // Helper function to subtract minutes from time string
-  const subtractMinutes = (timeString: string, minutes: number) => {
-    const [hours, mins] = timeString.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, mins - minutes, 0, 0);
-    return date.toTimeString().slice(0, 5);
-  };
-=======
 
   const handleAttendanceChange = (studentId: number, present: boolean) => {
     setAttendanceData(prev => 
