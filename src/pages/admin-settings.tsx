@@ -183,41 +183,52 @@ export default function AdminSettings() {
   }, [router]);
 
   const getDefaultPermissions = (role: string) => {
-    // Initialize with proper structure
-    const defaultPerms: any = {
-      athletes: { view: false, create: false, edit: false, delete: false },
-      payments: { view: false, create: false, edit: false, delete: false },
-      trainings: { view: false, create: false, edit: false, delete: false },
-      attendance: { view: false, create: false, edit: false, delete: false },
-      messages: { view: false, create: false, edit: false, delete: false },
-      media: { view: false, create: false, edit: false, delete: false },
-      reports: { view: false, create: false, edit: false, delete: false },
-      settings: { view: false, create: false, edit: false, delete: false }
-    };
+    // Initialize with proper structure - ensure all modules are defined
+    const defaultPerms: any = {};
+    
+    // Initialize all permission modules with default false values
+    permissionModules.forEach(module => {
+      defaultPerms[module.key] = { view: false, create: false, edit: false, delete: false };
+    });
 
     try {
+      // Validate role parameter
+      if (!role || typeof role !== 'string') {
+        console.warn('Invalid role provided to getDefaultPermissions:', role);
+        return defaultPerms;
+      }
+
       switch (role) {
         case "super_admin":
           Object.keys(defaultPerms).forEach(key => {
-            defaultPerms[key] = { view: true, create: true, edit: true, delete: true };
+            if (defaultPerms[key]) {
+              defaultPerms[key] = { view: true, create: true, edit: true, delete: true };
+            }
           });
           break;
         case "admin":
           Object.keys(defaultPerms).forEach(key => {
-            if (key !== "settings") {
+            if (defaultPerms[key] && key !== "settings") {
               defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
             }
           });
           break;
         case "coach":
           ["athletes", "trainings", "attendance", "messages", "media", "reports"].forEach(key => {
-            defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
+            if (defaultPerms[key]) {
+              defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
+            }
           });
           break;
         case "staff":
           ["athletes", "attendance"].forEach(key => {
-            defaultPerms[key] = { view: true, create: false, edit: false, delete: false };
+            if (defaultPerms[key]) {
+              defaultPerms[key] = { view: true, create: false, edit: false, delete: false };
+            }
           });
+          break;
+        default:
+          console.warn('Unknown role provided to getDefaultPermissions:', role);
           break;
       }
     } catch (error) {
@@ -875,58 +886,94 @@ export default function AdminSettings() {
               {/* Roles Tab */}
               <TabsContent value="roles">
                 <div className="grid md:grid-cols-2 gap-6">
-                  {roleOptions.map((role) => (
-                    <Card key={role.value}>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <Badge className={getRoleBadgeColor(role.value)}>
-                            {role.label}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription>{role.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <h4 className="font-medium text-sm">Varsayılan Yetkiler:</h4>
-                          <div className="space-y-2">
-                            {permissionModules.map((module) => {
-                              try {
-                                const defaultPerms = getDefaultPermissions(role.value);
-                                const modulePerms = defaultPerms && defaultPerms[module.key] ? defaultPerms[module.key] : { view: false, create: false, edit: false, delete: false };
-                                
-                                // Ensure modulePerms is an object with the expected properties
-                                const safeModulePerms = {
-                                  view: modulePerms?.view || false,
-                                  create: modulePerms?.create || false,
-                                  edit: modulePerms?.edit || false,
-                                  delete: modulePerms?.delete || false
-                                };
-                                
-                                const hasAnyPerm = Object.values(safeModulePerms).some(Boolean);
-                                
-                                if (!hasAnyPerm) return null;
-                                
-                                return (
-                                  <div key={module.key} className="flex items-center justify-between text-sm">
-                                    <span>{module.name}</span>
-                                    <div className="flex space-x-1">
-                                      {safeModulePerms.view && <Badge variant="outline" className="text-xs">Görüntüle</Badge>}
-                                      {safeModulePerms.create && <Badge variant="outline" className="text-xs">Oluştur</Badge>}
-                                      {safeModulePerms.edit && <Badge variant="outline" className="text-xs">Düzenle</Badge>}
-                                      {safeModulePerms.delete && <Badge variant="outline" className="text-xs">Sil</Badge>}
-                                    </div>
-                                  </div>
-                                );
-                              } catch (error) {
-                                console.error(`Error rendering permissions for module ${module.key}:`, error);
-                                return null;
-                              }
-                            })}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {roleOptions.map((role) => {
+                    try {
+                      return (
+                        <Card key={role.value}>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <Badge className={getRoleBadgeColor(role.value)}>
+                                {role.label}
+                              </Badge>
+                            </CardTitle>
+                            <CardDescription>{role.description}</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              <h4 className="font-medium text-sm">Varsayılan Yetkiler:</h4>
+                              <div className="space-y-2">
+                                {(() => {
+                                  try {
+                                    const defaultPerms = getDefaultPermissions(role.value);
+                                    
+                                    if (!defaultPerms || typeof defaultPerms !== 'object') {
+                                      return <p className="text-xs text-muted-foreground">Yetki bilgisi yüklenemedi</p>;
+                                    }
+
+                                    const moduleElements = permissionModules
+                                      .map((module) => {
+                                        try {
+                                          // Safely access module permissions
+                                          const modulePerms = defaultPerms[module.key];
+                                          
+                                          if (!modulePerms || typeof modulePerms !== 'object') {
+                                            return null;
+                                          }
+
+                                          // Create safe permission object
+                                          const safeModulePerms = {
+                                            view: Boolean(modulePerms.view),
+                                            create: Boolean(modulePerms.create),
+                                            edit: Boolean(modulePerms.edit),
+                                            delete: Boolean(modulePerms.delete)
+                                          };
+                                          
+                                          const hasAnyPerm = Object.values(safeModulePerms).some(Boolean);
+                                          
+                                          if (!hasAnyPerm) return null;
+                                          
+                                          return (
+                                            <div key={module.key} className="flex items-center justify-between text-sm">
+                                              <span>{module.name}</span>
+                                              <div className="flex space-x-1">
+                                                {safeModulePerms.view && <Badge variant="outline" className="text-xs">Görüntüle</Badge>}
+                                                {safeModulePerms.create && <Badge variant="outline" className="text-xs">Oluştur</Badge>}
+                                                {safeModulePerms.edit && <Badge variant="outline" className="text-xs">Düzenle</Badge>}
+                                                {safeModulePerms.delete && <Badge variant="outline" className="text-xs">Sil</Badge>}
+                                              </div>
+                                            </div>
+                                          );
+                                        } catch (moduleError) {
+                                          console.error(`Error rendering module ${module.key}:`, moduleError);
+                                          return null;
+                                        }
+                                      })
+                                      .filter(Boolean); // Remove null elements
+
+                                    return moduleElements.length > 0 ? moduleElements : (
+                                      <p className="text-xs text-muted-foreground">Bu rol için yetki tanımlanmamış</p>
+                                    );
+                                  } catch (permError) {
+                                    console.error(`Error getting permissions for role ${role.value}:`, permError);
+                                    return <p className="text-xs text-red-500">Yetki bilgisi yüklenirken hata oluştu</p>;
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    } catch (roleError) {
+                      console.error(`Error rendering role ${role.value}:`, roleError);
+                      return (
+                        <Card key={role.value}>
+                          <CardContent className="p-4">
+                            <p className="text-sm text-red-500">Bu rol yüklenirken hata oluştu</p>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+                  })}
                 </div>
               </TabsContent>
 
