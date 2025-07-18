@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   MessageCircle, 
   Plus,
@@ -45,7 +46,9 @@ import {
   AlertCircle,
   UserPlus,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  Info
 } from "lucide-react";
 
 const fadeInUp = {
@@ -55,13 +58,13 @@ const fadeInUp = {
 };
 
 // Data loading functions
-const loadWhatsAppGroups = () => {
-  const saved = localStorage.getItem('whatsappGroups');
+const loadParentGroups = () => {
+  const saved = localStorage.getItem('parentGroups');
   return saved ? JSON.parse(saved) : [];
 };
 
-const saveWhatsAppGroups = (groups: any[]) => {
-  localStorage.setItem('whatsappGroups', JSON.stringify(groups));
+const saveParentGroups = (groups: any[]) => {
+  localStorage.setItem('parentGroups', JSON.stringify(groups));
 };
 
 const loadMessageTemplates = () => {
@@ -99,6 +102,13 @@ const loadMessageTemplates = () => {
       content: "Sevgili veliler, {sporcu_adi}'nın {tarih} tarihinde {saat}'te {lokasyon}'da maçı bulunmaktadır. Desteklerinizi bekliyoruz!",
       category: "Etkinlik",
       usageCount: 0
+    },
+    {
+      id: 5,
+      title: "Genel Duyuru",
+      content: "Sayın veliler, {konu} hakkında bilgilendirme yapmak istiyoruz. {detay}",
+      category: "Duyuru",
+      usageCount: 0
     }
   ];
   
@@ -117,6 +127,12 @@ const loadSentMessages = () => {
 
 const saveSentMessages = (messages: any[]) => {
   localStorage.setItem('sentMessages', JSON.stringify(messages));
+};
+
+// Load athletes data
+const loadAthletes = () => {
+  const saved = localStorage.getItem('students');
+  return saved ? JSON.parse(saved) : [];
 };
 
 const sidebarItems = [
@@ -141,6 +157,10 @@ export default function Messages() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [messageContent, setMessageContent] = useState("");
+  const [messageSubject, setMessageSubject] = useState("");
+  const [selectedRecipientType, setSelectedRecipientType] = useState("");
+  const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const [groupFormData, setGroupFormData] = useState({
     name: "",
     sport: "",
@@ -150,27 +170,43 @@ export default function Messages() {
   const [success, setSuccess] = useState("");
   
   // Data state
-  const [whatsappGroups, setWhatsappGroups] = useState<any[]>([]);
+  const [parentGroups, setParentGroups] = useState<any[]>([]);
   const [messageTemplates, setMessageTemplates] = useState<any[]>([]);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
+  const [athletes, setAthletes] = useState<any[]>([]);
 
   useEffect(() => {
     // Load data from localStorage on component mount
-    setWhatsappGroups(loadWhatsAppGroups());
+    setParentGroups(loadParentGroups());
     setMessageTemplates(loadMessageTemplates());
     setSentMessages(loadSentMessages());
+    setAthletes(loadAthletes());
   }, []);
 
-  const filteredGroups = whatsappGroups.filter(group => {
+  // Filter athletes based on search and sport
+  const filteredAthletes = athletes.filter(athlete => {
+    const matchesSearch = 
+      athlete.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      athlete.studentSurname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      athlete.parentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      athlete.parentSurname?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesSport = selectedSport === "all" || 
+      athlete.sportsBranches?.includes(selectedSport);
+    
+    return matchesSearch && matchesSport && athlete.parentEmail;
+  });
+
+  const filteredGroups = parentGroups.filter(group => {
     const matchesSearch = group.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSport = selectedSport === "all" || group.sport === selectedSport;
     
     return matchesSearch && matchesSport;
   });
 
-  const totalGroups = whatsappGroups.length;
-  const totalMembers = whatsappGroups.reduce((sum, group) => sum + group.memberCount, 0);
-  const activeGroups = whatsappGroups.filter(g => g.status === "Aktif").length;
+  const totalGroups = parentGroups.length;
+  const totalParents = athletes.filter(a => a.parentEmail).length;
+  const activeGroups = parentGroups.filter(g => g.status === "Aktif").length;
   const totalMessages = sentMessages.length;
 
   const getStatusBadge = (status: string) => {
@@ -196,6 +232,153 @@ export default function Messages() {
     setSelectedTemplate(templateId);
   };
 
+  // Send email function
+  const sendEmail = async () => {
+    if (!messageContent || !messageSubject || !selectedRecipientType) {
+      setError("Lütfen konu, mesaj içeriği ve alıcı türünü doldurun");
+      return;
+    }
+
+    setIsSending(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      let recipients: any[] = [];
+
+      // Determine recipients based on type
+      switch (selectedRecipientType) {
+        case "all":
+          recipients = athletes.filter(a => a.parentEmail);
+          break;
+        case "sport":
+          recipients = athletes.filter(a => 
+            a.parentEmail && 
+            (selectedSport === "all" || a.sportsBranches?.includes(selectedSport))
+          );
+          break;
+        case "individual":
+          recipients = athletes.filter(a => 
+            selectedAthletes.includes(a.id.toString()) && a.parentEmail
+          );
+          break;
+        default:
+          recipients = [];
+      }
+
+      if (recipients.length === 0) {
+        setError("Gönderilecek geçerli email adresi bulunamadı");
+        setIsSending(false);
+        return;
+      }
+
+      // Process message content with variables
+      const processedMessages = recipients.map(athlete => {
+        let processedContent = messageContent
+          .replace(/{veli_adi}/g, athlete.parentName || 'Sayın Veli')
+          .replace(/{sporcu_adi}/g, `${athlete.studentName} ${athlete.studentSurname}`)
+          .replace(/{spor}/g, athlete.sportsBranches?.[0] || 'Spor')
+          .replace(/{saat}/g, '18:00')
+          .replace(/{lokasyon}/g, 'Spor Salonu')
+          .replace(/{ay}/g, new Date().toLocaleDateString('tr-TR', { month: 'long' }))
+          .replace(/{tutar}/g, '350')
+          .replace(/{tarih}/g, new Date().toLocaleDateString('tr-TR'))
+          .replace(/{konu}/g, messageSubject)
+          .replace(/{detay}/g, 'Detaylı bilgi için lütfen bizimle iletişime geçin.');
+
+        return {
+          athlete,
+          content: processedContent
+        };
+      });
+
+      // Send emails via API
+      const emailPromises = processedMessages.map(async ({ athlete, content }) => {
+        const response = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: athlete.parentEmail,
+            subject: messageSubject,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                  <h2 style="color: #333; margin: 0;">Spor Okulu Mesajı</h2>
+                  <p style="color: #666; margin: 5px 0 0 0;">Sporcu: ${athlete.studentName} ${athlete.studentSurname}</p>
+                </div>
+                <div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">
+                  ${content.replace(/\n/g, '<br>')}
+                </div>
+                <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; font-size: 12px; color: #666;">
+                  <p style="margin: 0;">Bu mesaj Spor Okulu Yönetim Sistemi tarafından gönderilmiştir.</p>
+                  <p style="margin: 5px 0 0 0;">Gönderim Tarihi: ${new Date().toLocaleString('tr-TR')}</p>
+                </div>
+              </div>
+            `,
+            text: content
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Email gönderimi başarısız: ${athlete.parentEmail}`);
+        }
+
+        return { athlete, success: true };
+      });
+
+      const results = await Promise.allSettled(emailPromises);
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+
+      // Save sent messages to history
+      const newMessages = processedMessages.map(({ athlete, content }) => ({
+        id: Date.now() + Math.random(),
+        recipient: `${athlete.parentName} ${athlete.parentSurname}`,
+        recipientEmail: athlete.parentEmail,
+        athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
+        sport: athlete.sportsBranches?.[0] || 'Genel',
+        subject: messageSubject,
+        message: content,
+        sentTime: new Date().toISOString(),
+        type: selectedRecipientType === 'individual' ? 'Bireysel' : 'Toplu',
+        template: selectedTemplate ? messageTemplates.find(t => t.id.toString() === selectedTemplate)?.title : 'Manuel',
+        status: 'Gönderildi'
+      }));
+
+      const updatedMessages = [...sentMessages, ...newMessages];
+      setSentMessages(updatedMessages);
+      saveSentMessages(updatedMessages);
+
+      // Update template usage count
+      if (selectedTemplate) {
+        const updatedTemplates = messageTemplates.map(template => 
+          template.id.toString() === selectedTemplate 
+            ? { ...template, usageCount: template.usageCount + 1 }
+            : template
+        );
+        setMessageTemplates(updatedTemplates);
+        saveMessageTemplates(updatedTemplates);
+      }
+
+      setSuccess(`${successful} email başarıyla gönderildi${failed > 0 ? `, ${failed} email gönderilemedi` : ''}`);
+      
+      // Reset form
+      setMessageContent("");
+      setMessageSubject("");
+      setSelectedTemplate("");
+      setSelectedRecipientType("");
+      setSelectedAthletes([]);
+
+    } catch (error) {
+      console.error('Email gönderme hatası:', error);
+      setError('Email gönderilirken hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const handleGroupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -207,13 +390,18 @@ export default function Messages() {
       return;
     }
 
+    // Count parents in this sport
+    const sportAthletes = athletes.filter(a => 
+      a.sportsBranches?.includes(groupFormData.sport) && a.parentEmail
+    );
+
     const newGroup = {
       id: Date.now().toString(),
       name: groupFormData.name,
       sport: groupFormData.sport,
       description: groupFormData.description,
-      memberCount: 0,
-      parentCount: 0,
+      memberCount: sportAthletes.length,
+      parentCount: sportAthletes.length,
       coachCount: 0,
       status: "Aktif",
       createdDate: new Date().toISOString(),
@@ -221,11 +409,11 @@ export default function Messages() {
       lastMessageTime: new Date().toISOString()
     };
 
-    const updatedGroups = [...whatsappGroups, newGroup];
-    setWhatsappGroups(updatedGroups);
-    saveWhatsAppGroups(updatedGroups);
+    const updatedGroups = [...parentGroups, newGroup];
+    setParentGroups(updatedGroups);
+    saveParentGroups(updatedGroups);
     
-    setSuccess("WhatsApp grubu başarıyla oluşturuldu");
+    setSuccess("Email grubu başarıyla oluşturuldu");
     resetGroupForm();
     setIsGroupDialogOpen(false);
   };
@@ -318,8 +506,8 @@ export default function Messages() {
           <header className="bg-card border-b border-border p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Mesajlaşma Sistemi</h1>
-                <p className="text-muted-foreground">WhatsApp entegrasyonu ve iletişim yönetimi</p>
+                <h1 className="text-2xl font-bold text-foreground">Email İletişim Sistemi</h1>
+                <p className="text-muted-foreground">Velilerle basit ve etkili email iletişimi</p>
               </div>
               
               <div className="flex items-center space-x-4">
@@ -340,13 +528,22 @@ export default function Messages() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
+              {/* Email System Info */}
+              <Alert className="mb-6">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Basit Email İletişim Sistemi:</strong> WhatsApp entegrasyonu yerine, mevcut email ayarlarınızı kullanarak velilere doğrudan email gönderebilirsiniz. 
+                  Mesaj şablonları kullanarak hızlı ve etkili iletişim kurabilirsiniz.
+                </AlertDescription>
+              </Alert>
+
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Toplam Grup</p>
+                        <p className="text-sm font-medium text-muted-foreground">Email Grupları</p>
                         <p className="text-2xl font-bold">{totalGroups}</p>
                       </div>
                       <Group className="h-8 w-8 text-blue-600" />
@@ -358,10 +555,10 @@ export default function Messages() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Toplam Üye</p>
-                        <p className="text-2xl font-bold">{totalMembers}</p>
+                        <p className="text-sm font-medium text-muted-foreground">Veli Email Adresi</p>
+                        <p className="text-2xl font-bold">{totalParents}</p>
                       </div>
-                      <Users className="h-8 w-8 text-green-600" />
+                      <Mail className="h-8 w-8 text-green-600" />
                     </div>
                   </CardContent>
                 </Card>
@@ -370,10 +567,10 @@ export default function Messages() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Aktif Grup</p>
-                        <p className="text-2xl font-bold">{activeGroups}</p>
+                        <p className="text-sm font-medium text-muted-foreground">Aktif Sporcu</p>
+                        <p className="text-2xl font-bold">{athletes.filter(a => a.status === 'Aktif' || !a.status).length}</p>
                       </div>
-                      <CheckCircle className="h-8 w-8 text-purple-600" />
+                      <Users className="h-8 w-8 text-purple-600" />
                     </div>
                   </CardContent>
                 </Card>
@@ -382,7 +579,7 @@ export default function Messages() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Gönderilen Mesaj</p>
+                        <p className="text-sm font-medium text-muted-foreground">Gönderilen Email</p>
                         <p className="text-2xl font-bold">{totalMessages}</p>
                       </div>
                       <MessageSquare className="h-8 w-8 text-orange-600" />
@@ -392,12 +589,12 @@ export default function Messages() {
               </div>
 
               {/* Tabs */}
-              <Tabs defaultValue="groups" className="space-y-6">
+              <Tabs defaultValue="send-message" className="space-y-6">
                 <TabsList>
-                  <TabsTrigger value="groups">WhatsApp Grupları</TabsTrigger>
-                  <TabsTrigger value="send-message">Mesaj Gönder</TabsTrigger>
+                  <TabsTrigger value="send-message">Email Gönder</TabsTrigger>
+                  <TabsTrigger value="parents">Veli Listesi</TabsTrigger>
                   <TabsTrigger value="templates">Mesaj Şablonları</TabsTrigger>
-                  <TabsTrigger value="history">Mesaj Geçmişi</TabsTrigger>
+                  <TabsTrigger value="history">Email Geçmişi</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="groups" className="space-y-6">
@@ -604,27 +801,91 @@ export default function Messages() {
                 <TabsContent value="send-message" className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Mesaj Gönder</CardTitle>
+                      <CardTitle>Email Gönder</CardTitle>
                       <CardDescription>
-                        Bireysel veya toplu mesaj gönderin
+                        Velilere bireysel veya toplu email gönderin
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
+                      {error && (
+                        <Alert className="mb-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {success && (
+                        <Alert className="mb-4 border-green-200 bg-green-50">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">{success}</AlertDescription>
+                        </Alert>
+                      )}
+
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label>Alıcı Türü</Label>
-                            <Select>
+                            <Label>Alıcı Türü *</Label>
+                            <Select value={selectedRecipientType} onValueChange={setSelectedRecipientType}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Alıcı türü seçin" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="individual">Bireysel Mesaj</SelectItem>
-                                <SelectItem value="group">Grup Mesajı</SelectItem>
+                                <SelectItem value="individual">Bireysel Email</SelectItem>
                                 <SelectItem value="sport">Spor Branşına Göre</SelectItem>
                                 <SelectItem value="all">Tüm Veliler</SelectItem>
                               </SelectContent>
                             </Select>
+                          </div>
+
+                          {selectedRecipientType === "sport" && (
+                            <div className="space-y-2">
+                              <Label>Spor Branşı</Label>
+                              <Select value={selectedSport} onValueChange={setSelectedSport}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Branş seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sports.map(sport => (
+                                    <SelectItem key={sport} value={sport}>{sport}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {selectedRecipientType === "individual" && (
+                            <div className="space-y-2">
+                              <Label>Sporcu Seçin</Label>
+                              <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-2">
+                                {filteredAthletes.map(athlete => (
+                                  <div key={athlete.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`athlete-${athlete.id}`}
+                                      checked={selectedAthletes.includes(athlete.id.toString())}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedAthletes([...selectedAthletes, athlete.id.toString()]);
+                                        } else {
+                                          setSelectedAthletes(selectedAthletes.filter(id => id !== athlete.id.toString()));
+                                        }
+                                      }}
+                                    />
+                                    <Label htmlFor={`athlete-${athlete.id}`} className="text-sm">
+                                      {athlete.studentName} {athlete.studentSurname} - {athlete.parentName} {athlete.parentSurname}
+                                    </Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="space-y-2">
+                            <Label>Email Konusu *</Label>
+                            <Input
+                              placeholder="Email konusu..."
+                              value={messageSubject}
+                              onChange={(e) => setMessageSubject(e.target.value)}
+                            />
                           </div>
                           
                           <div className="space-y-2">
@@ -644,56 +905,218 @@ export default function Messages() {
                           </div>
                           
                           <div className="space-y-2">
-                            <Label>Mesaj İçeriği</Label>
+                            <Label>Mesaj İçeriği *</Label>
                             <Textarea 
-                              placeholder="Mesajınızı yazın..."
+                              placeholder="Email mesajınızı yazın..."
                               className="min-h-32"
                               value={messageContent}
                               onChange={(e) => setMessageContent(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Değişkenler: {"{veli_adi}"}, {"{sporcu_adi}"}, {"{spor}"}, {"{saat}"}, {"{lokasyon}"}
+                              Değişkenler: {"{veli_adi}"}, {"{sporcu_adi}"}, {"{spor}"}, {"{saat}"}, {"{lokasyon}"}, {"{konu}"}, {"{detay}"}
                             </p>
                           </div>
                           
                           <div className="flex gap-2">
-                            <Button className="flex-1">
-                              <Send className="h-4 w-4 mr-2" />
-                              Mesaj Gönder
-                            </Button>
-                            <Button variant="outline">
-                              <Eye className="h-4 w-4 mr-2" />
-                              Önizle
+                            <Button 
+                              className="flex-1" 
+                              onClick={sendEmail}
+                              disabled={isSending || !messageContent || !messageSubject || !selectedRecipientType}
+                            >
+                              {isSending ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Gönderiliyor...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Email Gönder
+                                </>
+                              )}
                             </Button>
                           </div>
                         </div>
                         
                         <div className="space-y-4">
-                          <h4 className="font-medium">Hızlı İşlemler</h4>
-                          <div className="grid grid-cols-1 gap-3">
-                            <Button variant="outline" className="justify-start h-auto p-4">
-                              <div className="text-left">
-                                <p className="font-medium">Devamsızlık Bildirimi</p>
-                                <p className="text-sm text-muted-foreground">Bugün gelmeyenlere otomatik mesaj</p>
-                              </div>
-                            </Button>
-                            
-                            <Button variant="outline" className="justify-start h-auto p-4">
-                              <div className="text-left">
-                                <p className="font-medium">Antrenman Hatırlatması</p>
-                                <p className="text-sm text-muted-foreground">Yarınki antrenmanlar için hatırlatma</p>
-                              </div>
-                            </Button>
-                            
-                            <Button variant="outline" className="justify-start h-auto p-4">
-                              <div className="text-left">
-                                <p className="font-medium">Ödeme Hatırlatması</p>
-                                <p className="text-sm text-muted-foreground">Geciken ödemeler için bildirim</p>
-                              </div>
-                            </Button>
+                          <div>
+                            <h4 className="font-medium mb-2">Gönderilecek Email Sayısı</h4>
+                            <div className="p-4 bg-blue-50 rounded-lg">
+                              <p className="text-2xl font-bold text-blue-600">
+                                {selectedRecipientType === "all" 
+                                  ? athletes.filter(a => a.parentEmail).length
+                                  : selectedRecipientType === "sport" && selectedSport !== "all"
+                                  ? athletes.filter(a => a.parentEmail && a.sportsBranches?.includes(selectedSport)).length
+                                  : selectedRecipientType === "individual"
+                                  ? selectedAthletes.length
+                                  : 0
+                                }
+                              </p>
+                              <p className="text-sm text-blue-800">Email gönderilecek</p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium mb-2">Hızlı Şablonlar</h4>
+                            <div className="grid grid-cols-1 gap-2">
+                              {messageTemplates.slice(0, 3).map(template => (
+                                <Button 
+                                  key={template.id}
+                                  variant="outline" 
+                                  className="justify-start h-auto p-3 text-left"
+                                  onClick={() => {
+                                    setSelectedTemplate(template.id.toString());
+                                    setMessageContent(template.content);
+                                    setMessageSubject(template.title);
+                                  }}
+                                >
+                                  <div>
+                                    <p className="font-medium text-sm">{template.title}</p>
+                                    <p className="text-xs text-muted-foreground">{template.category}</p>
+                                  </div>
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium mb-2">Email Ayarları</h4>
+                            <div className="p-4 bg-gray-50 rounded-lg text-sm">
+                              <p><strong>SMTP:</strong> Gmail (smtp.gmail.com)</p>
+                              <p><strong>Gönderen:</strong> {process.env.EMAIL_FROM || 'Yapılandırılmamış'}</p>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Email ayarları environment variables ile yapılandırılmıştır.
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="parents" className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Veli Email Listesi ({filteredAthletes.length})</CardTitle>
+                      <CardDescription>
+                        Email adresi olan velilerin listesi
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col md:flex-row gap-4 mb-6">
+                        <div className="relative flex-1 max-w-sm">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                          <Input 
+                            placeholder="Veli veya sporcu ara..." 
+                            className="pl-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                        </div>
+                        
+                        <Select value={selectedSport} onValueChange={setSelectedSport}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Spor Branşı" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tüm Branşlar</SelectItem>
+                            {sports.map(sport => (
+                              <SelectItem key={sport} value={sport}>{sport}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Veli</TableHead>
+                            <TableHead>Sporcu</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Telefon</TableHead>
+                            <TableHead>Spor Branşı</TableHead>
+                            <TableHead>İşlemler</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredAthletes.length > 0 ? (
+                            filteredAthletes.map((athlete) => (
+                              <TableRow key={athlete.id}>
+                                <TableCell>
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center text-sm">
+                                      {athlete.parentName?.charAt(0)}{athlete.parentSurname?.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <p className="font-medium">{athlete.parentName} {athlete.parentSurname}</p>
+                                      <p className="text-xs text-muted-foreground">{athlete.parentRelation || 'Veli'}</p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{athlete.studentName} {athlete.studentSurname}</p>
+                                    <Badge variant={athlete.status === 'Aktif' ? 'default' : 'secondary'} className="text-xs">
+                                      {athlete.status || 'Aktif'}
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center space-x-2">
+                                    <Mail className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-sm">{athlete.parentEmail}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center space-x-2">
+                                    <Phone className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-sm">{athlete.parentPhone}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-1">
+                                    {athlete.sportsBranches?.map((branch: string, idx: number) => (
+                                      <Badge key={idx} variant="outline" className="text-xs">
+                                        {branch}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedRecipientType("individual");
+                                      setSelectedAthletes([athlete.id.toString()]);
+                                      // Switch to send-message tab
+                                      const sendMessageTab = document.querySelector('[value="send-message"]') as HTMLElement;
+                                      sendMessageTab?.click();
+                                    }}
+                                  >
+                                    <Send className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-8">
+                                <div className="flex flex-col items-center space-y-3">
+                                  <Mail className="w-12 h-12 text-muted-foreground" />
+                                  <div>
+                                    <p className="text-muted-foreground font-medium">Email adresi olan veli bulunamadı</p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                      Sporcu kayıtlarında veli email adreslerini kontrol edin
+                                    </p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -757,22 +1180,53 @@ export default function Messages() {
                 <TabsContent value="history" className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Mesaj Geçmişi</CardTitle>
-                      <CardDescription>
-                        Gönderilen mesajların geçmişi
-                      </CardDescription>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Email Geçmişi ({sentMessages.length})</CardTitle>
+                          <CardDescription>
+                            Gönderilen email mesajlarının geçmişi
+                          </CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Download className="h-4 w-4 mr-2" />
+                          Dışa Aktar
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
+                      <div className="flex flex-col md:flex-row gap-4 mb-6">
+                        <div className="relative flex-1 max-w-sm">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                          <Input 
+                            placeholder="Email geçmişinde ara..." 
+                            className="pl-10"
+                          />
+                        </div>
+                        
+                        <Select>
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Tür Filtrele" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tüm Tipler</SelectItem>
+                            <SelectItem value="individual">Bireysel</SelectItem>
+                            <SelectItem value="bulk">Toplu</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>Alıcı</TableHead>
                             <TableHead>Sporcu</TableHead>
-                            <TableHead>Mesaj</TableHead>
+                            <TableHead>Konu</TableHead>
+                            <TableHead>Mesaj Önizleme</TableHead>
                             <TableHead>Gönderim Zamanı</TableHead>
                             <TableHead>Tür</TableHead>
                             <TableHead>Şablon</TableHead>
                             <TableHead>Durum</TableHead>
+                            <TableHead>İşlemler</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -780,38 +1234,66 @@ export default function Messages() {
                             sentMessages.map((message) => (
                               <TableRow key={message.id}>
                                 <TableCell>
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-medium flex items-center justify-center text-sm">
+                                      <Mail className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-sm">{message.recipient}</p>
+                                      <p className="text-xs text-muted-foreground">{message.recipientEmail}</p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
                                   <div>
-                                    <p className="font-medium">{message.recipient}</p>
+                                    <p className="font-medium text-sm">{message.athleteName}</p>
                                     <Badge variant="outline" className="text-xs">{message.sport}</Badge>
                                   </div>
                                 </TableCell>
-                                <TableCell>{message.athleteName}</TableCell>
+                                <TableCell>
+                                  <p className="font-medium text-sm">{message.subject}</p>
+                                </TableCell>
                                 <TableCell>
                                   <div className="max-w-xs">
-                                    <p className="text-sm truncate">{message.message}</p>
+                                    <p className="text-sm text-muted-foreground truncate">{message.message}</p>
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  {new Date(message.sentTime).toLocaleString('tr-TR')}
+                                  <div>
+                                    <p className="text-sm">{new Date(message.sentTime).toLocaleDateString('tr-TR')}</p>
+                                    <p className="text-xs text-muted-foreground">{new Date(message.sentTime).toLocaleTimeString('tr-TR')}</p>
+                                  </div>
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant={message.type === "Grup" ? "default" : "secondary"}>
+                                  <Badge variant={message.type === "Bireysel" ? "secondary" : "default"}>
                                     {message.type}
                                   </Badge>
                                 </TableCell>
-                                <TableCell>{message.template}</TableCell>
+                                <TableCell>
+                                  <span className="text-sm">{message.template}</span>
+                                </TableCell>
                                 <TableCell>{getStatusBadge(message.status)}</TableCell>
+                                <TableCell>
+                                  <div className="flex space-x-1">
+                                    <Button variant="ghost" size="sm" title="Detayları Görüntüle">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" title="Tekrar Gönder">
+                                      <Send className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={7} className="text-center py-8">
+                              <TableCell colSpan={9} className="text-center py-8">
                                 <div className="flex flex-col items-center space-y-3">
-                                  <MessageSquare className="w-12 h-12 text-muted-foreground" />
+                                  <Mail className="w-12 h-12 text-muted-foreground" />
                                   <div>
-                                    <p className="text-muted-foreground font-medium">Henüz mesaj gönderilmemiş</p>
+                                    <p className="text-muted-foreground font-medium">Henüz email gönderilmemiş</p>
                                     <p className="text-sm text-muted-foreground mt-1">
-                                      Gönderilen mesajlar burada görünecek
+                                      Gönderilen emailler burada görünecek
                                     </p>
                                   </div>
                                 </div>
