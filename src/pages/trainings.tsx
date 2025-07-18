@@ -105,7 +105,8 @@ export default function Trainings() {
     description: "",
     assignedAthletes: [] as string[],
     isRecurring: false,
-    recurringDays: [] as string[]
+    recurringDays: [] as string[],
+    multipleTimeSlots: {} as Record<string, { startTime: string; endTime: string }>
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -211,6 +212,7 @@ export default function Trainings() {
       assignedAthletes: formData.assignedAthletes,
       isRecurring: formData.isRecurring,
       recurringDays: formData.recurringDays,
+      multipleTimeSlots: formData.multipleTimeSlots,
       status: "Aktif",
       createdAt: new Date().toISOString()
     };
@@ -244,7 +246,8 @@ export default function Trainings() {
       description: training.description,
       assignedAthletes: training.assignedAthletes || [],
       isRecurring: training.isRecurring || false,
-      recurringDays: training.recurringDays || []
+      recurringDays: training.recurringDays || [],
+      multipleTimeSlots: training.multipleTimeSlots || {}
     });
     setIsEditDialogOpen(true);
   };
@@ -287,6 +290,7 @@ export default function Trainings() {
       assignedAthletes: formData.assignedAthletes,
       isRecurring: formData.isRecurring,
       recurringDays: formData.recurringDays,
+      multipleTimeSlots: formData.multipleTimeSlots,
       updatedAt: new Date().toISOString()
     };
 
@@ -338,7 +342,8 @@ export default function Trainings() {
       description: "",
       assignedAthletes: [],
       isRecurring: false,
-      recurringDays: []
+      recurringDays: [],
+      multipleTimeSlots: {}
     });
     setError("");
     setSuccess("");
@@ -790,7 +795,7 @@ export default function Trainings() {
                                         type="checkbox"
                                         id="isRecurring"
                                         checked={formData.isRecurring}
-                                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked, recurringDays: []})}
+                                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked, recurringDays: [], multipleTimeSlots: {}})}
                                         className="rounded"
                                       />
                                       <Label htmlFor="isRecurring" className="font-medium">
@@ -799,9 +804,9 @@ export default function Trainings() {
                                     </div>
                                     
                                     {formData.isRecurring && (
-                                      <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
-                                        <Label className="text-sm font-medium">Antrenman Günleri:</Label>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                      <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                                        <Label className="text-sm font-medium">Antrenman Günleri ve Saatleri:</Label>
+                                        <div className="space-y-4">
                                           {[
                                             { key: 'monday', label: 'Pazartesi' },
                                             { key: 'tuesday', label: 'Salı' },
@@ -811,29 +816,79 @@ export default function Trainings() {
                                             { key: 'saturday', label: 'Cumartesi' },
                                             { key: 'sunday', label: 'Pazar' }
                                           ].map((day) => (
-                                            <div key={day.key} className="flex items-center space-x-2">
-                                              <input
-                                                type="checkbox"
-                                                id={`day-${day.key}`}
-                                                checked={formData.recurringDays.includes(day.key)}
-                                                onChange={(e) => {
-                                                  if (e.target.checked) {
-                                                    setFormData(prev => ({
-                                                      ...prev,
-                                                      recurringDays: [...prev.recurringDays, day.key]
-                                                    }));
-                                                  } else {
-                                                    setFormData(prev => ({
-                                                      ...prev,
-                                                      recurringDays: prev.recurringDays.filter(d => d !== day.key)
-                                                    }));
-                                                  }
-                                                }}
-                                                className="rounded"
-                                              />
-                                              <Label htmlFor={`day-${day.key}`} className="text-sm">
-                                                {day.label}
-                                              </Label>
+                                            <div key={day.key} className="p-3 border rounded-lg bg-background">
+                                              <div className="flex items-center space-x-2 mb-3">
+                                                <input
+                                                  type="checkbox"
+                                                  id={`day-${day.key}`}
+                                                  checked={formData.recurringDays.includes(day.key)}
+                                                  onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                      setFormData(prev => ({
+                                                        ...prev,
+                                                        recurringDays: [...prev.recurringDays, day.key],
+                                                        multipleTimeSlots: {
+                                                          ...prev.multipleTimeSlots,
+                                                          [day.key]: { startTime: formData.startTime, endTime: formData.endTime }
+                                                        }
+                                                      }));
+                                                    } else {
+                                                      const newTimeSlots = { ...formData.multipleTimeSlots };
+                                                      delete newTimeSlots[day.key];
+                                                      setFormData(prev => ({
+                                                        ...prev,
+                                                        recurringDays: prev.recurringDays.filter(d => d !== day.key),
+                                                        multipleTimeSlots: newTimeSlots
+                                                      }));
+                                                    }
+                                                  }}
+                                                  className="rounded"
+                                                />
+                                                <Label htmlFor={`day-${day.key}`} className="font-medium">
+                                                  {day.label}
+                                                </Label>
+                                              </div>
+                                              
+                                              {formData.recurringDays.includes(day.key) && (
+                                                <div className="grid grid-cols-2 gap-3 ml-6">
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs text-muted-foreground">Başlangıç</Label>
+                                                    <Input
+                                                      type="time"
+                                                      value={formData.multipleTimeSlots[day.key]?.startTime || formData.startTime}
+                                                      onChange={(e) => setFormData(prev => ({
+                                                        ...prev,
+                                                        multipleTimeSlots: {
+                                                          ...prev.multipleTimeSlots,
+                                                          [day.key]: {
+                                                            ...prev.multipleTimeSlots[day.key],
+                                                            startTime: e.target.value
+                                                          }
+                                                        }
+                                                      }))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs text-muted-foreground">Bitiş</Label>
+                                                    <Input
+                                                      type="time"
+                                                      value={formData.multipleTimeSlots[day.key]?.endTime || formData.endTime}
+                                                      onChange={(e) => setFormData(prev => ({
+                                                        ...prev,
+                                                        multipleTimeSlots: {
+                                                          ...prev.multipleTimeSlots,
+                                                          [day.key]: {
+                                                            ...prev.multipleTimeSlots[day.key],
+                                                            endTime: e.target.value
+                                                          }
+                                                        }
+                                                      }))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                </div>
+                                              )}
                                             </div>
                                           ))}
                                         </div>
@@ -841,6 +896,28 @@ export default function Trainings() {
                                           <p className="text-sm text-muted-foreground">
                                             En az bir gün seçmelisiniz
                                           </p>
+                                        )}
+                                        {formData.recurringDays.length > 0 && (
+                                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <p className="text-sm text-blue-800 font-medium">
+                                              ✓ {formData.recurringDays.length} gün için antrenman programlandı
+                                            </p>
+                                            <div className="text-xs text-blue-600 mt-1">
+                                              {formData.recurringDays.map(day => {
+                                                const dayLabel = {
+                                                  'monday': 'Pazartesi',
+                                                  'tuesday': 'Salı', 
+                                                  'wednesday': 'Çarşamba',
+                                                  'thursday': 'Perşembe',
+                                                  'friday': 'Cuma',
+                                                  'saturday': 'Cumartesi',
+                                                  'sunday': 'Pazar'
+                                                }[day];
+                                                const timeSlot = formData.multipleTimeSlots[day];
+                                                return `${dayLabel}: ${timeSlot?.startTime || formData.startTime} - ${timeSlot?.endTime || formData.endTime}`;
+                                              }).join(' • ')}
+                                            </div>
+                                          </div>
                                         )}
                                       </div>
                                     )}
@@ -1464,7 +1541,7 @@ export default function Trainings() {
                         type="checkbox"
                         id="edit-isRecurring"
                         checked={formData.isRecurring}
-                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked, recurringDays: []})}
+                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked, recurringDays: [], multipleTimeSlots: {}})}
                         className="rounded"
                       />
                       <Label htmlFor="edit-isRecurring" className="font-medium">
@@ -1473,9 +1550,9 @@ export default function Trainings() {
                     </div>
                     
                     {formData.isRecurring && (
-                      <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
-                        <Label className="text-sm font-medium">Antrenman Günleri:</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                        <Label className="text-sm font-medium">Antrenman Günleri ve Saatleri:</Label>
+                        <div className="space-y-4">
                           {[
                             { key: 'monday', label: 'Pazartesi' },
                             { key: 'tuesday', label: 'Salı' },
@@ -1485,29 +1562,79 @@ export default function Trainings() {
                             { key: 'saturday', label: 'Cumartesi' },
                             { key: 'sunday', label: 'Pazar' }
                           ].map((day) => (
-                            <div key={day.key} className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                id={`edit-day-${day.key}`}
-                                checked={formData.recurringDays.includes(day.key)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      recurringDays: [...prev.recurringDays, day.key]
-                                    }));
-                                  } else {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      recurringDays: prev.recurringDays.filter(d => d !== day.key)
-                                    }));
-                                  }
-                                }}
-                                className="rounded"
-                              />
-                              <Label htmlFor={`edit-day-${day.key}`} className="text-sm">
-                                {day.label}
-                              </Label>
+                            <div key={day.key} className="p-3 border rounded-lg bg-background">
+                              <div className="flex items-center space-x-2 mb-3">
+                                <input
+                                  type="checkbox"
+                                  id={`edit-day-${day.key}`}
+                                  checked={formData.recurringDays.includes(day.key)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        recurringDays: [...prev.recurringDays, day.key],
+                                        multipleTimeSlots: {
+                                          ...prev.multipleTimeSlots,
+                                          [day.key]: { startTime: formData.startTime, endTime: formData.endTime }
+                                        }
+                                      }));
+                                    } else {
+                                      const newTimeSlots = { ...formData.multipleTimeSlots };
+                                      delete newTimeSlots[day.key];
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        recurringDays: prev.recurringDays.filter(d => d !== day.key),
+                                        multipleTimeSlots: newTimeSlots
+                                      }));
+                                    }
+                                  }}
+                                  className="rounded"
+                                />
+                                <Label htmlFor={`edit-day-${day.key}`} className="font-medium">
+                                  {day.label}
+                                </Label>
+                              </div>
+                              
+                              {formData.recurringDays.includes(day.key) && (
+                                <div className="grid grid-cols-2 gap-3 ml-6">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Başlangıç</Label>
+                                    <Input
+                                      type="time"
+                                      value={formData.multipleTimeSlots[day.key]?.startTime || formData.startTime}
+                                      onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        multipleTimeSlots: {
+                                          ...prev.multipleTimeSlots,
+                                          [day.key]: {
+                                            ...prev.multipleTimeSlots[day.key],
+                                            startTime: e.target.value
+                                          }
+                                        }
+                                      }))}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Bitiş</Label>
+                                    <Input
+                                      type="time"
+                                      value={formData.multipleTimeSlots[day.key]?.endTime || formData.endTime}
+                                      onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        multipleTimeSlots: {
+                                          ...prev.multipleTimeSlots,
+                                          [day.key]: {
+                                            ...prev.multipleTimeSlots[day.key],
+                                            endTime: e.target.value
+                                          }
+                                        }
+                                      }))}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1515,6 +1642,28 @@ export default function Trainings() {
                           <p className="text-sm text-muted-foreground">
                             En az bir gün seçmelisiniz
                           </p>
+                        )}
+                        {formData.recurringDays.length > 0 && (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800 font-medium">
+                              ✓ {formData.recurringDays.length} gün için antrenman programlandı
+                            </p>
+                            <div className="text-xs text-blue-600 mt-1">
+                              {formData.recurringDays.map(day => {
+                                const dayLabel = {
+                                  'monday': 'Pazartesi',
+                                  'tuesday': 'Salı', 
+                                  'wednesday': 'Çarşamba',
+                                  'thursday': 'Perşembe',
+                                  'friday': 'Cuma',
+                                  'saturday': 'Cumartesi',
+                                  'sunday': 'Pazar'
+                                }[day];
+                                const timeSlot = formData.multipleTimeSlots[day];
+                                return `${dayLabel}: ${timeSlot?.startTime || formData.startTime} - ${timeSlot?.endTime || formData.endTime}`;
+                              }).join(' • ')}
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}
