@@ -244,6 +244,30 @@ export default function Messages() {
     setSuccess("");
 
     try {
+      // Load email settings from localStorage
+      const systemSettings = localStorage.getItem('systemSettings');
+      let emailSettings = null;
+      
+      if (systemSettings) {
+        const settings = JSON.parse(systemSettings);
+        if (settings.emailUser && settings.emailPassword) {
+          emailSettings = {
+            emailHost: settings.emailHost || 'smtp.gmail.com',
+            emailPort: parseInt(settings.emailPort || '587'),
+            emailSecure: settings.emailSecure || false,
+            emailUser: settings.emailUser,
+            emailPassword: settings.emailPassword,
+            emailFrom: settings.emailFrom || settings.emailUser
+          };
+        }
+      }
+
+      if (!emailSettings) {
+        setError("Email ayarları yapılandırılmamış. Lütfen Sistem Ayarları > E-posta Ayarları bölümünden email yapılandırmasını tamamlayın.");
+        setIsSending(false);
+        return;
+      }
+
       let recipients: any[] = [];
 
       // Determine recipients based on type
@@ -317,12 +341,14 @@ export default function Messages() {
                 </div>
               </div>
             `,
-            text: content
+            text: content,
+            emailSettings: emailSettings
           }),
         });
 
         if (!response.ok) {
-          throw new Error(`Email gönderimi başarısız: ${athlete.parentEmail}`);
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Email gönderimi başarısız: ${athlete.parentEmail}`);
         }
 
         return { athlete, success: true };
@@ -982,11 +1008,43 @@ export default function Messages() {
                           <div>
                             <h4 className="font-medium mb-2">Email Ayarları</h4>
                             <div className="p-4 bg-gray-50 rounded-lg text-sm">
-                              <p><strong>SMTP:</strong> Gmail (smtp.gmail.com)</p>
-                              <p><strong>Gönderen:</strong> {process.env.EMAIL_FROM || 'Yapılandırılmamış'}</p>
-                              <p className="text-xs text-muted-foreground mt-2">
-                                Email ayarları environment variables ile yapılandırılmıştır.
-                              </p>
+                              {(() => {
+                                const systemSettings = localStorage.getItem('systemSettings');
+                                if (systemSettings) {
+                                  const settings = JSON.parse(systemSettings);
+                                  if (settings.emailUser && settings.emailPassword) {
+                                    return (
+                                      <>
+                                        <p><strong>SMTP:</strong> {settings.emailHost || 'smtp.gmail.com'}</p>
+                                        <p><strong>Port:</strong> {settings.emailPort || '587'}</p>
+                                        <p><strong>Gönderen:</strong> {settings.emailFrom || settings.emailUser}</p>
+                                        <div className="flex items-center mt-2">
+                                          <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
+                                          <span className="text-green-600 text-xs">Email yapılandırması tamamlanmış</span>
+                                        </div>
+                                      </>
+                                    );
+                                  }
+                                }
+                                return (
+                                  <>
+                                    <p className="text-orange-600"><strong>Durum:</strong> Email ayarları yapılandırılmamış</p>
+                                    <div className="flex items-center mt-2">
+                                      <AlertCircle className="h-4 w-4 text-orange-600 mr-1" />
+                                      <span className="text-orange-600 text-xs">Sistem Ayarları > E-posta Ayarları'ndan yapılandırın</span>
+                                    </div>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="mt-2"
+                                      onClick={() => window.open('/spor-okulu/system-settings', '_blank')}
+                                    >
+                                      <Settings className="h-3 w-3 mr-1" />
+                                      Ayarları Aç
+                                    </Button>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>

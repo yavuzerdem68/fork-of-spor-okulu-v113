@@ -54,7 +54,14 @@ const SystemSettings = () => {
     taxOffice: '',
     bankAccount: '',
     iban: '',
-    trainingLocations: ['Ana Salon', 'Yan Salon', 'Dış Saha']
+    trainingLocations: ['Ana Salon', 'Yan Salon', 'Dış Saha'],
+    // Email configuration
+    emailHost: 'smtp.gmail.com',
+    emailPort: '587',
+    emailSecure: false,
+    emailUser: '',
+    emailPassword: '',
+    emailFrom: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -275,10 +282,11 @@ const SystemSettings = () => {
           )}
 
           <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="general">Genel Bilgiler</TabsTrigger>
             <TabsTrigger value="branding">Marka & Logo</TabsTrigger>
             <TabsTrigger value="contact">İletişim</TabsTrigger>
+            <TabsTrigger value="email">E-posta Ayarları</TabsTrigger>
             <TabsTrigger value="financial">Mali Bilgiler</TabsTrigger>
             <TabsTrigger value="admins">Admin Hesapları</TabsTrigger>
           </TabsList>
@@ -565,6 +573,123 @@ const SystemSettings = () => {
                       placeholder="Spor okulu adresini giriniz"
                       className="pl-10 min-h-[80px]"
                     />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="email">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  E-posta Yapılandırması
+                </CardTitle>
+                <CardDescription>
+                  E-posta gönderimi için SMTP ayarlarını yapılandırın
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <Alert>
+                  <Mail className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Önemli:</strong> E-posta gönderimi için bu ayarları doğru şekilde yapılandırmanız gerekir. 
+                    Gmail kullanıyorsanız, "Uygulama Şifresi" oluşturmanız gerekebilir.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="emailHost">SMTP Sunucusu</Label>
+                    <Input
+                      id="emailHost"
+                      value={settings.emailHost}
+                      onChange={(e) => handleInputChange('emailHost', e.target.value)}
+                      placeholder="smtp.gmail.com"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Gmail: smtp.gmail.com, Outlook: smtp-mail.outlook.com
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emailPort">Port</Label>
+                    <Input
+                      id="emailPort"
+                      value={settings.emailPort}
+                      onChange={(e) => handleInputChange('emailPort', e.target.value)}
+                      placeholder="587"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Genellikle 587 (TLS) veya 465 (SSL)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emailUser">E-posta Adresi</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="emailUser"
+                      type="email"
+                      value={settings.emailUser}
+                      onChange={(e) => handleInputChange('emailUser', e.target.value)}
+                      placeholder="your-email@gmail.com"
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    E-posta gönderiminde kullanılacak hesap
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emailPassword">E-posta Şifresi</Label>
+                  <Input
+                    id="emailPassword"
+                    type="password"
+                    value={settings.emailPassword}
+                    onChange={(e) => handleInputChange('emailPassword', e.target.value)}
+                    placeholder="••••••••••••••••"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gmail için "Uygulama Şifresi" kullanmanız önerilir
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emailFrom">Gönderen Adı</Label>
+                  <Input
+                    id="emailFrom"
+                    value={settings.emailFrom}
+                    onChange={(e) => handleInputChange('emailFrom', e.target.value)}
+                    placeholder="Spor Okulu CRM <noreply@sporokulu.com>"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    E-postalarda görünecek gönderen bilgisi
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <Label htmlFor="emailSecure">Güvenli Bağlantı (SSL/TLS)</Label>
+                    <p className="text-sm text-muted-foreground">Port 465 için SSL, Port 587 için TLS kullanın</p>
+                  </div>
+                  <Switch
+                    id="emailSecure"
+                    checked={settings.emailSecure}
+                    onCheckedChange={(checked) => handleInputChange('emailSecure', checked)}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">Gmail Kurulum Rehberi:</h4>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>1. Gmail hesabınızda "2 Adımlı Doğrulama"yı etkinleştirin</p>
+                    <p>2. "Uygulama Şifreleri" bölümünden yeni bir şifre oluşturun</p>
+                    <p>3. Oluşturulan 16 haneli şifreyi yukarıdaki "E-posta Şifresi" alanına girin</p>
+                    <p>4. SMTP Sunucusu: smtp.gmail.com, Port: 587</p>
                   </div>
                 </div>
               </CardContent>
