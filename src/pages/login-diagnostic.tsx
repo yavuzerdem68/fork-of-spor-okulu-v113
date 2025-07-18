@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, User, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { hashPassword } from "@/utils/security";
+import { hashPassword, verifyPassword } from "@/utils/security";
 
 export default function LoginDiagnostic() {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
@@ -66,6 +66,7 @@ export default function LoginDiagnostic() {
         surname: newUser.surname,
         email: newUser.email,
         password: hashedPassword,
+        plainTextPassword: newUser.password, // Store for diagnostic purposes
         role: 'super_admin',
         permissions: {
           athletes: { view: true, create: true, edit: true, delete: true },
@@ -86,10 +87,10 @@ export default function LoginDiagnostic() {
       localStorage.setItem('adminUsers', JSON.stringify(updatedAdminUsers));
       
       setAdminUsers(updatedAdminUsers);
-      setSuccess(`${newUser.email} başarıyla oluşturuldu!`);
+      setSuccess(`${newUser.email} başarıyla oluşturuldu! Şifre: ${newUser.password}`);
       setNewUser({ email: "", password: "", name: "", surname: "" });
       
-      setTimeout(() => setSuccess(""), 5000);
+      setTimeout(() => setSuccess(""), 10000);
     } catch (error) {
       console.error('Error creating user:', error);
       setError('Kullanıcı oluşturulurken hata oluştu');
@@ -113,15 +114,36 @@ export default function LoginDiagnostic() {
     try {
       const hashedPassword = await hashPassword(newPassword);
       const updatedAdminUsers = adminUsers.map(u => 
-        u.id === userId ? { ...u, password: hashedPassword } : u
+        u.id === userId ? { ...u, password: hashedPassword, plainTextPassword: newPassword } : u
       );
       localStorage.setItem('adminUsers', JSON.stringify(updatedAdminUsers));
       setAdminUsers(updatedAdminUsers);
-      setSuccess('Şifre güncellendi');
-      setTimeout(() => setSuccess(""), 3000);
+      setSuccess(`Şifre güncellendi. Yeni şifre: ${newPassword}`);
+      setTimeout(() => setSuccess(""), 5000);
     } catch (error) {
       console.error('Error resetting password:', error);
       setError('Şifre güncellenirken hata oluştu');
+    }
+  };
+
+  const testLogin = async (user: any) => {
+    const testPassword = prompt(`${user.email} için test şifresi girin:`);
+    if (!testPassword) return;
+
+    try {
+      const isValid = await verifyPassword(testPassword, user.password);
+      if (isValid) {
+        setSuccess(`✅ Şifre doğru! ${user.email} ile giriş yapabilirsiniz.`);
+      } else {
+        setError(`❌ Şifre yanlış! ${user.email} için girdiğiniz şifre hatalı.`);
+      }
+      setTimeout(() => {
+        setSuccess("");
+        setError("");
+      }, 5000);
+    } catch (error) {
+      console.error('Test login error:', error);
+      setError('Şifre testi sırasında hata oluştu');
     }
   };
 
@@ -269,6 +291,7 @@ export default function LoginDiagnostic() {
                         <TableHead>Email</TableHead>
                         <TableHead>Rol</TableHead>
                         <TableHead>Durum</TableHead>
+                        {showPasswords && <TableHead>Gerçek Şifre</TableHead>}
                         {showPasswords && <TableHead>Şifre (Hash)</TableHead>}
                         <TableHead>Son Giriş</TableHead>
                         <TableHead>İşlemler</TableHead>
@@ -291,6 +314,11 @@ export default function LoginDiagnostic() {
                             </Badge>
                           </TableCell>
                           {showPasswords && (
+                            <TableCell className="font-bold text-green-600">
+                              {user.plainTextPassword || 'Bilinmiyor'}
+                            </TableCell>
+                          )}
+                          {showPasswords && (
                             <TableCell className="font-mono text-xs max-w-32 truncate">
                               {user.password}
                             </TableCell>
@@ -299,7 +327,14 @@ export default function LoginDiagnostic() {
                             {user.lastLogin ? new Date(user.lastLogin).toLocaleString('tr-TR') : 'Hiç'}
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => testLogin(user)}
+                              >
+                                Şifre Test Et
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
