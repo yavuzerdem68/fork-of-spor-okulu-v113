@@ -120,6 +120,26 @@ export default function CloudLogin() {
     }
   };
 
+  const createCustomAdmin = async () => {
+    if (!credentials.email) {
+      setError("Lütfen önce email adresinizi girin");
+      return;
+    }
+
+    const defaultPassword = "admin123";
+    const name = credentials.email.split('@')[0];
+    
+    try {
+      await cloudAuthManager.createCustomAdmin(credentials.email, defaultPassword, name, "Admin");
+      setError("");
+      alert(`Admin hesabı oluşturuldu!\nEmail: ${credentials.email}\nŞifre: ${defaultPassword}`);
+      // Auto-fill the password field
+      setCredentials({...credentials, password: defaultPassword});
+    } catch (error: any) {
+      setError("Admin hesabı oluşturulamadı: " + error.message);
+    }
+  };
+
   return (
     <>
       <Head>
@@ -217,15 +237,31 @@ export default function CloudLogin() {
                     </div>
                   </motion.form>
 
-                  <div className="mt-4 text-center">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={createDefaultAdmin}
-                      className="text-xs"
-                    >
-                      Varsayılan Admin Oluştur
-                    </Button>
+                  <div className="mt-4 text-center space-y-2">
+                    <div className="flex gap-2 justify-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={createDefaultAdmin}
+                        className="text-xs"
+                      >
+                        Varsayılan Admin Oluştur
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={createCustomAdmin}
+                        className="text-xs"
+                        disabled={!credentials.email}
+                      >
+                        Bu Email ile Admin Oluştur
+                      </Button>
+                    </div>
+                    {!credentials.email && (
+                      <p className="text-xs text-muted-foreground">
+                        Özel admin hesabı için önce email girin
+                      </p>
+                    )}
                   </div>
                 </TabsContent>
 
@@ -293,9 +329,10 @@ export default function CloudLogin() {
           <Card className="mt-4">
             <CardContent className="p-4">
               <div className="text-center text-sm text-muted-foreground">
-                <h4 className="font-medium mb-2">Demo Hesapları</h4>
+                <h4 className="font-medium mb-2">Giriş Seçenekleri</h4>
                 <div className="space-y-1 text-xs">
-                  <p><strong>Admin:</strong> admin@sportscr.com / admin123</p>
+                  <p><strong>Varsayılan Admin:</strong> admin@sportscr.com / admin123</p>
+                  <p><strong>Özel Admin:</strong> Email girin → "Bu Email ile Admin Oluştur"</p>
                   <p><strong>Yeni Hesap:</strong> Kayıt ol sekmesinden oluşturabilirsiniz</p>
                 </div>
               </div>

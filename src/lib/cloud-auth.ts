@@ -184,6 +184,23 @@ export class CloudAuthManager {
     }
   }
 
+  // Create custom admin user
+  async createCustomAdmin(email: string, password: string, name: string, surname: string): Promise<void> {
+    try {
+      const customAdmin = {
+        name: name || 'Admin',
+        surname: surname || 'User',
+        role: 'admin' as const,
+        metadata: { isCustom: true }
+      };
+
+      await this.signUp(email, password, customAdmin);
+    } catch (error) {
+      console.error('Failed to create custom admin:', error);
+      throw error;
+    }
+  }
+
   // Map Supabase user to CloudUser format
   private mapSupabaseUser(supabaseUser: any): CloudUser {
     return {
