@@ -1613,8 +1613,9 @@ export default function Payments() {
         return;
       }
       
-      // CRITICAL FIX: Initialize missing account cards
+      // CRITICAL FIX: Initialize missing account cards AND populate with existing data
       let initializedCount = 0;
+      let populatedCount = 0;
       console.log('\n🔧 INITIALIZING MISSING ACCOUNT CARDS...');
       
       for (const athlete of allAthletes) {
@@ -1624,16 +1625,90 @@ export default function Payments() {
         if (!hasAccountData) {
           console.log(`🆕 Creating account card for: ${athlete.studentName} ${athlete.studentSurname} (ID: ${athlete.id})`);
           
-          // Initialize empty account card
+          // Initialize account card with potential existing data
           const initialAccountEntries: any[] = [];
+          
+          // CRITICAL FIX: Check for existing bulk fee entries and payments that should be in this account
+          // Look for any payments in the payments array that belong to this athlete
+          const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+          const athletePayments = existingPayments.filter((payment: any) => 
+            payment.athleteId && payment.athleteId.toString() === athlete.id.toString() && 
+            payment.status === "Ödendi"
+          );
+          
+          // Add payment entries as credits to the account
+          athletePayments.forEach((payment: any) => {
+            const paymentEntry = {
+              id: Date.now() + Math.random(),
+              date: payment.paymentDate ? new Date(payment.paymentDate).toISOString() : new Date().toISOString(),
+              month: payment.paymentDate ? payment.paymentDate.slice(0, 7) : new Date().toISOString().slice(0, 7),
+              description: `Ödeme Transferi - ${payment.method || 'Ödeme'} - ${payment.description || 'Sistem transferi'}`,
+              amountExcludingVat: payment.amount,
+              vatRate: 0,
+              vatAmount: 0,
+              amountIncludingVat: payment.amount,
+              unitCode: 'Adet',
+              type: 'credit',
+              transferredFromPayments: true,
+              originalPaymentId: payment.id
+            };
+            initialAccountEntries.push(paymentEntry);
+            populatedCount++;
+          });
+          
+          // CRITICAL FIX: Look for any bulk fee entries that might exist in other storage locations
+          // Check if there are any bulk fee entries stored elsewhere that should be transferred
+          try {
+            // Check for any temporary bulk fee storage or other data sources
+            const bulkFeeKey = `bulkFee_${athlete.id}`;
+            const tempBulkFees = localStorage.getItem(bulkFeeKey);
+            if (tempBulkFees) {
+              const bulkFeeEntries = JSON.parse(tempBulkFees);
+              if (Array.isArray(bulkFeeEntries)) {
+                bulkFeeEntries.forEach((entry: any) => {
+                  const feeEntry = {
+                    id: Date.now() + Math.random(),
+                    date: entry.date || new Date().toISOString(),
+                    month: entry.month || new Date().toISOString().slice(0, 7),
+                    description: entry.description || 'Toplu Aidat Girişi (Transfer)',
+                    amountExcludingVat: entry.amountExcludingVat || entry.amount || 0,
+                    vatRate: entry.vatRate || 10,
+                    vatAmount: entry.vatAmount || 0,
+                    amountIncludingVat: entry.amountIncludingVat || entry.totalAmount || entry.amount || 0,
+                    unitCode: entry.unitCode || 'Ay',
+                    type: 'debit',
+                    transferredFromBulkFee: true
+                  };
+                  initialAccountEntries.push(feeEntry);
+                  populatedCount++;
+                });
+                
+                // Clean up temporary storage
+                localStorage.removeItem(bulkFeeKey);
+              }
+            }
+          } catch (error) {
+            console.warn(`Error checking bulk fee data for athlete ${athlete.id}:`, error);
+          }
+          
+          // Save the initialized account card (empty or with transferred data)
           localStorage.setItem(accountKey, JSON.stringify(initialAccountEntries));
           initializedCount++;
+          
+          if (initialAccountEntries.length > 0) {
+            console.log(`📦 Populated account card for ${athlete.studentName} ${athlete.studentSurname} with ${initialAccountEntries.length} entries`);
+          }
         }
       }
       
       if (initializedCount > 0) {
         console.log(`✅ Initialized ${initializedCount} missing account cards`);
-        toast.success(`🔧 ${initializedCount} eksik cari hesap kartı oluşturuldu!`, { duration: 5000 });
+        if (populatedCount > 0) {
+          console.log(`📦 Populated ${populatedCount} entries from existing data`);
+          toast.success(`🔧 ${initializedCount} eksik cari hesap kartı oluşturuldu ve ${populatedCount} mevcut kayıt aktarıldı!`, { duration: 8000 });
+        } else {
+          toast.success(`🔧 ${initializedCount} eksik cari hesap kartı oluşturuldu!`, { duration: 5000 });
+        }
       }
       
       // Process athletes with progress tracking
