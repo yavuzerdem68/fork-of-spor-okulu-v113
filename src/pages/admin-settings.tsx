@@ -186,57 +186,83 @@ export default function AdminSettings() {
     // Initialize with proper structure - ensure all modules are defined
     const defaultPerms: any = {};
     
-    // Initialize all permission modules with default false values
-    permissionModules.forEach(module => {
-      defaultPerms[module.key] = { view: false, create: false, edit: false, delete: false };
-    });
-
     try {
-      // Validate role parameter
+      // Validate role parameter first
       if (!role || typeof role !== 'string') {
         console.warn('Invalid role provided to getDefaultPermissions:', role);
-        return defaultPerms;
+        role = 'staff'; // Default to staff role
       }
 
+      // Initialize all permission modules with default false values
+      if (Array.isArray(permissionModules)) {
+        permissionModules.forEach(module => {
+          if (module && module.key && typeof module.key === 'string') {
+            defaultPerms[module.key] = { 
+              view: false, 
+              create: false, 
+              edit: false, 
+              delete: false 
+            };
+          }
+        });
+      }
+
+      // Ensure all expected modules exist
+      const expectedModules = ["athletes", "payments", "trainings", "attendance", "messages", "media", "reports", "settings"];
+      expectedModules.forEach(moduleKey => {
+        if (!defaultPerms[moduleKey]) {
+          defaultPerms[moduleKey] = { view: false, create: false, edit: false, delete: false };
+        }
+      });
+
+      // Set permissions based on role
       switch (role) {
         case "super_admin":
           Object.keys(defaultPerms).forEach(key => {
-            if (defaultPerms[key]) {
+            if (defaultPerms[key] && typeof defaultPerms[key] === 'object') {
               defaultPerms[key] = { view: true, create: true, edit: true, delete: true };
             }
           });
           break;
         case "admin":
           Object.keys(defaultPerms).forEach(key => {
-            if (defaultPerms[key] && key !== "settings") {
+            if (defaultPerms[key] && typeof defaultPerms[key] === 'object' && key !== "settings") {
               defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
             }
           });
           break;
         case "coach":
           ["athletes", "trainings", "attendance", "messages", "media", "reports"].forEach(key => {
-            if (defaultPerms[key]) {
+            if (defaultPerms[key] && typeof defaultPerms[key] === 'object') {
               defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
             }
           });
           break;
         case "staff":
           ["athletes", "attendance"].forEach(key => {
-            if (defaultPerms[key]) {
+            if (defaultPerms[key] && typeof defaultPerms[key] === 'object') {
               defaultPerms[key] = { view: true, create: false, edit: false, delete: false };
             }
           });
           break;
         default:
           console.warn('Unknown role provided to getDefaultPermissions:', role);
+          // Keep all permissions as false for unknown roles
           break;
       }
     } catch (error) {
-      console.error("Error setting default permissions:", error);
+      console.error("Error in getDefaultPermissions:", error);
+      // Return a safe default structure
+      const safeDefault: any = {};
+      ["athletes", "payments", "trainings", "attendance", "messages", "media", "reports", "settings"].forEach(key => {
+        safeDefault[key] = { view: false, create: false, edit: false, delete: false };
+      });
+      return safeDefault;
     }
 
     return defaultPerms;
   };
+=======
 
   const handleRoleChange = (role: string, isNewUser = false) => {
     const permissions = getDefaultPermissions(role);
@@ -249,38 +275,61 @@ export default function AdminSettings() {
   };
 
   const handlePermissionChange = (module: string, action: string, value: boolean, isNewUser = false) => {
-    if (isNewUser) {
-      setNewUser(prev => {
-        // Ensure permissions object exists
-        const currentPermissions = prev.permissions || {};
-        const modulePermissions = currentPermissions[module] || { view: false, create: false, edit: false, delete: false };
-        
-        return {
-          ...prev,
-          permissions: {
-            ...currentPermissions,
-            [module]: {
-              ...modulePermissions,
-              [action]: value
+    try {
+      // Validate inputs
+      if (!module || typeof module !== 'string' || !action || typeof action !== 'string') {
+        console.warn('Invalid parameters for handlePermissionChange:', { module, action, value, isNewUser });
+        return;
+      }
+
+      if (isNewUser) {
+        setNewUser(prev => {
+          try {
+            // Ensure permissions object exists and is valid
+            const currentPermissions = (prev && prev.permissions && typeof prev.permissions === 'object') ? prev.permissions : {};
+            const modulePermissions = (currentPermissions[module] && typeof currentPermissions[module] === 'object') 
+              ? currentPermissions[module] 
+              : { view: false, create: false, edit: false, delete: false };
+            
+            return {
+              ...prev,
+              permissions: {
+                ...currentPermissions,
+                [module]: {
+                  ...modulePermissions,
+                  [action]: Boolean(value)
+                }
+              }
+            };
+          } catch (error) {
+            console.error('Error updating new user permissions:', error);
+            return prev; // Return unchanged state on error
+          }
+        });
+      } else if (selectedUser && typeof selectedUser === 'object') {
+        try {
+          // Ensure permissions object exists and is valid
+          const currentPermissions = (selectedUser.permissions && typeof selectedUser.permissions === 'object') ? selectedUser.permissions : {};
+          const modulePermissions = (currentPermissions[module] && typeof currentPermissions[module] === 'object') 
+            ? currentPermissions[module] 
+            : { view: false, create: false, edit: false, delete: false };
+          
+          setSelectedUser({
+            ...selectedUser,
+            permissions: {
+              ...currentPermissions,
+              [module]: {
+                ...modulePermissions,
+                [action]: Boolean(value)
+              }
             }
-          }
-        };
-      });
-    } else if (selectedUser) {
-      // Ensure permissions object exists
-      const currentPermissions = selectedUser.permissions || {};
-      const modulePermissions = currentPermissions[module] || { view: false, create: false, edit: false, delete: false };
-      
-      setSelectedUser({
-        ...selectedUser,
-        permissions: {
-          ...currentPermissions,
-          [module]: {
-            ...modulePermissions,
-            [action]: value
-          }
+          });
+        } catch (error) {
+          console.error('Error updating selected user permissions:', error);
         }
-      });
+      }
+    } catch (error) {
+      console.error('Error in handlePermissionChange:', error);
     }
   };
 
@@ -649,7 +698,17 @@ export default function AdminSettings() {
                               {["view", "create", "edit", "delete"].map((action) => (
                                 <div key={action} className="flex items-center space-x-2">
                                   <Switch
-                                    checked={newUser.permissions[module.key]?.[action] || false}
+                                    checked={(() => {
+                                      try {
+                                        return (newUser.permissions && 
+                                               newUser.permissions[module.key] && 
+                                               typeof newUser.permissions[module.key] === 'object' &&
+                                               newUser.permissions[module.key][action]) || false;
+                                      } catch (error) {
+                                        console.error('Error accessing newUser permissions:', error);
+                                        return false;
+                                      }
+                                    })()}
                                     onCheckedChange={(checked) => handlePermissionChange(module.key, action, checked, true)}
                                   />
                                   <Label className="text-sm capitalize">{action === "view" ? "Görüntüle" : action === "create" ? "Oluştur" : action === "edit" ? "Düzenle" : "Sil"}</Label>
@@ -836,7 +895,18 @@ export default function AdminSettings() {
                                                     {["view", "create", "edit", "delete"].map((action) => (
                                                       <div key={action} className="flex items-center space-x-2">
                                                         <Switch
-                                                          checked={selectedUser.permissions[module.key]?.[action] || false}
+                                                          checked={(() => {
+                                                            try {
+                                                              return (selectedUser && 
+                                                                     selectedUser.permissions && 
+                                                                     selectedUser.permissions[module.key] && 
+                                                                     typeof selectedUser.permissions[module.key] === 'object' &&
+                                                                     selectedUser.permissions[module.key][action]) || false;
+                                                            } catch (error) {
+                                                              console.error('Error accessing selectedUser permissions:', error);
+                                                              return false;
+                                                            }
+                                                          })()}
                                                           onCheckedChange={(checked) => handlePermissionChange(module.key, action, checked)}
                                                         />
                                                         <Label className="text-sm capitalize">{action === "view" ? "Görüntüle" : action === "create" ? "Oluştur" : action === "edit" ? "Düzenle" : "Sil"}</Label>
