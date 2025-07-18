@@ -1498,8 +1498,6 @@ export default function Payments() {
     }, 0);
   };
 
-
-
   return (
     <>
       <Head>
