@@ -276,16 +276,18 @@ export default function Payments() {
   }, [router]);
 
   const loadPayments = () => {
-    // Load athletes
+    // Load ALL athletes (including passive ones) for payment matching
     const storedAthletes = JSON.parse(localStorage.getItem('students') || '[]');
-    const activeAthletes = storedAthletes.filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status);
-    setAthletes(activeAthletes);
+    // FIXED: Include ALL athletes for payment matching, not just active ones
+    setAthletes(storedAthletes);
     
     // Load existing payments
     const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
     
     // Generate payments from athlete account entries based on balance
+    // Only generate for ACTIVE athletes, but keep ALL athletes for matching
     const generatedPayments: any[] = [];
+    const activeAthletes = storedAthletes.filter((athlete: any) => athlete.status === 'Aktif' || !athlete.status);
     
     activeAthletes.forEach((athlete: any) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
@@ -1205,17 +1207,23 @@ export default function Payments() {
     }
   };
 
-  // Get available athletes for manual matching
+  // Get available athletes for manual matching - FIXED: Include ALL athletes (active and passive)
   const getAvailableAthletes = () => {
     return athletes
-      .filter(athlete => athlete.status === 'Aktif' || !athlete.status)
       .map(athlete => ({
         id: athlete.id,
         name: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
         parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
-        sport: athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel'
+        sport: athlete.selectedSports?.[0] || athlete.sportsBranches?.[0] || 'Genel',
+        status: athlete.status || 'Aktif'
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'tr-TR'));
+      .sort((a, b) => {
+        // Sort by status first (Active first), then by name
+        if (a.status !== b.status) {
+          return a.status === 'Aktif' ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name, 'tr-TR');
+      });
   };
 
   // Save new payment function
@@ -2169,7 +2177,14 @@ export default function Payments() {
                                               value={athlete.id.toString()}
                                             >
                                               <div className="flex flex-col">
-                                                <span className="font-medium">{athlete.name}</span>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">{athlete.name}</span>
+                                                  {athlete.status === 'Pasif' && (
+                                                    <span className="text-xs bg-red-100 text-red-800 px-1 py-0.5 rounded">
+                                                      PASİF
+                                                    </span>
+                                                  )}
+                                                </div>
                                                 <span className="text-xs text-muted-foreground">
                                                   {athlete.parentName} - {athlete.sport}
                                                 </span>

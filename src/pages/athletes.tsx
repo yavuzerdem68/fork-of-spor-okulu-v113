@@ -1511,6 +1511,258 @@ export default function Athletes() {
     }
   };
 
+  // PDF Export Function for Current Account
+  const exportAccountToPDF = (athlete: any, entries: any[]) => {
+    if (!athlete || !entries || entries.length === 0) {
+      alert('PDF oluşturmak için cari hesap hareketleri bulunmuyor!');
+      return;
+    }
+
+    try {
+      // Sort entries chronologically
+      const sortedEntries = entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      // Calculate running balance for each entry
+      const entriesWithBalance = sortedEntries.map((entry, index) => {
+        const runningBalance = sortedEntries.slice(0, index + 1).reduce((balance, e) => {
+          return e.type === 'debit' 
+            ? balance + e.amountIncludingVat 
+            : balance - e.amountIncludingVat;
+        }, 0);
+        
+        return {
+          ...entry,
+          runningBalance: runningBalance
+        };
+      });
+
+      // Create HTML content for PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Cari Hesap Kartı - ${athlete.studentName} ${athlete.studentSurname}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              font-size: 12px;
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .company-name {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .document-title {
+              font-size: 16px;
+              font-weight: bold;
+              color: #666;
+            }
+            .athlete-info { 
+              margin-bottom: 20px; 
+              background: #f8f9fa;
+              padding: 15px;
+              border-radius: 5px;
+            }
+            .athlete-info h3 {
+              margin: 0 0 10px 0;
+              color: #333;
+              font-size: 14px;
+            }
+            .info-row {
+              display: flex;
+              margin-bottom: 5px;
+            }
+            .info-label {
+              font-weight: bold;
+              width: 120px;
+              color: #666;
+            }
+            .summary {
+              margin-bottom: 20px;
+              background: #e3f2fd;
+              padding: 15px;
+              border-radius: 5px;
+              border-left: 4px solid #2196f3;
+            }
+            .summary h3 {
+              margin: 0 0 10px 0;
+              color: #1976d2;
+              font-size: 14px;
+            }
+            .balance-positive { color: #d32f2f; font-weight: bold; }
+            .balance-negative { color: #388e3c; font-weight: bold; }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 10px;
+              font-size: 11px;
+            }
+            th, td { 
+              border: 1px solid #ddd; 
+              padding: 8px; 
+              text-align: left; 
+            }
+            th { 
+              background-color: #f5f5f5; 
+              font-weight: bold;
+              color: #333;
+            }
+            .debit { color: #d32f2f; }
+            .credit { color: #388e3c; }
+            .amount { text-align: right; font-weight: bold; }
+            .balance { text-align: right; font-weight: bold; }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 10px;
+              color: #666;
+              border-top: 1px solid #ddd;
+              padding-top: 15px;
+            }
+            .page-break { page-break-before: always; }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">SPOR OKULU YÖNETİM SİSTEMİ</div>
+            <div class="document-title">CARİ HESAP KARTI</div>
+          </div>
+          
+          <div class="athlete-info">
+            <h3>SPORCU BİLGİLERİ</h3>
+            <div class="info-row">
+              <span class="info-label">Sporcu Adı:</span>
+              <span>${athlete.studentName} ${athlete.studentSurname}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Veli Adı:</span>
+              <span>${athlete.parentName} ${athlete.parentSurname}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Telefon:</span>
+              <span>${athlete.parentPhone || '-'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Email:</span>
+              <span>${athlete.parentEmail || '-'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Spor Branşları:</span>
+              <span>${athlete.sportsBranches?.join(', ') || '-'}</span>
+            </div>
+          </div>
+
+          <div class="summary">
+            <h3>ÖZET BİLGİLER</h3>
+            <div class="info-row">
+              <span class="info-label">Toplam Hareket:</span>
+              <span>${entriesWithBalance.length} adet</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Toplam Borç:</span>
+              <span class="debit">₺${entriesWithBalance.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amountIncludingVat, 0).toFixed(2)}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Toplam Alacak:</span>
+              <span class="credit">₺${entriesWithBalance.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amountIncludingVat, 0).toFixed(2)}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Güncel Bakiye:</span>
+              <span class="${entriesWithBalance[entriesWithBalance.length - 1]?.runningBalance >= 0 ? 'balance-positive' : 'balance-negative'}">
+                ₺${entriesWithBalance[entriesWithBalance.length - 1]?.runningBalance.toFixed(2) || '0.00'}
+                ${entriesWithBalance[entriesWithBalance.length - 1]?.runningBalance >= 0 ? ' (Borç)' : ' (Alacak)'}
+              </span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 80px;">Tarih</th>
+                <th style="width: 100px;">Dönem</th>
+                <th>Açıklama</th>
+                <th style="width: 60px;">Tür</th>
+                <th style="width: 80px;">KDV Hariç</th>
+                <th style="width: 60px;">KDV</th>
+                <th style="width: 80px;">Toplam</th>
+                <th style="width: 80px;">Bakiye</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${entriesWithBalance.map(entry => `
+                <tr>
+                  <td>${new Date(entry.date).toLocaleDateString('tr-TR')}</td>
+                  <td>${new Date(entry.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</td>
+                  <td>${entry.description}</td>
+                  <td class="${entry.type === 'debit' ? 'debit' : 'credit'}">
+                    ${entry.type === 'debit' ? 'Borç' : 'Alacak'}
+                  </td>
+                  <td class="amount">₺${entry.amountExcludingVat.toFixed(2)}</td>
+                  <td class="amount">₺${entry.vatAmount.toFixed(2)}</td>
+                  <td class="amount ${entry.type === 'debit' ? 'debit' : 'credit'}">
+                    ${entry.type === 'debit' ? '+' : '-'}₺${entry.amountIncludingVat.toFixed(2)}
+                  </td>
+                  <td class="balance ${entry.runningBalance >= 0 ? 'balance-positive' : 'balance-negative'}">
+                    ₺${entry.runningBalance.toFixed(2)}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>Bu belge ${new Date().toLocaleDateString('tr-TR')} tarihinde ${new Date().toLocaleTimeString('tr-TR')} saatinde oluşturulmuştur.</p>
+            <p>Spor Okulu Yönetim Sistemi - Cari Hesap Kartı</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Create and download PDF
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      
+      // Open in new window for printing/saving as PDF
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 500);
+        };
+      }
+      
+      // Also create downloadable HTML file
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Cari_Hesap_${athlete.studentName}_${athlete.studentSurname}_${new Date().toISOString().split('T')[0]}.html`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert(`✅ PDF hazırlandı!\n\n📄 ${athlete.studentName} ${athlete.studentSurname} için cari hesap kartı oluşturuldu\n📊 ${entriesWithBalance.length} hareket kronolojik sırayla listelendi\n💰 Güncel bakiye: ₺${entriesWithBalance[entriesWithBalance.length - 1]?.runningBalance.toFixed(2) || '0.00'}\n\n🖨️ Yazdırma penceresi açıldı\n💾 HTML dosyası indirildi`);
+
+    } catch (error) {
+      console.error('PDF export error:', error);
+      alert('PDF oluşturulurken hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
+    }
+  };
+
   // Process bulk upload with duplicate merging and parent credential generation
   const processBulkUpload = async () => {
     if (!bulkUploadFile) return;
@@ -3107,10 +3359,20 @@ export default function Athletes() {
                   </CardContent>
                 </Card>
 
-                {/* Account Entries Table */}
+                {/* Account Entries Table - FIXED: Chronological sorting */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Cari Hesap Hareketleri</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Cari Hesap Hareketleri</CardTitle>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => exportAccountToPDF(selectedAthlete, accountEntries)}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        PDF Dışa Aktar
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {accountEntries.length > 0 ? (
@@ -3124,26 +3386,42 @@ export default function Athletes() {
                             <TableHead>Tutar (KDV Hariç)</TableHead>
                             <TableHead>KDV</TableHead>
                             <TableHead>Toplam</TableHead>
+                            <TableHead>Bakiye</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {accountEntries.map((entry) => (
-                            <TableRow key={entry.id}>
-                              <TableCell>{new Date(entry.date).toLocaleDateString('tr-TR')}</TableCell>
-                              <TableCell>{new Date(entry.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</TableCell>
-                              <TableCell>{entry.description}</TableCell>
-                              <TableCell>
-                                <Badge variant={entry.type === 'debit' ? 'destructive' : 'default'}>
-                                  {entry.type === 'debit' ? 'Borç' : 'Alacak'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>₺{entry.amountExcludingVat.toFixed(2)}</TableCell>
-                              <TableCell>₺{entry.vatAmount.toFixed(2)} (%{entry.vatRate})</TableCell>
-                              <TableCell className={entry.type === 'debit' ? 'text-red-600' : 'text-green-600'}>
-                                {entry.type === 'debit' ? '+' : '-'}₺{entry.amountIncludingVat.toFixed(2)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {/* FIXED: Sort chronologically by date instead of grouping by type */}
+                          {accountEntries
+                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                            .map((entry, index, sortedEntries) => {
+                              // Calculate running balance chronologically
+                              const runningBalance = sortedEntries.slice(0, index + 1).reduce((balance, e) => {
+                                return e.type === 'debit' 
+                                  ? balance + e.amountIncludingVat 
+                                  : balance - e.amountIncludingVat;
+                              }, 0);
+
+                              return (
+                                <TableRow key={entry.id}>
+                                  <TableCell>{new Date(entry.date).toLocaleDateString('tr-TR')}</TableCell>
+                                  <TableCell>{new Date(entry.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</TableCell>
+                                  <TableCell>{entry.description}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={entry.type === 'debit' ? 'destructive' : 'default'}>
+                                      {entry.type === 'debit' ? 'Borç' : 'Alacak'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>₺{entry.amountExcludingVat.toFixed(2)}</TableCell>
+                                  <TableCell>₺{entry.vatAmount.toFixed(2)} (%{entry.vatRate})</TableCell>
+                                  <TableCell className={entry.type === 'debit' ? 'text-red-600' : 'text-green-600'}>
+                                    {entry.type === 'debit' ? '+' : '-'}₺{entry.amountIncludingVat.toFixed(2)}
+                                  </TableCell>
+                                  <TableCell className={`font-medium ${runningBalance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    ₺{runningBalance.toFixed(2)}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                         </TableBody>
                       </Table>
                     ) : (
