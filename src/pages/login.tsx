@@ -98,12 +98,13 @@ export default function Login() {
     }
 
     try {
-      // Check if we're in cloud environment (Vercel/production)
+      // Check if we're in cloud environment (Vercel/production) and have Supabase configured
       const isCloudEnvironment = process.env.NEXT_PUBLIC_CO_DEV_ENV === 'cloud' || 
                                 process.env.NODE_ENV === 'production';
+      const hasSupabaseConfig = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-      if (isCloudEnvironment) {
-        // Try cloud authentication first for cloud deployments
+      if (isCloudEnvironment && hasSupabaseConfig) {
+        // Try cloud authentication first for cloud deployments with Supabase
         try {
           const cloudUser = await cloudAuthManager.signIn(email, password);
           
