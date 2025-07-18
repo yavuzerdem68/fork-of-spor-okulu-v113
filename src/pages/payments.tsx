@@ -246,6 +246,8 @@ export default function Payments() {
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
   const [selectedAthlete, setSelectedAthlete] = useState<any>(null);
   const [accountEntries, setAccountEntries] = useState<any[]>([]);
+  const [editingEntry, setEditingEntry] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7),
     description: '',
@@ -1498,6 +1500,99 @@ export default function Payments() {
     }, 0);
   };
 
+  // Edit account entry functions
+  const startEditEntry = (entry: any) => {
+    setEditingEntry({
+      ...entry,
+      month: entry.month,
+      description: entry.description,
+      amountExcludingVat: entry.amountExcludingVat.toString(),
+      vatRate: entry.vatRate.toString(),
+      amountIncludingVat: entry.amountIncludingVat.toString(),
+      unitCode: entry.unitCode || 'Ay',
+      type: entry.type
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const saveEditedEntry = () => {
+    if (!selectedAthlete || !editingEntry || !editingEntry.description || !editingEntry.amountExcludingVat) {
+      toast.error("Lütfen tüm zorunlu alanları doldurun");
+      return;
+    }
+
+    const amountExcluding = parseFloat(editingEntry.amountExcludingVat);
+    const vatRate = parseFloat(editingEntry.vatRate);
+    
+    // CRITICAL FIX: No VAT for credit (alacak) entries
+    const vatAmount = editingEntry.type === 'credit' ? 0 : (amountExcluding * vatRate) / 100;
+    const amountIncludingVat = amountExcluding + vatAmount;
+
+    const updatedEntry = {
+      ...editingEntry,
+      amountExcludingVat: Math.round(amountExcluding * 100) / 100,
+      vatRate: vatRate,
+      vatAmount: vatAmount,
+      amountIncludingVat: amountIncludingVat,
+      unitCode: editingEntry.unitCode
+    };
+
+    const updatedEntries = accountEntries.map(entry => 
+      entry.id === editingEntry.id ? updatedEntry : entry
+    );
+    
+    setAccountEntries(updatedEntries);
+    localStorage.setItem(`account_${selectedAthlete.id}`, JSON.stringify(updatedEntries));
+    
+    setIsEditDialogOpen(false);
+    setEditingEntry(null);
+    toast.success("Cari hesap kaydı güncellendi");
+    
+    // Reload payments to reflect balance changes
+    loadPayments();
+  };
+
+  const deleteAccountEntry = (entryId: number) => {
+    if (!selectedAthlete) return;
+
+    const entryToDelete = accountEntries.find(entry => entry.id === entryId);
+    if (!entryToDelete) return;
+
+    const confirmDelete = confirm(
+      `Bu cari hesap kaydını silmek istediğinizden emin misiniz?\n\n` +
+      `Açıklama: ${entryToDelete.description}\n` +
+      `Tutar: ₺${entryToDelete.amountIncludingVat}\n` +
+      `Tür: ${entryToDelete.type === 'debit' ? 'Borç' : 'Alacak'}\n\n` +
+      `Bu işlem geri alınamaz!`
+    );
+
+    if (confirmDelete) {
+      const updatedEntries = accountEntries.filter(entry => entry.id !== entryId);
+      setAccountEntries(updatedEntries);
+      localStorage.setItem(`account_${selectedAthlete.id}`, JSON.stringify(updatedEntries));
+      toast.success("Cari hesap kaydı silindi");
+      
+      // Reload payments to reflect balance changes
+      loadPayments();
+    }
+  };
+
+  const calculateEditVatAmount = (excludingVat: string, vatRate: string) => {
+    const excluding = parseFloat(excludingVat) || 0;
+    const rate = parseFloat(vatRate) || 0;
+    
+    // CRITICAL FIX: No VAT for credit (alacak) entries
+    const vatAmount = editingEntry?.type === 'credit' ? 0 : (excluding * rate) / 100;
+    const amountIncludingVat = excluding + vatAmount;
+    
+    setEditingEntry(prev => prev ? ({
+      ...prev,
+      amountExcludingVat: excludingVat,
+      vatRate: editingEntry?.type === 'credit' ? '0' : vatRate,
+      amountIncludingVat: amountIncludingVat.toFixed(2)
+    }) : null);
+  };
+
   return (
     <>
       <Head>
@@ -2429,6 +2524,7 @@ export default function Payments() {
                             <TableHead>KDV</TableHead>
                             <TableHead>Toplam</TableHead>
                             <TableHead>Bakiye</TableHead>
+                            <TableHead>İşlemler</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -2485,6 +2581,27 @@ export default function Payments() {
                                     {entry.runningBalance >= 0 ? 'Borç' : 'Alacak'}
                                   </div>
                                 </TableCell>
+                                <TableCell>
+                                  <div className="flex space-x-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => startEditEntry(entry)}
+                                      title="Düzenle"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => deleteAccountEntry(entry.id)}
+                                      title="Sil"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
                               </TableRow>
                             ));
                           })()}
@@ -2508,6 +2625,124 @@ export default function Payments() {
             </DialogContent>
           </Dialog>
 
+          {/* Edit Account Entry Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Cari Hesap Kaydını Düzenle</DialogTitle>
+                <DialogDescription>
+                  Cari hesap kaydının bilgilerini güncelleyin
+                </DialogDescription>
+              </DialogHeader>
+
+              {editingEntry && (
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-month">Ay</Label>
+                      <Input
+                        id="edit-month"
+                        type="month"
+                        value={editingEntry.month}
+                        onChange={(e) => setEditingEntry(prev => prev ? ({ ...prev, month: e.target.value }) : null)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-type">İşlem Türü</Label>
+                      <Select 
+                        value={editingEntry.type} 
+                        onValueChange={(value) => setEditingEntry(prev => prev ? ({ ...prev, type: value }) : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="debit">Borç</SelectItem>
+                          <SelectItem value="credit">Alacak</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-description">Açıklama</Label>
+                    <Input
+                      id="edit-description"
+                      placeholder="Örn: Haziran Aidatı"
+                      value={editingEntry.description}
+                      onChange={(e) => setEditingEntry(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="edit-amountExcludingVat">Tutar (KDV Hariç)</Label>
+                      <Input
+                        id="edit-amountExcludingVat"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={editingEntry.amountExcludingVat}
+                        onChange={(e) => calculateEditVatAmount(e.target.value, editingEntry.vatRate)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-vatRate">KDV Oranı (%)</Label>
+                      <Select 
+                        value={editingEntry.vatRate} 
+                        onValueChange={(value) => calculateEditVatAmount(editingEntry.amountExcludingVat, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VAT_RATE_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value.toString()}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-amountIncludingVat">Toplam (KDV Dahil)</Label>
+                      <Input
+                        id="edit-amountIncludingVat"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={editingEntry.amountIncludingVat}
+                        readOnly
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-unitCode">Birim</Label>
+                    <Input
+                      id="edit-unitCode"
+                      placeholder="Ay"
+                      value={editingEntry.unitCode}
+                      onChange={(e) => setEditingEntry(prev => prev ? ({ ...prev, unitCode: e.target.value }) : null)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingEntry(null);
+                }}>
+                  İptal
+                </Button>
+                <Button onClick={saveEditedEntry}>
+                  <Check className="h-4 w-4 mr-2" />
+                  Güncelle
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
         </div>
       </div>
