@@ -225,12 +225,22 @@ export class SupabaseCloudStorageAdapter implements CloudStorageAdapter {
     if (!this.isSupabaseAvailable()) {
       // Fallback to localStorage
       const users = this.fallbackToLocalStorage('users') || [];
+      
+      // Check if user already exists
+      const existingUser = users.find((u: any) => u.email === email);
+      if (existingUser) {
+        throw new Error('User already exists');
+      }
+      
       const newUser = {
         id: `user-${Date.now()}`,
         email,
         password, // In production, this should be hashed
-        ...userData,
-        created_at: new Date().toISOString()
+        name: userData.name || 'User',
+        surname: userData.surname || '',
+        role: userData.role || 'parent',
+        created_at: new Date().toISOString(),
+        metadata: userData.metadata
       };
       users.push(newUser);
       this.fallbackToLocalStorage('users', users);

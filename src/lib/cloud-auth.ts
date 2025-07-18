@@ -86,10 +86,23 @@ export class CloudAuthManager {
       const result = await cloudStorageManager.signIn(email, password);
       
       if (result.user) {
-        this.currentUser = this.mapSupabaseUser(result.user);
-
-        // Update last login
-        this.currentUser.last_login = new Date().toISOString();
+        // Check if this is a localStorage fallback user (has direct user data)
+        if (result.user.role) {
+          // Direct localStorage user data
+          this.currentUser = {
+            id: result.user.id,
+            email: result.user.email,
+            name: result.user.name || 'User',
+            surname: result.user.surname || '',
+            role: result.user.role,
+            created_at: result.user.created_at || new Date().toISOString(),
+            last_login: new Date().toISOString(),
+            metadata: result.user.metadata
+          };
+        } else {
+          // Supabase user - map from user_metadata
+          this.currentUser = this.mapSupabaseUser(result.user);
+        }
 
         // Store in localStorage for fallback
         if (typeof window !== 'undefined') {
