@@ -131,6 +131,15 @@ export default function AdminSettings() {
     permissions: {} as any
   });
   const [passwordStrength, setPasswordStrength] = useState({ isValid: false, score: 0, feedback: [] });
+  const [isPasswordChangeOpen, setIsPasswordChangeOpen] = useState(false);
+  const [passwordChange, setPasswordChange] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [newPasswordStrength, setNewPasswordStrength] = useState({ isValid: false, score: 0, feedback: [] });
 
   // Load admin users from localStorage
   const loadAdminUsers = () => {
@@ -174,7 +183,7 @@ export default function AdminSettings() {
   }, [router]);
 
   const getDefaultPermissions = (role: string) => {
-    const defaultPerms = {
+    const defaultPerms: any = {
       athletes: { view: false, create: false, edit: false, delete: false },
       payments: { view: false, create: false, edit: false, delete: false },
       trainings: { view: false, create: false, edit: false, delete: false },
@@ -185,29 +194,39 @@ export default function AdminSettings() {
       settings: { view: false, create: false, edit: false, delete: false }
     };
 
-    switch (role) {
-      case "super_admin":
-        Object.keys(defaultPerms).forEach(key => {
-          defaultPerms[key as keyof typeof defaultPerms] = { view: true, create: true, edit: true, delete: true };
-        });
-        break;
-      case "admin":
-        Object.keys(defaultPerms).forEach(key => {
-          if (key !== "settings") {
-            defaultPerms[key as keyof typeof defaultPerms] = { view: true, create: true, edit: true, delete: false };
-          }
-        });
-        break;
-      case "coach":
-        ["athletes", "trainings", "attendance", "messages", "media", "reports"].forEach(key => {
-          defaultPerms[key as keyof typeof defaultPerms] = { view: true, create: true, edit: true, delete: false };
-        });
-        break;
-      case "staff":
-        ["athletes", "attendance"].forEach(key => {
-          defaultPerms[key as keyof typeof defaultPerms] = { view: true, create: false, edit: false, delete: false };
-        });
-        break;
+    try {
+      switch (role) {
+        case "super_admin":
+          Object.keys(defaultPerms).forEach(key => {
+            if (defaultPerms[key]) {
+              defaultPerms[key] = { view: true, create: true, edit: true, delete: true };
+            }
+          });
+          break;
+        case "admin":
+          Object.keys(defaultPerms).forEach(key => {
+            if (defaultPerms[key] && key !== "settings") {
+              defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
+            }
+          });
+          break;
+        case "coach":
+          ["athletes", "trainings", "attendance", "messages", "media", "reports"].forEach(key => {
+            if (defaultPerms[key]) {
+              defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
+            }
+          });
+          break;
+        case "staff":
+          ["athletes", "attendance"].forEach(key => {
+            if (defaultPerms[key]) {
+              defaultPerms[key] = { view: true, create: false, edit: false, delete: false };
+            }
+          });
+          break;
+      }
+    } catch (error) {
+      console.error("Error setting default permissions:", error);
     }
 
     return defaultPerms;
@@ -230,7 +249,7 @@ export default function AdminSettings() {
         permissions: {
           ...prev.permissions,
           [module]: {
-            ...prev.permissions[module],
+            ...(prev.permissions[module] || {}),
             [action]: value
           }
         }
@@ -241,7 +260,7 @@ export default function AdminSettings() {
         permissions: {
           ...selectedUser.permissions,
           [module]: {
-            ...selectedUser.permissions[module],
+            ...(selectedUser.permissions[module] || {}),
             [action]: value
           }
         }
@@ -377,6 +396,86 @@ export default function AdminSettings() {
       case "coach": return "bg-green-100 text-green-800";
       case "staff": return "bg-gray-100 text-gray-800";
       default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Handle new password change validation
+  const handleNewPasswordChange = (password: string) => {
+    setPasswordChange(prev => ({ ...prev, newPassword: password }));
+    const validation = validatePasswordStrength(password);
+    setNewPasswordStrength(validation);
+  };
+
+  // Handle password change for current user
+  const handleChangePassword = async () => {
+    if (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword) {
+      setError("Lütfen tüm şifre alanlarını doldurun");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    if (passwordChange.newPassword !== passwordChange.confirmPassword) {
+      setError("Yeni şifreler eşleşmiyor");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    if (!newPasswordStrength.isValid) {
+      setError(`Yeni şifre güvenlik gereksinimlerini karşılamıyor: ${newPasswordStrength.feedback.join(', ')}`);
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    try {
+      // Get current user
+      const currentUserData = localStorage.getItem('currentUser');
+      if (!currentUserData) {
+        setError("Kullanıcı bilgisi bulunamadı");
+        setTimeout(() => setError(""), 3000);
+        return;
+      }
+
+      const currentUser = JSON.parse(currentUserData);
+      
+      // For cloud auth, we need to update the users storage
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      const userIndex = users.findIndex((u: any) => u.email === currentUser.email);
+      
+      if (userIndex === -1) {
+        setError("Kullanıcı bulunamadı");
+        setTimeout(() => setError(""), 3000);
+        return;
+      }
+
+      // Verify current password (in a real app, you'd hash and compare)
+      if (users[userIndex].password !== passwordChange.currentPassword) {
+        setError("Mevcut şifre yanlış");
+        setTimeout(() => setError(""), 3000);
+        return;
+      }
+
+      // Update password
+      users[userIndex].password = passwordChange.newPassword;
+      localStorage.setItem('users', JSON.stringify(users));
+
+      // Also update admin users if this user is an admin
+      const adminUserIndex = adminUsers.findIndex(u => u.email === currentUser.email);
+      if (adminUserIndex !== -1) {
+        const hashedPassword = await hashPassword(passwordChange.newPassword);
+        const updatedAdminUsers = [...adminUsers];
+        updatedAdminUsers[adminUserIndex].password = hashedPassword;
+        saveAdminUsers(updatedAdminUsers);
+      }
+
+      setSuccess("Şifre başarıyla değiştirildi");
+      setIsPasswordChangeOpen(false);
+      setPasswordChange({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setNewPasswordStrength({ isValid: false, score: 0, feedback: [] });
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (error) {
+      console.error('Password change error:', error);
+      setError("Şifre değiştirirken hata oluştu");
+      setTimeout(() => setError(""), 3000);
     }
   };
 
@@ -583,6 +682,10 @@ export default function AdminSettings() {
                 <TabsTrigger value="roles" className="flex items-center space-x-2">
                   <Shield className="w-4 h-4" />
                   <span>Roller</span>
+                </TabsTrigger>
+                <TabsTrigger value="account" className="flex items-center space-x-2">
+                  <Key className="w-4 h-4" />
+                  <span>Hesap Ayarları</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -805,6 +908,198 @@ export default function AdminSettings() {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              </TabsContent>
+
+              {/* Account Settings Tab */}
+              <TabsContent value="account">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Current User Info */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Hesap Bilgileri</CardTitle>
+                      <CardDescription>Mevcut kullanıcı bilgileriniz</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const currentUserData = localStorage.getItem('currentUser');
+                        const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+                        
+                        if (!currentUser) {
+                          return <p className="text-muted-foreground">Kullanıcı bilgisi bulunamadı</p>;
+                        }
+
+                        return (
+                          <div className="space-y-4">
+                            <div>
+                              <Label className="text-sm font-medium">Ad Soyad</Label>
+                              <p className="text-sm text-muted-foreground">{currentUser.name || 'Belirtilmemiş'}</p>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium">Email</Label>
+                              <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium">Rol</Label>
+                              <Badge className={getRoleBadgeColor(currentUser.role)}>
+                                {roleOptions.find(r => r.value === currentUser.role)?.label || currentUser.role}
+                              </Badge>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium">Son Giriş</Label>
+                              <p className="text-sm text-muted-foreground">
+                                {currentUser.last_login ? new Date(currentUser.last_login).toLocaleString('tr-TR') : 'Bilinmiyor'}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  {/* Password Change */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Şifre Değiştir</CardTitle>
+                      <CardDescription>Hesap güvenliğiniz için şifrenizi güncelleyin</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Dialog open={isPasswordChangeOpen} onOpenChange={setIsPasswordChangeOpen}>
+                        <DialogTrigger asChild>
+                          <Button className="w-full">
+                            <Key className="w-4 h-4 mr-2" />
+                            Şifre Değiştir
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Şifre Değiştir</DialogTitle>
+                            <DialogDescription>
+                              Güvenliğiniz için mevcut şifrenizi doğrulayın ve yeni şifrenizi belirleyin
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="current-password">Mevcut Şifre</Label>
+                              <div className="relative">
+                                <Input
+                                  id="current-password"
+                                  type={showCurrentPassword ? "text" : "password"}
+                                  value={passwordChange.currentPassword}
+                                  onChange={(e) => setPasswordChange(prev => ({ ...prev, currentPassword: e.target.value }))}
+                                  placeholder="••••••••"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                >
+                                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label htmlFor="new-password">Yeni Şifre</Label>
+                              <div className="relative">
+                                <Input
+                                  id="new-password"
+                                  type={showNewPassword ? "text" : "password"}
+                                  value={passwordChange.newPassword}
+                                  onChange={(e) => handleNewPasswordChange(e.target.value)}
+                                  placeholder="••••••••"
+                                  className={newPasswordStrength.score < 4 && passwordChange.newPassword ? "border-red-500" : ""}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                  onClick={() => setShowNewPassword(!showNewPassword)}
+                                >
+                                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                              
+                              {/* Password strength indicator */}
+                              {passwordChange.newPassword && (
+                                <div className="mt-2 space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className={`h-2 rounded-full transition-all duration-300 ${
+                                          newPasswordStrength.score <= 2 ? 'bg-red-500' :
+                                          newPasswordStrength.score <= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                                        }`}
+                                        style={{ width: `${(newPasswordStrength.score / 6) * 100}%` }}
+                                      />
+                                    </div>
+                                    <span className={`text-xs font-medium ${
+                                      newPasswordStrength.score <= 2 ? 'text-red-600' :
+                                      newPasswordStrength.score <= 4 ? 'text-yellow-600' : 'text-green-600'
+                                    }`}>
+                                      {newPasswordStrength.score <= 2 ? 'Zayıf' :
+                                       newPasswordStrength.score <= 4 ? 'Orta' : 'Güçlü'}
+                                    </span>
+                                  </div>
+                                  
+                                  {newPasswordStrength.feedback.length > 0 && (
+                                    <div className="text-xs text-red-600 space-y-1">
+                                      {newPasswordStrength.feedback.map((feedback, index) => (
+                                        <div key={index}>• {feedback}</div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            <div>
+                              <Label htmlFor="confirm-password">Yeni Şifre Tekrar</Label>
+                              <Input
+                                id="confirm-password"
+                                type={showNewPassword ? "text" : "password"}
+                                value={passwordChange.confirmPassword}
+                                onChange={(e) => setPasswordChange(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                placeholder="••••••••"
+                                className={passwordChange.newPassword && passwordChange.confirmPassword && passwordChange.newPassword !== passwordChange.confirmPassword ? "border-red-500" : ""}
+                              />
+                              {passwordChange.newPassword && passwordChange.confirmPassword && passwordChange.newPassword !== passwordChange.confirmPassword && (
+                                <p className="text-xs text-red-600 mt-1">Şifreler eşleşmiyor</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => {
+                              setIsPasswordChangeOpen(false);
+                              setPasswordChange({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                              setNewPasswordStrength({ isValid: false, score: 0, feedback: [] });
+                            }}>
+                              İptal
+                            </Button>
+                            <Button onClick={handleChangePassword}>
+                              <Save className="w-4 h-4 mr-2" />
+                              Şifre Değiştir
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
+                      <div className="mt-4 text-sm text-muted-foreground">
+                        <h4 className="font-medium mb-2">Güvenlik İpuçları:</h4>
+                        <ul className="space-y-1 text-xs">
+                          <li>• En az 8 karakter kullanın</li>
+                          <li>• Büyük ve küçük harf karışımı</li>
+                          <li>• Sayı ve özel karakter ekleyin</li>
+                          <li>• Kişisel bilgilerinizi kullanmayın</li>
+                        </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </TabsContent>
             </Tabs>
