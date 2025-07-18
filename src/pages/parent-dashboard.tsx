@@ -757,10 +757,11 @@ export default function ParentDashboard() {
                       }, 0);
                       const roundedBalance = Math.round(balance * 100) / 100;
                       
-                      // Get recent entries
+                      // Get recent entries - FIXED: Sort chronologically (oldest to newest) for proper display
                       const recentEntries = accountEntries
-                        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                        .slice(0, 3);
+                        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                        .slice(-3) // Get last 3 entries (most recent)
+                        .reverse(); // Show most recent first in display
 
                       return (
                         <Card key={athlete.id || index} className="border-l-4 border-l-primary">
