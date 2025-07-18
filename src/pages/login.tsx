@@ -124,128 +124,132 @@ export default function Login() {
         }
       }
 
-      // Try WordPress JWT authentication
-      try {
-        const authResponse = await wpAPI.login(email, password);
-        const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
-        
-        // Check if user has admin privileges
-        if (userRole !== 'admin') {
-          setError("Bu hesap yönetici yetkisine sahip değil");
-          setLoading(false);
-          return;
-        }
-
-        // Create WordPress session
-        const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
-        
-        // Set legacy localStorage for compatibility
-        localStorage.setItem("userRole", "admin");
-        localStorage.setItem("currentUser", JSON.stringify({
-          id: authResponse.user_id,
-          name: authResponse.user_display_name.split(' ')[0] || 'Admin',
-          surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
-          email: authResponse.user_email,
-          role: 'admin'
-        }));
-        localStorage.setItem("userEmail", authResponse.user_email);
-
-        // Reset rate limiter on successful login
-        rateLimiter.reset(clientId);
-        
-        router.push(getRedirectPath("/dashboard"));
-        return;
-      } catch (wpError: any) {
-        console.log('WordPress login failed, trying localStorage fallback:', wpError.message);
-        
-        // Fallback to localStorage-based authentication for backward compatibility
-        // First check the 'users' array (from cloud storage adapter)
-        let users = JSON.parse(localStorage.getItem('users') || '[]');
-        let admin = users.find((u: any) => u.email === email && u.role === 'admin');
-        
-        // If not found in 'users', check legacy 'adminUsers' array
-        if (!admin) {
-          let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+      // Try WordPress JWT authentication only if WordPress URL is configured
+      const hasWordPressConfig = !!(process.env.NEXT_PUBLIC_WORDPRESS_URL);
+      
+      if (hasWordPressConfig) {
+        try {
+          const authResponse = await wpAPI.login(email, password);
+          const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
           
-          if (adminUsers.length === 0) {
-            // Create default admin with hashed password
-            const hashedPassword = await hashPassword('admin123');
-            const defaultAdmin = {
-              id: 'default-admin',
-              name: 'Sistem',
-              surname: 'Yöneticisi',
-              email: 'admin@sportscr.com',
-              password: hashedPassword,
-              role: 'admin',
-              createdAt: new Date().toISOString(),
-              isDefault: true
-            };
-            adminUsers = [defaultAdmin];
-            localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
+          // Check if user has admin privileges
+          if (userRole !== 'admin') {
+            setError("Bu hesap yönetici yetkisine sahip değil");
+            setLoading(false);
+            return;
           }
 
-          // Find admin by email in legacy array
-          admin = adminUsers.find((a: any) => a.email === email);
+          // Create WordPress session
+          const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("currentUser", JSON.stringify({
+            id: authResponse.user_id,
+            name: authResponse.user_display_name.split(' ')[0] || 'Admin',
+            surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
+            email: authResponse.user_email,
+            role: 'admin'
+          }));
+          localStorage.setItem("userEmail", authResponse.user_email);
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/dashboard"));
+          return;
+        } catch (wpError: any) {
+          console.log('WordPress login failed, trying localStorage fallback:', wpError.message);
+        }
+      }
+      
+      // Fallback to localStorage-based authentication for backward compatibility
+      // First check the 'users' array (from cloud storage adapter)
+      let users = JSON.parse(localStorage.getItem('users') || '[]');
+      let admin = users.find((u: any) => u.email === email && u.role === 'admin');
+      
+      // If not found in 'users', check legacy 'adminUsers' array
+      if (!admin) {
+        let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+        
+        if (adminUsers.length === 0) {
+          // Create default admin with hashed password
+          const hashedPassword = await hashPassword('admin123');
+          const defaultAdmin = {
+            id: 'default-admin',
+            name: 'Sistem',
+            surname: 'Yöneticisi',
+            email: 'admin@sportscr.com',
+            password: hashedPassword,
+            role: 'admin',
+            createdAt: new Date().toISOString(),
+            isDefault: true
+          };
+          adminUsers = [defaultAdmin];
+          localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
         }
 
-        if (admin) {
-          // Check if this is a user from the 'users' array (cloud storage adapter)
-          const isCloudUser = users.some((u: any) => u.id === admin.id);
+        // Find admin by email in legacy array
+        admin = adminUsers.find((a: any) => a.email === email);
+      }
+
+      if (admin) {
+        // Check if this is a user from the 'users' array (cloud storage adapter)
+        const isCloudUser = users.some((u: any) => u.id === admin.id);
+        
+        // Verify password
+        let isPasswordValid = false;
+        
+        if (isCloudUser) {
+          // For cloud users, password is stored as plain text (should be hashed in production)
+          isPasswordValid = password === admin.password;
+        } else {
+          // For legacy admin users, handle both hashed and plain text passwords
+          isPasswordValid = admin.isDefault && admin.password === 'admin123' 
+            ? password === 'admin123' // Backward compatibility for default admin
+            : await verifyPassword(password, admin.password);
+        }
+
+        if (isPasswordValid) {
+          // If using old plain text password for legacy admin, update to hashed
+          if (!isCloudUser && admin.isDefault && admin.password === 'admin123') {
+            admin.password = await hashPassword('admin123');
+            const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+          }
+
+          // Create secure session
+          const sessionId = SessionManager.createSession(admin.id, 'admin');
           
-          // Verify password
-          let isPasswordValid = false;
+          // Update last login
+          admin.lastLogin = new Date().toISOString();
           
           if (isCloudUser) {
-            // For cloud users, password is stored as plain text (should be hashed in production)
-            isPasswordValid = password === admin.password;
+            // Update in users array
+            const updatedUsers = users.map((u: any) => u.id === admin.id ? admin : u);
+            localStorage.setItem('users', JSON.stringify(updatedUsers));
           } else {
-            // For legacy admin users, handle both hashed and plain text passwords
-            isPasswordValid = admin.isDefault && admin.password === 'admin123' 
-              ? password === 'admin123' // Backward compatibility for default admin
-              : await verifyPassword(password, admin.password);
+            // Update in adminUsers array
+            const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
           }
 
-          if (isPasswordValid) {
-            // If using old plain text password for legacy admin, update to hashed
-            if (!isCloudUser && admin.isDefault && admin.password === 'admin123') {
-              admin.password = await hashPassword('admin123');
-              const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
-              const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-              localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
-            }
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("currentUser", JSON.stringify(admin));
+          localStorage.setItem("userEmail", admin.email);
 
-            // Create secure session
-            const sessionId = SessionManager.createSession(admin.id, 'admin');
-            
-            // Update last login
-            admin.lastLogin = new Date().toISOString();
-            
-            if (isCloudUser) {
-              // Update in users array
-              const updatedUsers = users.map((u: any) => u.id === admin.id ? admin : u);
-              localStorage.setItem('users', JSON.stringify(updatedUsers));
-            } else {
-              // Update in adminUsers array
-              const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
-              const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-              localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
-            }
-
-            // Set legacy localStorage for compatibility
-            localStorage.setItem("userRole", "admin");
-            localStorage.setItem("currentUser", JSON.stringify(admin));
-            localStorage.setItem("userEmail", admin.email);
-
-            // Reset rate limiter on successful login
-            rateLimiter.reset(clientId);
-            
-            router.push(getRedirectPath("/dashboard"));
-          } else {
-            setError("Geçersiz email veya şifre");
-          }
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/dashboard"));
         } else {
           setError("Geçersiz email veya şifre");
         }
+      } else {
+        setError("Geçersiz email veya şifre");
       }
     } catch (error) {
       console.error('Admin login error:', error);
@@ -274,75 +278,79 @@ export default function Login() {
     }
 
     try {
-      // Try WordPress JWT authentication first
-      try {
-        const authResponse = await wpAPI.login(email, password);
-        const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
-        
-        // Check if user has coach privileges
-        if (userRole !== 'coach') {
-          setError("Bu hesap antrenör yetkisine sahip değil");
-          setLoading(false);
-          return;
-        }
-
-        // Create WordPress session
-        const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
-        
-        // Set legacy localStorage for compatibility
-        localStorage.setItem("userRole", "coach");
-        localStorage.setItem("currentUser", JSON.stringify({
-          id: authResponse.user_id,
-          name: authResponse.user_display_name.split(' ')[0] || 'Coach',
-          surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
-          email: authResponse.user_email,
-          role: 'coach'
-        }));
-        localStorage.setItem("userEmail", authResponse.user_email);
-
-        // Reset rate limiter on successful login
-        rateLimiter.reset(clientId);
-        
-        router.push(getRedirectPath("/coach-dashboard"));
-        return;
-      } catch (wpError: any) {
-        console.log('WordPress coach login failed, trying fallback:', wpError.message);
-        
-        // Fallback to localStorage-based authentication for backward compatibility
-        const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
-        const coach = coaches.find((c: any) => c.email === email);
-
-        if (coach) {
-          // Verify password (handle both hashed and plain text for backward compatibility)
-          const isPasswordValid = coach.password && coach.password.length > 50
-            ? await verifyPassword(password, coach.password)
-            : password === coach.password;
-
-          if (isPasswordValid) {
-            // If using old plain text password, update to hashed
-            if (coach.password && coach.password.length <= 50) {
-              coach.password = await hashPassword(coach.password);
-              const updatedCoaches = coaches.map((c: any) => c.id === coach.id ? coach : c);
-              localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
-            }
-
-            // Create secure session
-            const sessionId = SessionManager.createSession(coach.id, 'coach');
-            
-            // Set legacy localStorage for compatibility
-            localStorage.setItem("userRole", "coach");
-            localStorage.setItem("currentUser", JSON.stringify(coach));
-
-            // Reset rate limiter on successful login
-            rateLimiter.reset(clientId);
-            
-            router.push(getRedirectPath("/coach-dashboard"));
-          } else {
-            setError("Geçersiz email veya şifre");
+      // Try WordPress JWT authentication only if WordPress URL is configured
+      const hasWordPressConfig = !!(process.env.NEXT_PUBLIC_WORDPRESS_URL);
+      
+      if (hasWordPressConfig) {
+        try {
+          const authResponse = await wpAPI.login(email, password);
+          const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
+          
+          // Check if user has coach privileges
+          if (userRole !== 'coach') {
+            setError("Bu hesap antrenör yetkisine sahip değil");
+            setLoading(false);
+            return;
           }
+
+          // Create WordPress session
+          const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "coach");
+          localStorage.setItem("currentUser", JSON.stringify({
+            id: authResponse.user_id,
+            name: authResponse.user_display_name.split(' ')[0] || 'Coach',
+            surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
+            email: authResponse.user_email,
+            role: 'coach'
+          }));
+          localStorage.setItem("userEmail", authResponse.user_email);
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/coach-dashboard"));
+          return;
+        } catch (wpError: any) {
+          console.log('WordPress coach login failed, trying fallback:', wpError.message);
+        }
+      }
+      
+      // Fallback to localStorage-based authentication for backward compatibility
+      const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
+      const coach = coaches.find((c: any) => c.email === email);
+
+      if (coach) {
+        // Verify password (handle both hashed and plain text for backward compatibility)
+        const isPasswordValid = coach.password && coach.password.length > 50
+          ? await verifyPassword(password, coach.password)
+          : password === coach.password;
+
+        if (isPasswordValid) {
+          // If using old plain text password, update to hashed
+          if (coach.password && coach.password.length <= 50) {
+            coach.password = await hashPassword(coach.password);
+            const updatedCoaches = coaches.map((c: any) => c.id === coach.id ? coach : c);
+            localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
+          }
+
+          // Create secure session
+          const sessionId = SessionManager.createSession(coach.id, 'coach');
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "coach");
+          localStorage.setItem("currentUser", JSON.stringify(coach));
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/coach-dashboard"));
         } else {
           setError("Geçersiz email veya şifre");
         }
+      } else {
+        setError("Geçersiz email veya şifre");
       }
     } catch (error) {
       console.error('Coach login error:', error);
@@ -371,78 +379,82 @@ export default function Login() {
     }
 
     try {
-      // Try WordPress JWT authentication first
-      try {
-        const authResponse = await wpAPI.login(emailOrUsername, password);
-        const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
-        
-        // Check if user has parent privileges
-        if (userRole !== 'parent') {
-          setError("Bu hesap veli yetkisine sahip değil");
-          setLoading(false);
-          return;
-        }
-
-        // Create WordPress session
-        const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
-        
-        // Set legacy localStorage for compatibility
-        localStorage.setItem("userRole", "parent");
-        localStorage.setItem("currentUser", JSON.stringify({
-          id: authResponse.user_id,
-          name: authResponse.user_display_name.split(' ')[0] || 'Parent',
-          surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
-          email: authResponse.user_email,
-          role: 'parent'
-        }));
-        localStorage.setItem("userEmail", authResponse.user_email);
-
-        // Reset rate limiter on successful login
-        rateLimiter.reset(clientId);
-        
-        router.push(getRedirectPath("/parent-dashboard"));
-        return;
-      } catch (wpError: any) {
-        console.log('WordPress parent login failed, trying fallback:', wpError.message);
-        
-        // Fallback to localStorage-based authentication for backward compatibility
-        const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
-        const user = parentUsers.find((u: any) => 
-          u.email === emailOrUsername || u.username === emailOrUsername
-        );
-
-        if (user) {
-          // Verify password (handle both hashed and plain text for backward compatibility)
-          const isPasswordValid = user.password && user.password.length > 50
-            ? await verifyPassword(password, user.password)
-            : password === user.password;
-
-          if (isPasswordValid) {
-            // If using old plain text password, update to hashed
-            if (user.password && user.password.length <= 50) {
-              user.password = await hashPassword(user.password);
-              const updatedUsers = parentUsers.map((u: any) => u.id === user.id ? user : u);
-              localStorage.setItem('parentUsers', JSON.stringify(updatedUsers));
-            }
-
-            // Create secure session
-            const sessionId = SessionManager.createSession(user.id, 'parent');
-            
-            // Set legacy localStorage for compatibility
-            localStorage.setItem("userRole", "parent");
-            localStorage.setItem("currentUser", JSON.stringify(user));
-            localStorage.setItem("userEmail", user.email);
-
-            // Reset rate limiter on successful login
-            rateLimiter.reset(clientId);
-            
-            router.push(getRedirectPath("/parent-dashboard"));
-          } else {
-            setError("Geçersiz kullanıcı adı/email veya şifre");
+      // Try WordPress JWT authentication only if WordPress URL is configured
+      const hasWordPressConfig = !!(process.env.NEXT_PUBLIC_WORDPRESS_URL);
+      
+      if (hasWordPressConfig) {
+        try {
+          const authResponse = await wpAPI.login(emailOrUsername, password);
+          const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
+          
+          // Check if user has parent privileges
+          if (userRole !== 'parent') {
+            setError("Bu hesap veli yetkisine sahip değil");
+            setLoading(false);
+            return;
           }
+
+          // Create WordPress session
+          const sessionId = WordPressSessionManager.createSession(authResponse, userRole);
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "parent");
+          localStorage.setItem("currentUser", JSON.stringify({
+            id: authResponse.user_id,
+            name: authResponse.user_display_name.split(' ')[0] || 'Parent',
+            surname: authResponse.user_display_name.split(' ').slice(1).join(' ') || 'User',
+            email: authResponse.user_email,
+            role: 'parent'
+          }));
+          localStorage.setItem("userEmail", authResponse.user_email);
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/parent-dashboard"));
+          return;
+        } catch (wpError: any) {
+          console.log('WordPress parent login failed, trying fallback:', wpError.message);
+        }
+      }
+      
+      // Fallback to localStorage-based authentication for backward compatibility
+      const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
+      const user = parentUsers.find((u: any) => 
+        u.email === emailOrUsername || u.username === emailOrUsername
+      );
+
+      if (user) {
+        // Verify password (handle both hashed and plain text for backward compatibility)
+        const isPasswordValid = user.password && user.password.length > 50
+          ? await verifyPassword(password, user.password)
+          : password === user.password;
+
+        if (isPasswordValid) {
+          // If using old plain text password, update to hashed
+          if (user.password && user.password.length <= 50) {
+            user.password = await hashPassword(user.password);
+            const updatedUsers = parentUsers.map((u: any) => u.id === user.id ? user : u);
+            localStorage.setItem('parentUsers', JSON.stringify(updatedUsers));
+          }
+
+          // Create secure session
+          const sessionId = SessionManager.createSession(user.id, 'parent');
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "parent");
+          localStorage.setItem("currentUser", JSON.stringify(user));
+          localStorage.setItem("userEmail", user.email);
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/parent-dashboard"));
         } else {
           setError("Geçersiz kullanıcı adı/email veya şifre");
         }
+      } else {
+        setError("Geçersiz kullanıcı adı/email veya şifre");
       }
     } catch (error) {
       console.error('Parent login error:', error);
