@@ -327,7 +327,9 @@ export default function Athletes() {
 
     const amountExcluding = parseFloat(newEntry.amountExcludingVat);
     const vatRate = parseFloat(newEntry.vatRate);
-    const vatAmount = (amountExcluding * vatRate) / 100;
+    
+    // CRITICAL FIX: No VAT for credit (alacak) entries
+    const vatAmount = newEntry.type === 'credit' ? 0 : (amountExcluding * vatRate) / 100;
     const amountIncluding = amountExcluding + vatAmount;
 
     const entry = {
@@ -336,7 +338,7 @@ export default function Athletes() {
       month: newEntry.month,
       description: newEntry.description,
       amountExcludingVat: amountExcluding,
-      vatRate: vatRate,
+      vatRate: newEntry.type === 'credit' ? 0 : vatRate,
       vatAmount: vatAmount,
       amountIncludingVat: amountIncluding,
       unitCode: newEntry.unitCode,
@@ -368,13 +370,15 @@ export default function Athletes() {
   const calculateVatAmount = (excludingVat: string, vatRate: string) => {
     const excluding = parseFloat(excludingVat) || 0;
     const rate = parseFloat(vatRate) || 0;
-    const vatAmount = (excluding * rate) / 100;
+    
+    // CRITICAL FIX: No VAT for credit (alacak) entries
+    const vatAmount = newEntry.type === 'credit' ? 0 : (excluding * rate) / 100;
     const including = excluding + vatAmount;
     
     setNewEntry(prev => ({
       ...prev,
       amountExcludingVat: excludingVat,
-      vatRate: vatRate,
+      vatRate: newEntry.type === 'credit' ? '0' : vatRate,
       amountIncludingVat: including.toFixed(2)
     }));
   };

@@ -1415,8 +1415,9 @@ export default function Payments() {
     const amountExcluding = parseFloat(newEntry.amountExcludingVat);
     const vatRate = parseFloat(newEntry.vatRate);
     
-    // KDV hesaplaması - yeni utility fonksiyonunu kullan
-    const { vatAmount, amountIncludingVat } = calculateVatBreakdown(amountExcluding, vatRate);
+    // CRITICAL FIX: No VAT for credit (alacak) entries
+    const vatAmount = newEntry.type === 'credit' ? 0 : (amountExcluding * vatRate) / 100;
+    const amountIncludingVat = amountExcluding + vatAmount;
 
     // CARİ HESAP MÜKERRER KONTROL
     const duplicateCheck = DuplicatePreventionSystem.checkAccountEntryDuplicate(selectedAthlete.id, {
@@ -1477,13 +1478,14 @@ export default function Payments() {
     const excluding = parseFloat(excludingVat) || 0;
     const rate = parseFloat(vatRate) || 0;
     
-    // KDV hesaplaması - yeni utility fonksiyonunu kullan
-    const { vatAmount, amountIncludingVat } = calculateVatBreakdown(excluding, rate);
+    // CRITICAL FIX: No VAT for credit (alacak) entries
+    const vatAmount = newEntry.type === 'credit' ? 0 : (excluding * rate) / 100;
+    const amountIncludingVat = excluding + vatAmount;
     
     setNewEntry(prev => ({
       ...prev,
       amountExcludingVat: excludingVat,
-      vatRate: vatRate,
+      vatRate: newEntry.type === 'credit' ? '0' : vatRate,
       amountIncludingVat: amountIncludingVat.toFixed(2)
     }));
   };
