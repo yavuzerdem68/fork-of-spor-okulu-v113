@@ -326,21 +326,19 @@ export default function Messages() {
           body: JSON.stringify({
             to: athlete.parentEmail,
             subject: messageSubject,
-            html: [
-              '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">',
-              '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">',
-              '<h2 style="color: #333; margin: 0;">Spor Okulu Mesajı</h2>',
-              `<p style="color: #666; margin: 5px 0 0 0;">Sporcu: ${athlete.studentName} ${athlete.studentSurname}</p>`,
+            html: '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">' +
+              '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">' +
+              '<h2 style="color: #333; margin: 0;">Spor Okulu Mesajı</h2>' +
+              '<p style="color: #666; margin: 5px 0 0 0;">Sporcu: ' + athlete.studentName + ' ' + athlete.studentSurname + '</p>' +
+              '</div>' +
+              '<div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">' +
+              content.replace(/\n/g, '<br>') +
+              '</div>' +
+              '<div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; font-size: 12px; color: #666;">' +
+              '<p style="margin: 0;">Bu mesaj Spor Okulu Yönetim Sistemi tarafından gönderilmiştir.</p>' +
+              '<p style="margin: 5px 0 0 0;">Gönderim Tarihi: ' + new Date().toLocaleString('tr-TR') + '</p>' +
+              '</div>' +
               '</div>',
-              '<div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">',
-              content.replace(/\n/g, '<br>'),
-              '</div>',
-              '<div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; font-size: 12px; color: #666;">',
-              '<p style="margin: 0;">Bu mesaj Spor Okulu Yönetim Sistemi tarafından gönderilmiştir.</p>',
-              `<p style="margin: 5px 0 0 0;">Gönderim Tarihi: ${new Date().toLocaleString('tr-TR')}</p>`,
-              '</div>',
-              '</div>'
-            ].join(''),
             text: content,
             emailSettings: emailSettings
           }),
