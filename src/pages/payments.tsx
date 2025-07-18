@@ -258,6 +258,11 @@ export default function Payments() {
     type: 'debit'
   });
 
+  // Diagnostic states
+  const [isDiagnosticRunning, setIsDiagnosticRunning] = useState(false);
+  const [isDiagnosticDialogOpen, setIsDiagnosticDialogOpen] = useState(false);
+  const [diagnosticResults, setDiagnosticResults] = useState<any[]>([]);
+
 
 
   useEffect(() => {
@@ -1536,135 +1541,273 @@ export default function Payments() {
     setIsAccountDialogOpen(true);
   };
 
-  // EMERGENCY DIAGNOSTIC FUNCTION
-  const runEmergencyDiagnostic = () => {
-    console.log('\n🚨 EMERGENCY DIAGNOSTIC STARTING 🚨');
+  // ENHANCED EMERGENCY DIAGNOSTIC FUNCTION WITH VERCEL COMPATIBILITY
+  const runEmergencyDiagnostic = async () => {
+    console.log('🚨 DIAGNOSTIC BUTTON CLICKED - Starting function...');
     
-    // Get all athletes
-    const allAthletes = JSON.parse(localStorage.getItem('students') || '[]');
-    console.log(`👥 Total athletes in system: ${allAthletes.length}`);
+    if (isDiagnosticRunning) {
+      console.log('⚠️ Diagnostic already running, aborting...');
+      toast.error("Teşhis zaten çalışıyor, lütfen bekleyin...");
+      return;
+    }
+
+    console.log('✅ Setting diagnostic running state to true...');
+    setIsDiagnosticRunning(true);
     
-    // Get all account keys
-    const allKeys = Object.keys(localStorage);
-    const accountKeys = allKeys.filter(key => key.startsWith('account_'));
-    console.log(`📊 Total account keys found: ${accountKeys.length}`);
-    
-    // Check each athlete's account status
-    const diagnosticResults = allAthletes.map((athlete: any) => {
-      const accountKey = `account_${athlete.id}`;
-      const hasAccountData = localStorage.getItem(accountKey);
+    try {
+      console.log('\n🚨 EMERGENCY DIAGNOSTIC STARTING 🚨');
+      console.log('🌐 Environment:', typeof window !== 'undefined' ? 'Browser' : 'Server');
+      console.log('💾 localStorage available:', typeof localStorage !== 'undefined');
       
-      let accountSummary = {
-        hasData: false,
-        entryCount: 0,
-        debitCount: 0,
-        creditCount: 0,
-        balance: 0,
-        bulkPaymentCount: 0
-      };
+      // Show immediate feedback
+      toast.info("🔍 ACİL TESHİS başlatılıyor...", { duration: 3000 });
       
-      if (hasAccountData) {
+      // Add small delay to ensure state updates
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Check localStorage availability
+      if (typeof localStorage === 'undefined') {
+        throw new Error("localStorage kullanılamıyor - tarayıcı uyumluluğu sorunu");
+      }
+      
+      // Get all athletes with enhanced error handling
+      let allAthletes: any[] = [];
+      try {
+        console.log('📊 Attempting to load athletes from localStorage...');
+        const athletesData = localStorage.getItem('students');
+        console.log('📊 Athletes data length:', athletesData?.length || 0);
+        
+        if (!athletesData) {
+          throw new Error("Sporcu verisi bulunamadı (localStorage 'students' anahtarı boş)");
+        }
+        
+        allAthletes = JSON.parse(athletesData);
+        console.log('📊 Parsed athletes:', allAthletes.length);
+        
+        if (!Array.isArray(allAthletes)) {
+          throw new Error("Sporcu verisi geçersiz format (array değil)");
+        }
+      } catch (error: any) {
+        console.error('❌ Error loading athletes:', error);
+        toast.error(`Sporcu verisi yüklenirken hata: ${error.message}`);
+        setIsDiagnosticRunning(false);
+        return;
+      }
+      
+      console.log(`👥 Total athletes in system: ${allAthletes.length}`);
+      
+      // Get all localStorage keys with enhanced logging
+      let allKeys: string[] = [];
+      let accountKeys: string[] = [];
+      try {
+        console.log('🔑 Getting localStorage keys...');
+        allKeys = Object.keys(localStorage);
+        accountKeys = allKeys.filter(key => key.startsWith('account_'));
+        console.log(`📊 Total localStorage keys: ${allKeys.length}`);
+        console.log(`📊 Total account keys found: ${accountKeys.length}`);
+        console.log('🔑 Sample account keys:', accountKeys.slice(0, 5));
+      } catch (error: any) {
+        console.error('❌ Error accessing localStorage:', error);
+        toast.error(`localStorage erişim hatası: ${error.message}`);
+        setIsDiagnosticRunning(false);
+        return;
+      }
+      
+      // Process athletes with progress tracking
+      const diagnosticResults: any[] = [];
+      let processedCount = 0;
+      let errorCount = 0;
+      
+      console.log('🔄 Starting athlete processing...');
+      
+      for (let i = 0; i < allAthletes.length; i++) {
+        const athlete = allAthletes[i];
+        
         try {
-          const entries = JSON.parse(hasAccountData);
-          const debitEntries = entries.filter((e: any) => e.type === 'debit');
-          const creditEntries = entries.filter((e: any) => e.type === 'credit');
-          const totalDebit = debitEntries.reduce((sum: number, e: any) => sum + (parseFloat(e.amountIncludingVat) || 0), 0);
-          const totalCredit = creditEntries.reduce((sum: number, e: any) => sum + (parseFloat(e.amountIncludingVat) || 0), 0);
-          const bulkPaymentEntries = entries.filter((e: any) => 
-            e.description && (
-              e.description.includes('Toplu') || 
-              e.description.includes('Bulk') ||
-              e.description.includes('EFT/Havale') ||
-              e.description.includes('Kardeş')
-            )
-          );
+          const accountKey = `account_${athlete.id}`;
+          const hasAccountData = localStorage.getItem(accountKey);
           
-          accountSummary = {
-            hasData: true,
-            entryCount: entries.length,
-            debitCount: debitEntries.length,
-            creditCount: creditEntries.length,
-            balance: totalDebit - totalCredit,
-            bulkPaymentCount: bulkPaymentEntries.length
+          let accountSummary = {
+            hasData: false,
+            entryCount: 0,
+            debitCount: 0,
+            creditCount: 0,
+            balance: 0,
+            bulkPaymentCount: 0,
+            error: null as string | null
           };
-        } catch (error) {
-          console.error(`Error parsing account data for athlete ${athlete.id}:`, error);
+          
+          if (hasAccountData) {
+            try {
+              const entries = JSON.parse(hasAccountData);
+              if (!Array.isArray(entries)) {
+                throw new Error("Account entries is not an array");
+              }
+              
+              const debitEntries = entries.filter((e: any) => e.type === 'debit');
+              const creditEntries = entries.filter((e: any) => e.type === 'credit');
+              const totalDebit = debitEntries.reduce((sum: number, e: any) => {
+                const amount = parseFloat(e.amountIncludingVat) || 0;
+                return sum + amount;
+              }, 0);
+              const totalCredit = creditEntries.reduce((sum: number, e: any) => {
+                const amount = parseFloat(e.amountIncludingVat) || 0;
+                return sum + amount;
+              }, 0);
+              const bulkPaymentEntries = entries.filter((e: any) => 
+                e.description && (
+                  e.description.includes('Toplu') || 
+                  e.description.includes('Bulk') ||
+                  e.description.includes('EFT/Havale') ||
+                  e.description.includes('Kardeş')
+                )
+              );
+              
+              accountSummary = {
+                hasData: true,
+                entryCount: entries.length,
+                debitCount: debitEntries.length,
+                creditCount: creditEntries.length,
+                balance: Math.round((totalDebit - totalCredit) * 100) / 100,
+                bulkPaymentCount: bulkPaymentEntries.length,
+                error: null
+              };
+            } catch (parseError: any) {
+              console.error(`❌ Error parsing account data for athlete ${athlete.id}:`, parseError);
+              accountSummary.error = `Parse error: ${parseError.message}`;
+              errorCount++;
+            }
+          }
+          
+          diagnosticResults.push({
+            id: athlete.id,
+            name: `${athlete.studentName || 'N/A'} ${athlete.studentSurname || 'N/A'}`,
+            status: athlete.status || 'Aktif',
+            parentName: `${athlete.parentName || 'N/A'} ${athlete.parentSurname || 'N/A'}`,
+            account: accountSummary
+          });
+          
+          processedCount++;
+          
+          // Log progress every 10 athletes
+          if (processedCount % 10 === 0) {
+            console.log(`🔄 Processed ${processedCount}/${allAthletes.length} athletes...`);
+          }
+          
+        } catch (athleteError: any) {
+          console.error(`❌ Error processing athlete ${athlete.id}:`, athleteError);
+          errorCount++;
+          
+          diagnosticResults.push({
+            id: athlete.id || 'UNKNOWN',
+            name: `${athlete.studentName || 'N/A'} ${athlete.studentSurname || 'N/A'}`,
+            status: athlete.status || 'Aktif',
+            parentName: `${athlete.parentName || 'N/A'} ${athlete.parentSurname || 'N/A'}`,
+            account: {
+              hasData: false,
+              entryCount: 0,
+              debitCount: 0,
+              creditCount: 0,
+              balance: 0,
+              bulkPaymentCount: 0,
+              error: `Processing error: ${athleteError.message}`
+            }
+          });
         }
       }
       
-      return {
-        id: athlete.id,
-        name: `${athlete.studentName} ${athlete.studentSurname}`,
-        status: athlete.status || 'Aktif',
-        parentName: `${athlete.parentName} ${athlete.parentSurname}`,
-        account: accountSummary
-      };
-    });
-    
-    // Sort by athletes with account data first, then by balance
-    diagnosticResults.sort((a, b) => {
-      if (a.account.hasData !== b.account.hasData) {
-        return a.account.hasData ? -1 : 1;
+      console.log(`✅ Finished processing all athletes. Processed: ${processedCount}, Errors: ${errorCount}`);
+      
+      // Sort results
+      diagnosticResults.sort((a, b) => {
+        if (a.account.hasData !== b.account.hasData) {
+          return a.account.hasData ? -1 : 1;
+        }
+        return b.account.balance - a.account.balance;
+      });
+      
+      // Calculate summary statistics
+      const athletesWithData = diagnosticResults.filter(r => r.account.hasData && !r.account.error).length;
+      const athletesWithBalance = diagnosticResults.filter(r => r.account.balance > 0 && !r.account.error).length;
+      const athletesWithBulkPayments = diagnosticResults.filter(r => r.account.bulkPaymentCount > 0 && !r.account.error).length;
+      const problematicAthletes = diagnosticResults.filter(result => 
+        result.account.hasData && 
+        result.account.entryCount > 0 && 
+        result.account.bulkPaymentCount === 0 &&
+        result.account.creditCount === 0 &&
+        !result.account.error
+      );
+      const athletesWithErrors = diagnosticResults.filter(result => result.account.error);
+      
+      console.log(`\n📊 DIAGNOSTIC SUMMARY:`);
+      console.log(`- Total Athletes: ${allAthletes.length}`);
+      console.log(`- Successfully Processed: ${processedCount}`);
+      console.log(`- Processing Errors: ${errorCount}`);
+      console.log(`- Athletes with Account Data: ${athletesWithData}`);
+      console.log(`- Athletes with Positive Balance: ${athletesWithBalance}`);
+      console.log(`- Athletes with Bulk/Bank Payments: ${athletesWithBulkPayments}`);
+      console.log(`- Problematic Athletes: ${problematicAthletes.length}`);
+      console.log(`- Athletes with Errors: ${athletesWithErrors.length}`);
+      
+      // Log problematic athletes
+      if (problematicAthletes.length > 0) {
+        console.log(`\n🚨 PROBLEMATIC ATHLETES (${problematicAthletes.length}):`);
+        problematicAthletes.forEach(athlete => {
+          console.log(`- ${athlete.name} (ID: ${athlete.id}) - ${athlete.account.entryCount} entries, ₺${athlete.account.balance.toFixed(2)} balance`);
+        });
       }
-      return b.account.balance - a.account.balance;
-    });
-    
-    console.log('\n📋 COMPLETE DIAGNOSTIC RESULTS:');
-    console.log('=====================================');
-    
-    diagnosticResults.forEach((result, index) => {
-      console.log(`${index + 1}. ${result.name} (ID: ${result.id}) - Status: ${result.status}`);
-      console.log(`   Parent: ${result.parentName}`);
-      if (result.account.hasData) {
-        console.log(`   ✅ Account Data: ${result.account.entryCount} entries`);
-        console.log(`   💰 Balance: ₺${result.account.balance.toFixed(2)}`);
-        console.log(`   📦 Bulk Payments: ${result.account.bulkPaymentCount}`);
-        console.log(`   📊 Debit: ${result.account.debitCount}, Credit: ${result.account.creditCount}`);
-      } else {
-        console.log(`   ❌ No Account Data Found`);
+      
+      // Store results with logging
+      console.log('💾 Storing diagnostic results in state...');
+      setDiagnosticResults(diagnosticResults);
+      
+      // Add delay to ensure state update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Show success toast
+      console.log('🎉 Showing success toast...');
+      toast.success(
+        `✅ ACİL TESHİS TAMAMLANDI!\n\n` +
+        `📊 İşlenen Sporcu: ${processedCount}/${allAthletes.length}\n` +
+        `✅ Cari Hesabı Olan: ${athletesWithData}\n` +
+        `💰 Borcu Olan: ${athletesWithBalance}\n` +
+        `📦 Toplu Ödeme Kaydı Olan: ${athletesWithBulkPayments}\n` +
+        `🚨 Sorunlu Sporcu: ${problematicAthletes.length}\n` +
+        `❌ Hatalı Kayıt: ${athletesWithErrors.length}\n\n` +
+        `Detaylı sonuçlar açılacak pencerede!`,
+        { duration: 10000 }
+      );
+      
+      // Open diagnostic results dialog with logging
+      console.log('🔓 Opening diagnostic dialog...');
+      setIsDiagnosticDialogOpen(true);
+      
+      console.log('✅ DIAGNOSTIC COMPLETED SUCCESSFULLY');
+      return diagnosticResults;
+      
+    } catch (error: any) {
+      console.error('💥 CRITICAL ERROR in runEmergencyDiagnostic:', error);
+      console.error('💥 Error stack:', error.stack);
+      
+      toast.error(
+        `🚨 ACİL TESHİS HATASI!\n\n` +
+        `Hata: ${error.message}\n\n` +
+        `Konsol: F12 > Console\n` +
+        `Lütfen bu hatayı bildirin.`,
+        { duration: 15000 }
+      );
+      
+      // Also show a simple alert as fallback
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          alert(`ACİL TESHİS HATASI!\n\nHata: ${error.message}\n\nLütfen F12 > Console'u açın ve hatayı kontrol edin.`);
+        }, 1000);
       }
-      console.log('   ---');
-    });
-    
-    // Find problematic athletes (have account data but no bulk payments showing)
-    const problematicAthletes = diagnosticResults.filter(result => 
-      result.account.hasData && 
-      result.account.entryCount > 0 && 
-      result.account.bulkPaymentCount === 0 &&
-      result.account.creditCount === 0
-    );
-    
-    console.log(`\n🚨 PROBLEMATIC ATHLETES (${problematicAthletes.length}):`);
-    console.log('These athletes have account entries but no bulk/bank payments:');
-    problematicAthletes.forEach(athlete => {
-      console.log(`- ${athlete.name} (ID: ${athlete.id}) - ${athlete.account.entryCount} entries, ₺${athlete.account.balance.toFixed(2)} balance`);
-    });
-    
-    // Show summary
-    const athletesWithData = diagnosticResults.filter(r => r.account.hasData).length;
-    const athletesWithBalance = diagnosticResults.filter(r => r.account.balance > 0).length;
-    const athletesWithBulkPayments = diagnosticResults.filter(r => r.account.bulkPaymentCount > 0).length;
-    
-    console.log(`\n📊 SUMMARY:`);
-    console.log(`- Total Athletes: ${allAthletes.length}`);
-    console.log(`- Athletes with Account Data: ${athletesWithData}`);
-    console.log(`- Athletes with Positive Balance: ${athletesWithBalance}`);
-    console.log(`- Athletes with Bulk/Bank Payments: ${athletesWithBulkPayments}`);
-    console.log(`- Problematic Athletes: ${problematicAthletes.length}`);
-    
-    // Show toast with summary
-    toast.success(
-      `🔍 ACİL TESHİS TAMAMLANDI!\n\n` +
-      `📊 Toplam Sporcu: ${allAthletes.length}\n` +
-      `✅ Cari Hesabı Olan: ${athletesWithData}\n` +
-      `💰 Borcu Olan: ${athletesWithBalance}\n` +
-      `📦 Toplu Ödeme Kaydı Olan: ${athletesWithBulkPayments}\n` +
-      `🚨 Sorunlu Sporcu: ${problematicAthletes.length}\n\n` +
-      `Detaylar konsol logunda!`,
-      { duration: 15000 }
-    );
-    
-    return diagnosticResults;
+      
+    } finally {
+      console.log('🔄 Setting diagnostic running state to false...');
+      setIsDiagnosticRunning(false);
+    }
   };
 
   const saveAccountEntry = () => {
@@ -1979,9 +2122,18 @@ export default function Payments() {
                       </div>
                       
                       <div className="flex gap-2">
-                        <Button variant="outline" onClick={runEmergencyDiagnostic} className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100">
-                          <AlertTriangle className="h-4 w-4 mr-2" />
-                          ACİL TESHİS
+                        <Button 
+                          variant="outline" 
+                          onClick={runEmergencyDiagnostic} 
+                          disabled={isDiagnosticRunning}
+                          className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                        >
+                          {isDiagnosticRunning ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 mr-2" />
+                          )}
+                          {isDiagnosticRunning ? 'TESHİS ÇALIŞIYOR...' : 'ACİL TESHİS'}
                         </Button>
 
                         <Button variant="outline" onClick={exportPaymentsToExcel}>
@@ -3002,6 +3154,290 @@ export default function Payments() {
                 <Button onClick={saveEditedEntry}>
                   <Check className="h-4 w-4 mr-2" />
                   Güncelle
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Diagnostic Results Dialog */}
+          <Dialog open={isDiagnosticDialogOpen} onOpenChange={setIsDiagnosticDialogOpen}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <span>ACİL TESHİS SONUÇLARI</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Sistem teşhis sonuçları - Sporcu cari hesap durumları ve sorunlu kayıtlar
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {diagnosticResults.length > 0 && (
+                  <>
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-5 w-5 text-blue-600" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Toplam Sporcu</p>
+                              <p className="text-xl font-bold">{diagnosticResults.length}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Cari Hesabı Olan</p>
+                              <p className="text-xl font-bold text-green-600">
+                                {diagnosticResults.filter(r => r.account.hasData && !r.account.error).length}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="h-5 w-5 text-orange-600" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Sorunlu Sporcu</p>
+                              <p className="text-xl font-bold text-orange-600">
+                                {diagnosticResults.filter(r => 
+                                  r.account.hasData && 
+                                  r.account.entryCount > 0 && 
+                                  r.account.bulkPaymentCount === 0 &&
+                                  r.account.creditCount === 0 &&
+                                  !r.account.error
+                                ).length}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <X className="h-5 w-5 text-red-600" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Hatalı Kayıt</p>
+                              <p className="text-xl font-bold text-red-600">
+                                {diagnosticResults.filter(r => r.account.error).length}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Detailed Results Table */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Detaylı Teşhis Sonuçları</CardTitle>
+                        <CardDescription>
+                          Tüm sporcuların cari hesap durumları ve tespit edilen sorunlar
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Sporcu</TableHead>
+                              <TableHead>Veli</TableHead>
+                              <TableHead>Durum</TableHead>
+                              <TableHead>Cari Hesap</TableHead>
+                              <TableHead>Bakiye</TableHead>
+                              <TableHead>Toplam Hareket</TableHead>
+                              <TableHead>Toplu Ödeme</TableHead>
+                              <TableHead>Sorun</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {diagnosticResults.slice(0, 50).map((result, index) => (
+                              <TableRow key={result.id} className={
+                                result.account.error ? 'bg-red-50' :
+                                result.account.hasData && result.account.entryCount > 0 && result.account.bulkPaymentCount === 0 && result.account.creditCount === 0 ? 'bg-orange-50' :
+                                result.account.hasData ? 'bg-green-50' : ''
+                              }>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{result.name}</p>
+                                    <p className="text-xs text-muted-foreground">ID: {result.id}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm">{result.parentName}</TableCell>
+                                <TableCell>
+                                  <Badge variant={result.status === 'Aktif' ? 'default' : 'secondary'}>
+                                    {result.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {result.account.hasData ? (
+                                    <Badge className="bg-green-100 text-green-800">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Var
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline">
+                                      <X className="h-3 w-3 mr-1" />
+                                      Yok
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className={`font-medium ${
+                                  result.account.balance > 0 ? 'text-red-600' : 
+                                  result.account.balance < 0 ? 'text-green-600' : ''
+                                }`}>
+                                  {result.account.hasData ? `₺${result.account.balance.toFixed(2)}` : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {result.account.hasData ? (
+                                    <div className="text-sm">
+                                      <span className="font-medium">{result.account.entryCount}</span>
+                                      <div className="text-xs text-muted-foreground">
+                                        B:{result.account.debitCount} A:{result.account.creditCount}
+                                      </div>
+                                    </div>
+                                  ) : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {result.account.hasData ? (
+                                    result.account.bulkPaymentCount > 0 ? (
+                                      <Badge className="bg-blue-100 text-blue-800">
+                                        {result.account.bulkPaymentCount}
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-orange-600">
+                                        0
+                                      </Badge>
+                                    )
+                                  ) : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {result.account.error ? (
+                                    <Badge variant="destructive" className="text-xs">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      Hata
+                                    </Badge>
+                                  ) : result.account.hasData && result.account.entryCount > 0 && result.account.bulkPaymentCount === 0 && result.account.creditCount === 0 ? (
+                                    <Badge className="bg-orange-100 text-orange-800 text-xs">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      Sorunlu
+                                    </Badge>
+                                  ) : result.account.hasData ? (
+                                    <Badge className="bg-green-100 text-green-800 text-xs">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Normal
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs">
+                                      Veri Yok
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        
+                        {diagnosticResults.length > 50 && (
+                          <div className="mt-4 text-center">
+                            <p className="text-sm text-muted-foreground">
+                              İlk 50 kayıt gösteriliyor. Toplam {diagnosticResults.length} kayıt var.
+                              Tüm detaylar geliştirici konsolunda mevcut.
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Error Details */}
+                    {diagnosticResults.filter(r => r.account.error).length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-red-600">Hatalı Kayıtlar</CardTitle>
+                          <CardDescription>
+                            Veri işleme sırasında hata oluşan sporcu kayıtları
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {diagnosticResults.filter(r => r.account.error).map((result) => (
+                              <Alert key={result.id} variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                  <strong>{result.name}</strong> (ID: {result.id}): {result.account.error}
+                                </AlertDescription>
+                              </Alert>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Problematic Athletes */}
+                    {diagnosticResults.filter(r => 
+                      r.account.hasData && 
+                      r.account.entryCount > 0 && 
+                      r.account.bulkPaymentCount === 0 &&
+                      r.account.creditCount === 0 &&
+                      !r.account.error
+                    ).length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-orange-600">Sorunlu Sporcular</CardTitle>
+                          <CardDescription>
+                            Cari hesabı olan ancak toplu/banka ödemesi bulunmayan sporcular
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {diagnosticResults.filter(r => 
+                              r.account.hasData && 
+                              r.account.entryCount > 0 && 
+                              r.account.bulkPaymentCount === 0 &&
+                              r.account.creditCount === 0 &&
+                              !r.account.error
+                            ).map((result) => (
+                              <Alert key={result.id} className="border-orange-200 bg-orange-50">
+                                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                <AlertDescription>
+                                  <div className="space-y-1">
+                                    <p className="font-medium">{result.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Bakiye: ₺{result.account.balance.toFixed(2)} | 
+                                      Hareket: {result.account.entryCount} | 
+                                      Toplu Ödeme: {result.account.bulkPaymentCount}
+                                    </p>
+                                  </div>
+                                </AlertDescription>
+                              </Alert>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => {
+                  console.log('🔍 Full diagnostic results:', diagnosticResults);
+                  toast.info("Tüm detaylar geliştirici konsoluna yazdırıldı (F12 > Console)");
+                }}>
+                  Konsola Yazdır
+                </Button>
+                <Button onClick={() => setIsDiagnosticDialogOpen(false)}>
+                  Kapat
                 </Button>
               </div>
             </DialogContent>
