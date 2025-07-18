@@ -986,7 +986,7 @@ export default function Payments() {
     toast.success("Kardeş ödemesi iptal edildi");
   };
 
-  // Step 4: Confirm and save matches - FIXED VERSION
+  // Step 4: Confirm and save matches - ENHANCED DUPLICATE PREVENTION
   const confirmMatches = async () => {
     const validMatches = matchResults.filter(result => result.athleteId);
     
@@ -1001,17 +1001,46 @@ export default function Payments() {
       // Get existing payments from localStorage (not from state to avoid stale data)
       const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
       let processedCount = 0;
+      let duplicateCount = 0;
       
       // Load and update payment matching history
       const matchingHistory = JSON.parse(localStorage.getItem('paymentMatchingHistory') || '{}');
       
-      // Check for existing payments to prevent duplicates
+      // ENHANCED DUPLICATE PREVENTION - Multiple layers of checking
       const existingPaymentKeys = new Set();
+      const existingAccountEntryKeys = new Set();
+      
+      // Build comprehensive duplicate detection keys
       existingPayments.forEach((payment: any) => {
+        // Reference-based key (most reliable for bank imports)
         if (payment.reference) {
-          existingPaymentKeys.add(`${payment.athleteId}_${payment.reference}_${payment.amount}`);
+          existingPaymentKeys.add(`REF_${payment.athleteId}_${payment.reference}_${payment.amount}`);
+        }
+        
+        // Date + Amount + Athlete key (catches same-day duplicates)
+        if (payment.paymentDate) {
+          existingPaymentKeys.add(`DATE_${payment.athleteId}_${payment.paymentDate}_${payment.amount}`);
+        }
+        
+        // Description-based key (catches similar descriptions)
+        if (payment.description) {
+          const normalizedDesc = normalizeTurkish(payment.description);
+          existingPaymentKeys.add(`DESC_${payment.athleteId}_${normalizedDesc}_${payment.amount}`);
         }
       });
+      
+      // Also check account entries for duplicates
+      athletes.forEach((athlete: any) => {
+        const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+        accountEntries.forEach((entry: any) => {
+          if (entry.description && entry.type === 'credit') {
+            const normalizedDesc = normalizeTurkish(entry.description);
+            existingAccountEntryKeys.add(`ACCOUNT_${athlete.id}_${entry.date.split('T')[0]}_${entry.amountIncludingVat}_${normalizedDesc}`);
+          }
+        });
+      });
+      
+      console.log(`🔍 DUPLICATE PREVENTION: Found ${existingPaymentKeys.size} existing payment keys and ${existingAccountEntryKeys.size} account entry keys`);
       
       for (const match of validMatches) {
         const parsedDate = parseTurkishDate(match.excelRow.date);
@@ -1049,21 +1078,29 @@ export default function Payments() {
             const athlete = athletes.find(a => a.id.toString() === siblingId);
             if (!athlete) continue;
             
-            // Check for duplicate
-            const paymentKey = `${siblingId}_${match.excelRow.reference}_${amountPerSibling}`;
-            if (existingPaymentKeys.has(paymentKey)) {
-              console.log(`Skipping duplicate sibling payment: ${paymentKey}`);
+            // ENHANCED DUPLICATE CHECK - Multiple keys
+            const refKey = `REF_${siblingId}_${match.excelRow.reference}_${amountPerSibling}`;
+            const dateKey = `DATE_${siblingId}_${paymentDate}_${amountPerSibling}`;
+            const descKey = `DESC_${siblingId}_${normalizedDescription}_${amountPerSibling}`;
+            const accountKey = `ACCOUNT_${siblingId}_${paymentDate}_${amountPerSibling}_${normalizedDescription}`;
+            
+            if (existingPaymentKeys.has(refKey) || 
+                existingPaymentKeys.has(dateKey) || 
+                existingPaymentKeys.has(descKey) ||
+                existingAccountEntryKeys.has(accountKey)) {
+              console.log(`❌ DUPLICATE SIBLING PAYMENT DETECTED: ${athlete.studentName} ${athlete.studentSurname} - ₺${amountPerSibling} - ${match.excelRow.reference}`);
+              duplicateCount++;
               continue;
             }
             
-            // Create payment record for each sibling - FIXED: Ensure status is "Ödendi"
+            // Create payment record for each sibling
             const newPayment = {
               id: `sibling_${siblingId}_${Date.now()}_${Math.random()}`,
               athleteId: athlete.id,
               athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
               parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
               amount: amountPerSibling,
-              status: "Ödendi", // FIXED: Explicitly set as paid
+              status: "Ödendi",
               paymentDate: paymentDate,
               method: "Havale/EFT",
               reference: match.excelRow.reference,
@@ -1077,7 +1114,11 @@ export default function Payments() {
             };
             
             existingPayments.push(newPayment);
-            existingPaymentKeys.add(paymentKey);
+            
+            // Add all keys to prevent future duplicates
+            existingPaymentKeys.add(refKey);
+            existingPaymentKeys.add(dateKey);
+            existingPaymentKeys.add(descKey);
             
             // Add to athlete's account
             const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
@@ -1096,17 +1137,30 @@ export default function Payments() {
             
             existingEntries.push(paymentEntry);
             localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+            
+            // Add account entry key to prevent duplicates
+            existingAccountEntryKeys.add(accountKey);
+            
             processedCount++;
+            console.log(`✅ SIBLING PAYMENT ADDED: ${athlete.studentName} ${athlete.studentSurname} - ₺${amountPerSibling}`);
           }
         } else {
           // Handle single athlete payment
           const athlete = athletes.find(a => a.id.toString() === match.athleteId);
           if (!athlete) continue;
           
-          // Check for duplicate
-          const paymentKey = `${match.athleteId}_${match.excelRow.reference}_${match.excelRow.amount}`;
-          if (existingPaymentKeys.has(paymentKey)) {
-            console.log(`Skipping duplicate payment: ${paymentKey}`);
+          // ENHANCED DUPLICATE CHECK - Multiple keys
+          const refKey = `REF_${match.athleteId}_${match.excelRow.reference}_${match.excelRow.amount}`;
+          const dateKey = `DATE_${match.athleteId}_${paymentDate}_${match.excelRow.amount}`;
+          const descKey = `DESC_${match.athleteId}_${normalizedDescription}_${match.excelRow.amount}`;
+          const accountKey = `ACCOUNT_${match.athleteId}_${paymentDate}_${match.excelRow.amount}_${normalizedDescription}`;
+          
+          if (existingPaymentKeys.has(refKey) || 
+              existingPaymentKeys.has(dateKey) || 
+              existingPaymentKeys.has(descKey) ||
+              existingAccountEntryKeys.has(accountKey)) {
+            console.log(`❌ DUPLICATE SINGLE PAYMENT DETECTED: ${athlete.studentName} ${athlete.studentSurname} - ₺${match.excelRow.amount} - ${match.excelRow.reference}`);
+            duplicateCount++;
             continue;
           }
           
@@ -1118,21 +1172,22 @@ export default function Payments() {
           );
           
           if (existingPaymentIndex !== -1) {
-            // Update existing payment - FIXED: Ensure status is "Ödendi"
+            // Update existing payment
             existingPayments[existingPaymentIndex].status = "Ödendi";
             existingPayments[existingPaymentIndex].paymentDate = paymentDate;
             existingPayments[existingPaymentIndex].method = "Havale/EFT";
             existingPayments[existingPaymentIndex].reference = match.excelRow.reference;
             existingPayments[existingPaymentIndex].isPaid = true;
+            console.log(`✅ EXISTING PAYMENT UPDATED: ${athlete.studentName} ${athlete.studentSurname} - ₺${match.excelRow.amount}`);
           } else {
-            // Create new payment record - FIXED: Ensure status is "Ödendi"
+            // Create new payment record
             const newPayment = {
               id: `single_${match.athleteId}_${Date.now()}_${Math.random()}`,
               athleteId: athlete.id,
               athleteName: `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim(),
               parentName: `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim(),
               amount: match.excelRow.amount,
-              status: "Ödendi", // FIXED: Explicitly set as paid
+              status: "Ödendi",
               paymentDate: paymentDate,
               method: "Havale/EFT",
               reference: match.excelRow.reference,
@@ -1145,9 +1200,13 @@ export default function Payments() {
             };
             
             existingPayments.push(newPayment);
+            console.log(`✅ NEW PAYMENT ADDED: ${athlete.studentName} ${athlete.studentSurname} - ₺${match.excelRow.amount}`);
           }
           
-          existingPaymentKeys.add(paymentKey);
+          // Add all keys to prevent future duplicates
+          existingPaymentKeys.add(refKey);
+          existingPaymentKeys.add(dateKey);
+          existingPaymentKeys.add(descKey);
           
           // Add to athlete's account
           const existingEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
@@ -1166,6 +1225,10 @@ export default function Payments() {
           
           existingEntries.push(paymentEntry);
           localStorage.setItem(`account_${athlete.id}`, JSON.stringify(existingEntries));
+          
+          // Add account entry key to prevent duplicates
+          existingAccountEntryKeys.add(accountKey);
+          
           processedCount++;
         }
       }
@@ -1184,7 +1247,17 @@ export default function Payments() {
       setMatchResults([]);
       setStep('upload');
       
-      toast.success(`${processedCount} ödeme başarıyla kaydedildi! Eşleştirmeler gelecek aylar için hatırlandı.`);
+      // Enhanced success message with duplicate info
+      if (duplicateCount > 0) {
+        toast.success(
+          `✅ ${processedCount} ödeme başarıyla kaydedildi!\n` +
+          `⚠️ ${duplicateCount} mükerrer ödeme atlandı (daha önce kaydedilmiş)\n` +
+          `🧠 Eşleştirmeler gelecek aylar için hatırlandı.`,
+          { duration: 8000 }
+        );
+      } else {
+        toast.success(`✅ ${processedCount} ödeme başarıyla kaydedildi! Eşleştirmeler gelecek aylar için hatırlandı.`);
+      }
       
       // Reload payments to reflect changes
       loadPayments();
