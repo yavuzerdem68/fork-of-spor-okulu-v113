@@ -14,6 +14,7 @@ import { verifyPassword, hashPassword } from "@/utils/security";
 import { RateLimiter, SessionManager } from "@/utils/security";
 import { sanitizeInput } from "@/utils/security";
 import { WordPressJWTAPI, WordPressUserRoles, WordPressSessionManager } from "@/lib/wordpress-jwt-api";
+import { cloudAuthManager } from "@/lib/cloud-auth";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -97,7 +98,32 @@ export default function Login() {
     }
 
     try {
-      // Try WordPress JWT authentication first
+      // Check if we're in cloud environment (Vercel/production)
+      const isCloudEnvironment = process.env.NEXT_PUBLIC_CO_DEV_ENV === 'cloud' || 
+                                process.env.NODE_ENV === 'production';
+
+      if (isCloudEnvironment) {
+        // Try cloud authentication first for cloud deployments
+        try {
+          const cloudUser = await cloudAuthManager.signIn(email, password);
+          
+          if (cloudUser.role !== 'admin') {
+            setError("Bu hesap yönetici yetkisine sahip değil");
+            setLoading(false);
+            return;
+          }
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/dashboard"));
+          return;
+        } catch (cloudError: any) {
+          console.log('Cloud authentication failed, trying WordPress:', cloudError.message);
+        }
+      }
+
+      // Try WordPress JWT authentication
       try {
         const authResponse = await wpAPI.login(email, password);
         const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
@@ -129,7 +155,7 @@ export default function Login() {
         router.push(getRedirectPath("/dashboard"));
         return;
       } catch (wpError: any) {
-        console.log('WordPress login failed, trying fallback:', wpError.message);
+        console.log('WordPress login failed, trying localStorage fallback:', wpError.message);
         
         // Fallback to localStorage-based authentication for backward compatibility
         let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
