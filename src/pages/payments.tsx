@@ -1662,182 +1662,358 @@ export default function Payments() {
             }
           });
           
-          // ENHANCED FIX 2: Look for bulk fee entries in multiple locations with comprehensive search
+          // ENHANCED FIX 2: COMPREHENSIVE BULK FEE SEARCH AND TRANSFER SYSTEM
           try {
-            console.log(`🔍 BULK FEE SEARCH for athlete ${athlete.id} (${athlete.studentName} ${athlete.studentSurname})`);
+            console.log(`\n🔍 COMPREHENSIVE BULK FEE SEARCH for athlete ${athlete.id} (${athlete.studentName} ${athlete.studentSurname})`);
             
-            // Method 1: Check temporary bulk fee storage
-            const bulkFeeKey = `bulkFee_${athlete.id}`;
-            const tempBulkFees = localStorage.getItem(bulkFeeKey);
-            console.log(`  📦 Checking ${bulkFeeKey}:`, tempBulkFees ? 'FOUND' : 'NOT FOUND');
-            
-            if (tempBulkFees) {
-              try {
-                const bulkFeeEntries = JSON.parse(tempBulkFees);
-                console.log(`  📊 Parsed bulk fee entries:`, bulkFeeEntries);
-                
-                if (Array.isArray(bulkFeeEntries) && bulkFeeEntries.length > 0) {
-                  console.log(`  ✅ Found ${bulkFeeEntries.length} bulk fee entries to transfer`);
-                  
-                  bulkFeeEntries.forEach((entry: any, index: number) => {
-                    console.log(`    📝 Processing bulk fee entry ${index + 1}:`, entry);
-                    
-                    const feeEntry = {
-                      id: Date.now() + Math.random(),
-                      date: entry.date || entry.dueDate || new Date().toISOString(),
-                      month: entry.month || (entry.date ? entry.date.slice(0, 7) : new Date().toISOString().slice(0, 7)),
-                      description: entry.description || `Toplu Aidat Girişi (${entry.month || 'Transfer'})`,
-                      amountExcludingVat: entry.amountExcludingVat || entry.amount || entry.totalAmount || 0,
-                      vatRate: entry.vatRate || 10,
-                      vatAmount: entry.vatAmount || 0,
-                      amountIncludingVat: entry.amountIncludingVat || entry.totalAmount || entry.amount || 0,
-                      unitCode: entry.unitCode || 'Ay',
-                      type: 'debit',
-                      transferredFromBulkFee: true,
-                      originalBulkFeeData: entry
-                    };
-                    
-                    initialAccountEntries.push(feeEntry);
-                    populatedCount++;
-                    console.log(`    ✅ Transferred bulk fee: ₺${feeEntry.amountIncludingVat} - ${feeEntry.description}`);
-                  });
-                  
-                  // Clean up temporary storage AFTER successful transfer
-                  localStorage.removeItem(bulkFeeKey);
-                  console.log(`  🧹 Cleaned up temporary bulk fee storage for athlete ${athlete.id}`);
-                } else {
-                  console.log(`  ⚠️ Bulk fee data exists but is not a valid array:`, bulkFeeEntries);
-                }
-              } catch (parseError) {
-                console.error(`  ❌ Error parsing bulk fee data for athlete ${athlete.id}:`, parseError);
-              }
-            }
-            
-            // Method 2: Search for any localStorage keys that might contain bulk fee data for this athlete
+            // Get ALL localStorage keys for comprehensive search
             const allStorageKeys = Object.keys(localStorage);
-            const athleteRelatedKeys = allStorageKeys.filter(key => 
-              key.includes(athlete.id.toString()) && 
-              (key.includes('bulk') || key.includes('fee') || key.includes('aidat') || key.includes('Fee'))
-            );
+            console.log(`  📊 Total localStorage keys to search: ${allStorageKeys.length}`);
             
-            console.log(`  🔍 Found ${athleteRelatedKeys.length} athlete-related bulk/fee keys:`, athleteRelatedKeys);
+            let bulkFeeEntriesFound = 0;
             
-            athleteRelatedKeys.forEach(key => {
-              if (key === bulkFeeKey) return; // Already processed above
-              
-              try {
-                const data = localStorage.getItem(key);
-                if (data) {
-                  console.log(`  📦 Checking additional key ${key}:`, data.substring(0, 100) + '...');
-                  
+            // Method 1: Direct athlete-specific bulk fee keys
+            const directBulkKeys = [
+              `bulkFee_${athlete.id}`,
+              `bulk_fee_${athlete.id}`,
+              `aidat_${athlete.id}`,
+              `toplu_aidat_${athlete.id}`,
+              `fee_${athlete.id}`,
+              `bulk_${athlete.id}`,
+              `bulkFees_${athlete.id}`
+            ];
+            
+            console.log(`  🎯 Checking direct bulk fee keys:`, directBulkKeys);
+            
+            directBulkKeys.forEach(key => {
+              const data = localStorage.getItem(key);
+              if (data) {
+                console.log(`  ✅ FOUND direct bulk fee data in ${key}:`, data.substring(0, 200) + '...');
+                
+                try {
                   const parsedData = JSON.parse(data);
+                  
                   if (Array.isArray(parsedData) && parsedData.length > 0) {
-                    console.log(`  📊 Found ${parsedData.length} entries in ${key}`);
+                    console.log(`    📊 Processing ${parsedData.length} entries from ${key}`);
                     
-                    // Check if this looks like bulk fee data
-                    const looksLikeBulkFee = parsedData.some((entry: any) => 
-                      entry.amount || entry.amountIncludingVat || entry.totalAmount ||
-                      (entry.description && (entry.description.includes('aidat') || entry.description.includes('Aidat')))
-                    );
+                    parsedData.forEach((entry: any, index: number) => {
+                      console.log(`      📝 Entry ${index + 1}:`, entry);
+                      
+                      // More flexible entry processing
+                      const amount = entry.amountIncludingVat || entry.totalAmount || entry.amount || entry.tutar || 0;
+                      
+                      if (amount > 0) {
+                        const feeEntry = {
+                          id: Date.now() + Math.random(),
+                          date: entry.date || entry.dueDate || entry.tarih || new Date().toISOString(),
+                          month: entry.month || entry.ay || (entry.date ? entry.date.slice(0, 7) : new Date().toISOString().slice(0, 7)),
+                          description: entry.description || entry.aciklama || `Toplu Aidat Girişi - ${key}`,
+                          amountExcludingVat: entry.amountExcludingVat || entry.amount || entry.tutar || amount,
+                          vatRate: entry.vatRate || entry.kdvOrani || 10,
+                          vatAmount: entry.vatAmount || entry.kdvTutari || 0,
+                          amountIncludingVat: amount,
+                          unitCode: entry.unitCode || entry.birim || 'Ay',
+                          type: 'debit',
+                          transferredFromBulkFee: true,
+                          originalBulkFeeData: entry,
+                          sourceKey: key
+                        };
+                        
+                        initialAccountEntries.push(feeEntry);
+                        populatedCount++;
+                        bulkFeeEntriesFound++;
+                        console.log(`      ✅ Transferred bulk fee: ₺${feeEntry.amountIncludingVat} - ${feeEntry.description}`);
+                      } else {
+                        console.log(`      ⚠️ Entry ${index + 1} has no valid amount, skipping`);
+                      }
+                    });
                     
-                    if (looksLikeBulkFee) {
-                      console.log(`  ✅ ${key} looks like bulk fee data, transferring...`);
+                    // Clean up after successful transfer
+                    localStorage.removeItem(key);
+                    console.log(`    🧹 Cleaned up ${key} after successful transfer`);
+                    
+                  } else if (parsedData && typeof parsedData === 'object') {
+                    // Handle single entry (not array)
+                    console.log(`    📝 Processing single entry from ${key}:`, parsedData);
+                    
+                    const amount = parsedData.amountIncludingVat || parsedData.totalAmount || parsedData.amount || parsedData.tutar || 0;
+                    
+                    if (amount > 0) {
+                      const feeEntry = {
+                        id: Date.now() + Math.random(),
+                        date: parsedData.date || parsedData.dueDate || parsedData.tarih || new Date().toISOString(),
+                        month: parsedData.month || parsedData.ay || new Date().toISOString().slice(0, 7),
+                        description: parsedData.description || parsedData.aciklama || `Toplu Aidat Girişi - ${key}`,
+                        amountExcludingVat: parsedData.amountExcludingVat || parsedData.amount || parsedData.tutar || amount,
+                        vatRate: parsedData.vatRate || parsedData.kdvOrani || 10,
+                        vatAmount: parsedData.vatAmount || parsedData.kdvTutari || 0,
+                        amountIncludingVat: amount,
+                        unitCode: parsedData.unitCode || parsedData.birim || 'Ay',
+                        type: 'debit',
+                        transferredFromBulkFee: true,
+                        originalBulkFeeData: parsedData,
+                        sourceKey: key
+                      };
                       
-                      parsedData.forEach((entry: any, index: number) => {
-                        if (entry.amount || entry.amountIncludingVat || entry.totalAmount) {
-                          const feeEntry = {
-                            id: Date.now() + Math.random(),
-                            date: entry.date || entry.dueDate || new Date().toISOString(),
-                            month: entry.month || (entry.date ? entry.date.slice(0, 7) : new Date().toISOString().slice(0, 7)),
-                            description: `Transfer from ${key} - ${entry.description || 'Toplu Aidat'}`,
-                            amountExcludingVat: entry.amountExcludingVat || entry.amount || entry.totalAmount || 0,
-                            vatRate: entry.vatRate || 10,
-                            vatAmount: entry.vatAmount || 0,
-                            amountIncludingVat: entry.amountIncludingVat || entry.totalAmount || entry.amount || 0,
-                            unitCode: entry.unitCode || 'Ay',
-                            type: 'debit',
-                            transferredFromBulkFee: true,
-                            transferredFromKey: key,
-                            originalData: entry
-                          };
-                          
-                          initialAccountEntries.push(feeEntry);
-                          populatedCount++;
-                          console.log(`    ✅ Transferred from ${key}: ₺${feeEntry.amountIncludingVat} - ${feeEntry.description}`);
-                        }
-                      });
+                      initialAccountEntries.push(feeEntry);
+                      populatedCount++;
+                      bulkFeeEntriesFound++;
+                      console.log(`    ✅ Transferred single bulk fee: ₺${feeEntry.amountIncludingVat} - ${feeEntry.description}`);
                       
-                      // Clean up this key too after successful transfer
+                      // Clean up after successful transfer
                       localStorage.removeItem(key);
-                      console.log(`  🧹 Cleaned up ${key} after transfer`);
-                    } else {
-                      console.log(`  ⚠️ ${key} doesn't look like bulk fee data, skipping`);
+                      console.log(`    🧹 Cleaned up ${key} after successful transfer`);
                     }
+                  } else {
+                    console.log(`    ⚠️ Data in ${key} is not in expected format:`, parsedData);
                   }
+                  
+                } catch (parseError) {
+                  console.error(`    ❌ Error parsing data from ${key}:`, parseError);
                 }
-              } catch (error) {
-                console.warn(`  ⚠️ Could not process ${key}:`, error);
               }
             });
             
-            // Method 3: Check for any general bulk fee storage that might not be athlete-specific
-            const generalBulkKeys = allStorageKeys.filter(key => 
-              (key.includes('bulk') || key.includes('fee') || key.includes('aidat')) && 
-              !key.includes('account_') &&
-              !key.includes(athlete.id.toString())
-            );
-            
-            if (generalBulkKeys.length > 0) {
-              console.log(`  🔍 Found ${generalBulkKeys.length} general bulk fee keys to check:`, generalBulkKeys);
+            // Method 2: Pattern-based search for any keys containing athlete ID and bulk/fee keywords
+            const patternKeys = allStorageKeys.filter(key => {
+              const containsAthleteId = key.includes(athlete.id.toString());
+              const containsBulkKeywords = key.toLowerCase().includes('bulk') || 
+                                         key.toLowerCase().includes('fee') || 
+                                         key.toLowerCase().includes('aidat') || 
+                                         key.toLowerCase().includes('toplu');
               
-              generalBulkKeys.forEach(key => {
-                try {
-                  const data = localStorage.getItem(key);
-                  if (data) {
+              return containsAthleteId && containsBulkKeywords && !directBulkKeys.includes(key);
+            });
+            
+            if (patternKeys.length > 0) {
+              console.log(`  🔍 Found ${patternKeys.length} pattern-based keys:`, patternKeys);
+              
+              patternKeys.forEach(key => {
+                const data = localStorage.getItem(key);
+                if (data) {
+                  console.log(`    📦 Checking pattern key ${key}:`, data.substring(0, 100) + '...');
+                  
+                  try {
                     const parsedData = JSON.parse(data);
                     
-                    // Check if this general storage contains data for our athlete
                     if (Array.isArray(parsedData)) {
-                      const athleteEntries = parsedData.filter((entry: any) => 
-                        entry.athleteId === athlete.id || 
-                        entry.studentId === athlete.id ||
-                        (entry.studentName && entry.studentName === athlete.studentName && entry.studentSurname === athlete.studentSurname)
-                      );
-                      
-                      if (athleteEntries.length > 0) {
-                        console.log(`  ✅ Found ${athleteEntries.length} entries for athlete in general storage ${key}`);
+                      parsedData.forEach((entry: any, index: number) => {
+                        const amount = entry.amountIncludingVat || entry.totalAmount || entry.amount || entry.tutar || 0;
                         
-                        athleteEntries.forEach((entry: any) => {
+                        if (amount > 0) {
                           const feeEntry = {
                             id: Date.now() + Math.random(),
-                            date: entry.date || entry.dueDate || new Date().toISOString(),
-                            month: entry.month || (entry.date ? entry.date.slice(0, 7) : new Date().toISOString().slice(0, 7)),
-                            description: `Transfer from general storage - ${entry.description || 'Toplu Aidat'}`,
-                            amountExcludingVat: entry.amountExcludingVat || entry.amount || entry.totalAmount || 0,
-                            vatRate: entry.vatRate || 10,
-                            vatAmount: entry.vatAmount || 0,
-                            amountIncludingVat: entry.amountIncludingVat || entry.totalAmount || entry.amount || 0,
-                            unitCode: entry.unitCode || 'Ay',
+                            date: entry.date || entry.dueDate || entry.tarih || new Date().toISOString(),
+                            month: entry.month || entry.ay || new Date().toISOString().slice(0, 7),
+                            description: `Pattern Transfer - ${key} - ${entry.description || entry.aciklama || 'Toplu Aidat'}`,
+                            amountExcludingVat: entry.amountExcludingVat || entry.amount || entry.tutar || amount,
+                            vatRate: entry.vatRate || entry.kdvOrani || 10,
+                            vatAmount: entry.vatAmount || entry.kdvTutari || 0,
+                            amountIncludingVat: amount,
+                            unitCode: entry.unitCode || entry.birim || 'Ay',
                             type: 'debit',
                             transferredFromBulkFee: true,
-                            transferredFromGeneralStorage: key,
+                            transferredFromPattern: true,
+                            sourceKey: key,
                             originalData: entry
                           };
                           
                           initialAccountEntries.push(feeEntry);
                           populatedCount++;
-                          console.log(`    ✅ Transferred from general storage: ₺${feeEntry.amountIncludingVat} - ${feeEntry.description}`);
-                        });
-                      }
+                          bulkFeeEntriesFound++;
+                          console.log(`      ✅ Pattern transfer: ₺${feeEntry.amountIncludingVat} from ${key}`);
+                        }
+                      });
+                      
+                      // Clean up after transfer
+                      localStorage.removeItem(key);
+                      console.log(`    🧹 Cleaned up pattern key ${key}`);
                     }
+                  } catch (error) {
+                    console.warn(`    ⚠️ Could not process pattern key ${key}:`, error);
                   }
-                } catch (error) {
-                  console.warn(`  ⚠️ Could not process general bulk key ${key}:`, error);
                 }
               });
             }
             
-            console.log(`🏁 BULK FEE SEARCH COMPLETE for athlete ${athlete.id}: Found and transferred ${initialAccountEntries.filter(e => e.transferredFromBulkFee).length} bulk fee entries`);
+            // Method 3: General bulk fee storage search (for entries that might not be athlete-specific)
+            const generalBulkKeys = allStorageKeys.filter(key => {
+              const isBulkKey = key.toLowerCase().includes('bulk') || 
+                              key.toLowerCase().includes('fee') || 
+                              key.toLowerCase().includes('aidat') || 
+                              key.toLowerCase().includes('toplu');
+              
+              const isNotAccountKey = !key.startsWith('account_');
+              const isNotAthleteSpecific = !key.includes(athlete.id.toString());
+              
+              return isBulkKey && isNotAccountKey && isNotAthleteSpecific;
+            });
+            
+            if (generalBulkKeys.length > 0) {
+              console.log(`  🌐 Found ${generalBulkKeys.length} general bulk keys to search:`, generalBulkKeys);
+              
+              generalBulkKeys.forEach(key => {
+                const data = localStorage.getItem(key);
+                if (data) {
+                  try {
+                    const parsedData = JSON.parse(data);
+                    
+                    if (Array.isArray(parsedData)) {
+                      // Look for entries that match this athlete
+                      const athleteEntries = parsedData.filter((entry: any) => {
+                        return entry.athleteId === athlete.id || 
+                               entry.studentId === athlete.id ||
+                               entry.id === athlete.id ||
+                               (entry.studentName && entry.studentSurname && 
+                                entry.studentName.toLowerCase() === athlete.studentName?.toLowerCase() && 
+                                entry.studentSurname.toLowerCase() === athlete.studentSurname?.toLowerCase());
+                      });
+                      
+                      if (athleteEntries.length > 0) {
+                        console.log(`    ✅ Found ${athleteEntries.length} matching entries in general storage ${key}`);
+                        
+                        athleteEntries.forEach((entry: any, index: number) => {
+                          const amount = entry.amountIncludingVat || entry.totalAmount || entry.amount || entry.tutar || 0;
+                          
+                          if (amount > 0) {
+                            const feeEntry = {
+                              id: Date.now() + Math.random(),
+                              date: entry.date || entry.dueDate || entry.tarih || new Date().toISOString(),
+                              month: entry.month || entry.ay || new Date().toISOString().slice(0, 7),
+                              description: `General Storage Transfer - ${key} - ${entry.description || entry.aciklama || 'Toplu Aidat'}`,
+                              amountExcludingVat: entry.amountExcludingVat || entry.amount || entry.tutar || amount,
+                              vatRate: entry.vatRate || entry.kdvOrani || 10,
+                              vatAmount: entry.vatAmount || entry.kdvTutari || 0,
+                              amountIncludingVat: amount,
+                              unitCode: entry.unitCode || entry.birim || 'Ay',
+                              type: 'debit',
+                              transferredFromBulkFee: true,
+                              transferredFromGeneralStorage: true,
+                              sourceKey: key,
+                              originalData: entry
+                            };
+                            
+                            initialAccountEntries.push(feeEntry);
+                            populatedCount++;
+                            bulkFeeEntriesFound++;
+                            console.log(`      ✅ General storage transfer: ₺${feeEntry.amountIncludingVat} from ${key}`);
+                          }
+                        });
+                      }
+                    }
+                  } catch (error) {
+                    console.warn(`    ⚠️ Could not process general bulk key ${key}:`, error);
+                  }
+                }
+              });
+            }
+            
+            // Method 4: Last resort - search ALL keys for any data that might be bulk fees for this athlete
+            console.log(`  🔍 LAST RESORT: Searching ALL ${allStorageKeys.length} localStorage keys for athlete ${athlete.id}`);
+            
+            let lastResortChecked = 0;
+            allStorageKeys.forEach(key => {
+              // Skip keys we've already processed
+              if (directBulkKeys.includes(key) || 
+                  patternKeys.includes(key) || 
+                  generalBulkKeys.includes(key) ||
+                  key.startsWith('account_') ||
+                  key === 'students' ||
+                  key === 'payments' ||
+                  key.includes('diagnostic') ||
+                  key.includes('matching')) {
+                return;
+              }
+              
+              lastResortChecked++;
+              
+              const data = localStorage.getItem(key);
+              if (data && data.length > 10) { // Skip very small data
+                try {
+                  const parsedData = JSON.parse(data);
+                  
+                  // Check if this data mentions our athlete
+                  const dataString = JSON.stringify(parsedData).toLowerCase();
+                  const athleteNameLower = (athlete.studentName + ' ' + athlete.studentSurname).toLowerCase();
+                  const athleteIdString = athlete.id.toString();
+                  
+                  if (dataString.includes(athleteIdString) || dataString.includes(athleteNameLower)) {
+                    console.log(`    🎯 LAST RESORT HIT: Found athlete reference in ${key}`);
+                    
+                    // Try to extract bulk fee data
+                    if (Array.isArray(parsedData)) {
+                      parsedData.forEach((entry: any) => {
+                        if ((entry.athleteId === athlete.id || entry.id === athlete.id) && 
+                            (entry.amount || entry.amountIncludingVat || entry.totalAmount)) {
+                          
+                          const amount = entry.amountIncludingVat || entry.totalAmount || entry.amount || 0;
+                          
+                          if (amount > 0) {
+                            const feeEntry = {
+                              id: Date.now() + Math.random(),
+                              date: entry.date || entry.dueDate || new Date().toISOString(),
+                              month: entry.month || new Date().toISOString().slice(0, 7),
+                              description: `Last Resort Transfer - ${key} - ${entry.description || 'Veri Transferi'}`,
+                              amountExcludingVat: entry.amountExcludingVat || entry.amount || amount,
+                              vatRate: entry.vatRate || 10,
+                              vatAmount: entry.vatAmount || 0,
+                              amountIncludingVat: amount,
+                              unitCode: entry.unitCode || 'Ay',
+                              type: 'debit',
+                              transferredFromBulkFee: true,
+                              lastResortTransfer: true,
+                              sourceKey: key,
+                              originalData: entry
+                            };
+                            
+                            initialAccountEntries.push(feeEntry);
+                            populatedCount++;
+                            bulkFeeEntriesFound++;
+                            console.log(`      ✅ Last resort transfer: ₺${feeEntry.amountIncludingVat} from ${key}`);
+                          }
+                        }
+                      });
+                    } else if (parsedData && typeof parsedData === 'object' && 
+                              (parsedData.athleteId === athlete.id || parsedData.id === athlete.id)) {
+                      
+                      const amount = parsedData.amountIncludingVat || parsedData.totalAmount || parsedData.amount || 0;
+                      
+                      if (amount > 0) {
+                        const feeEntry = {
+                          id: Date.now() + Math.random(),
+                          date: parsedData.date || parsedData.dueDate || new Date().toISOString(),
+                          month: parsedData.month || new Date().toISOString().slice(0, 7),
+                          description: `Last Resort Single Transfer - ${key}`,
+                          amountExcludingVat: parsedData.amountExcludingVat || parsedData.amount || amount,
+                          vatRate: parsedData.vatRate || 10,
+                          vatAmount: parsedData.vatAmount || 0,
+                          amountIncludingVat: amount,
+                          unitCode: parsedData.unitCode || 'Ay',
+                          type: 'debit',
+                          transferredFromBulkFee: true,
+                          lastResortTransfer: true,
+                          sourceKey: key,
+                          originalData: parsedData
+                        };
+                        
+                        initialAccountEntries.push(feeEntry);
+                        populatedCount++;
+                        bulkFeeEntriesFound++;
+                        console.log(`      ✅ Last resort single transfer: ₺${feeEntry.amountIncludingVat} from ${key}`);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  // Silently ignore parse errors in last resort search
+                }
+              }
+            });
+            
+            console.log(`  📊 Last resort checked ${lastResortChecked} additional keys`);
+            
+            console.log(`🏁 COMPREHENSIVE BULK FEE SEARCH COMPLETE for athlete ${athlete.id}:`);
+            console.log(`  ✅ Total bulk fee entries found and transferred: ${bulkFeeEntriesFound}`);
+            console.log(`  📦 Total account entries for this athlete: ${initialAccountEntries.length}`);
             
             // ENHANCED FIX 3: Check for any other athlete-specific data that might need transfer
             const allKeys = Object.keys(localStorage);
