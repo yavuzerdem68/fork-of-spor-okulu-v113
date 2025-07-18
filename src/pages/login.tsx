@@ -98,13 +98,97 @@ export default function Login() {
     }
 
     try {
-      // Check if we're in cloud environment (Vercel/production) and have Supabase configured
+      // PRIORITY 1: Check adminUsers array first (where admin panel creates users)
+      let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+      
+      // Create default admin if no admin users exist
+      if (adminUsers.length === 0) {
+        const hashedPassword = await hashPassword('admin123');
+        const defaultAdmin = {
+          id: 'default-admin',
+          name: 'Sistem',
+          surname: 'Yöneticisi',
+          email: 'admin@sportscr.com',
+          password: hashedPassword,
+          role: 'super_admin',
+          createdAt: new Date().toISOString(),
+          isDefault: true,
+          isActive: true
+        };
+        adminUsers = [defaultAdmin];
+        localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
+      }
+
+      // Find admin by email in adminUsers array
+      let admin = adminUsers.find((a: any) => a.email === email);
+
+      if (admin) {
+        // Check if user is active
+        if (admin.isActive === false) {
+          setError("Bu hesap devre dışı bırakılmış");
+          setLoading(false);
+          return;
+        }
+
+        // Check if user has admin role
+        if (!['admin', 'super_admin'].includes(admin.role)) {
+          setError("Bu hesap yönetici yetkisine sahip değil");
+          setLoading(false);
+          return;
+        }
+
+        // Verify password
+        let isPasswordValid = false;
+        
+        if (admin.isDefault && admin.password === 'admin123') {
+          // Backward compatibility for default admin with plain text password
+          isPasswordValid = password === 'admin123';
+        } else {
+          // For hashed passwords
+          isPasswordValid = await verifyPassword(password, admin.password);
+        }
+
+        if (isPasswordValid) {
+          // If using old plain text password for default admin, update to hashed
+          if (admin.isDefault && admin.password === 'admin123') {
+            admin.password = await hashPassword('admin123');
+            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+          }
+
+          // Update last login
+          admin.lastLogin = new Date().toISOString();
+          const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+          localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+
+          // Create secure session
+          const sessionId = SessionManager.createSession(admin.id, 'admin');
+          
+          // Set legacy localStorage for compatibility
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("currentUser", JSON.stringify({
+            id: admin.id,
+            name: admin.name || 'Admin',
+            surname: admin.surname || 'User',
+            email: admin.email,
+            role: 'admin'
+          }));
+          localStorage.setItem("userEmail", admin.email);
+
+          // Reset rate limiter on successful login
+          rateLimiter.reset(clientId);
+          
+          router.push(getRedirectPath("/dashboard"));
+          return;
+        }
+      }
+
+      // PRIORITY 2: Check cloud environment and try cloud authentication
       const isCloudEnvironment = process.env.NEXT_PUBLIC_CO_DEV_ENV === 'cloud' || 
                                 process.env.NODE_ENV === 'production';
       const hasSupabaseConfig = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
       if (isCloudEnvironment && hasSupabaseConfig) {
-        // Try cloud authentication first for cloud deployments with Supabase
         try {
           const cloudUser = await cloudAuthManager.signIn(email, password);
           
@@ -120,11 +204,11 @@ export default function Login() {
           router.push(getRedirectPath("/dashboard"));
           return;
         } catch (cloudError: any) {
-          console.log('Cloud authentication failed, trying WordPress:', cloudError.message);
+          console.log('Cloud authentication failed:', cloudError.message);
         }
       }
 
-      // Try WordPress JWT authentication only if WordPress URL is configured
+      // PRIORITY 3: Try WordPress JWT authentication if configured
       const hasWordPressConfig = !!(process.env.NEXT_PUBLIC_WORDPRESS_URL);
       
       if (hasWordPressConfig) {
@@ -132,7 +216,6 @@ export default function Login() {
           const authResponse = await wpAPI.login(email, password);
           const userRole = WordPressUserRoles.mapToLocalRole(authResponse.user_role);
           
-          // Check if user has admin privileges
           if (userRole !== 'admin') {
             setError("Bu hesap yönetici yetkisine sahip değil");
             setLoading(false);
@@ -159,98 +242,41 @@ export default function Login() {
           router.push(getRedirectPath("/dashboard"));
           return;
         } catch (wpError: any) {
-          console.log('WordPress login failed, trying localStorage fallback:', wpError.message);
+          console.log('WordPress login failed:', wpError.message);
         }
       }
       
-      // Fallback to localStorage-based authentication for backward compatibility
-      // First check the 'users' array (from cloud storage adapter)
+      // PRIORITY 4: Check 'users' array as final fallback
       let users = JSON.parse(localStorage.getItem('users') || '[]');
-      let admin = users.find((u: any) => u.email === email && u.role === 'admin');
+      let cloudUser = users.find((u: any) => u.email === email && u.role === 'admin');
       
-      // If not found in 'users', check legacy 'adminUsers' array
-      if (!admin) {
-        let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
-        
-        if (adminUsers.length === 0) {
-          // Create default admin with hashed password
-          const hashedPassword = await hashPassword('admin123');
-          const defaultAdmin = {
-            id: 'default-admin',
-            name: 'Sistem',
-            surname: 'Yöneticisi',
-            email: 'admin@sportscr.com',
-            password: hashedPassword,
-            role: 'admin',
-            createdAt: new Date().toISOString(),
-            isDefault: true
-          };
-          adminUsers = [defaultAdmin];
-          localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
-        }
-
-        // Find admin by email in legacy array
-        admin = adminUsers.find((a: any) => a.email === email);
-      }
-
-      if (admin) {
-        // Check if this is a user from the 'users' array (cloud storage adapter)
-        const isCloudUser = users.some((u: any) => u.id === admin.id);
-        
-        // Verify password
-        let isPasswordValid = false;
-        
-        if (isCloudUser) {
-          // For cloud users, password is stored as plain text (should be hashed in production)
-          isPasswordValid = password === admin.password;
-        } else {
-          // For legacy admin users, handle both hashed and plain text passwords
-          isPasswordValid = admin.isDefault && admin.password === 'admin123' 
-            ? password === 'admin123' // Backward compatibility for default admin
-            : await verifyPassword(password, admin.password);
-        }
-
-        if (isPasswordValid) {
-          // If using old plain text password for legacy admin, update to hashed
-          if (!isCloudUser && admin.isDefault && admin.password === 'admin123') {
-            admin.password = await hashPassword('admin123');
-            const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
-            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
-          }
-
+      if (cloudUser) {
+        // For cloud users, password is stored as plain text (should be hashed in production)
+        if (password === cloudUser.password) {
           // Create secure session
-          const sessionId = SessionManager.createSession(admin.id, 'admin');
+          const sessionId = SessionManager.createSession(cloudUser.id, 'admin');
           
           // Update last login
-          admin.lastLogin = new Date().toISOString();
-          
-          if (isCloudUser) {
-            // Update in users array
-            const updatedUsers = users.map((u: any) => u.id === admin.id ? admin : u);
-            localStorage.setItem('users', JSON.stringify(updatedUsers));
-          } else {
-            // Update in adminUsers array
-            const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
-            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
-          }
+          cloudUser.lastLogin = new Date().toISOString();
+          const updatedUsers = users.map((u: any) => u.id === cloudUser.id ? cloudUser : u);
+          localStorage.setItem('users', JSON.stringify(updatedUsers));
 
           // Set legacy localStorage for compatibility
           localStorage.setItem("userRole", "admin");
-          localStorage.setItem("currentUser", JSON.stringify(admin));
-          localStorage.setItem("userEmail", admin.email);
+          localStorage.setItem("currentUser", JSON.stringify(cloudUser));
+          localStorage.setItem("userEmail", cloudUser.email);
 
           // Reset rate limiter on successful login
           rateLimiter.reset(clientId);
           
           router.push(getRedirectPath("/dashboard"));
-        } else {
-          setError("Geçersiz email veya şifre");
+          return;
         }
-      } else {
-        setError("Geçersiz email veya şifre");
       }
+
+      // If we reach here, login failed
+      setError("Geçersiz email veya şifre");
+      
     } catch (error) {
       console.error('Admin login error:', error);
       setError("Giriş sırasında bir hata oluştu");
