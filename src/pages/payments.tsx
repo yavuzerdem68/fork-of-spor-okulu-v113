@@ -2412,6 +2412,9 @@ export default function Payments() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Cari Hesap Hareketleri</CardTitle>
+                    <CardDescription>
+                      Hareketler tarihe göre kronolojik sıralanmıştır (En yeni üstte)
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     {accountEntries.length > 0 ? (
@@ -2425,26 +2428,66 @@ export default function Payments() {
                             <TableHead>Tutar (KDV Hariç)</TableHead>
                             <TableHead>KDV</TableHead>
                             <TableHead>Toplam</TableHead>
+                            <TableHead>Bakiye</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {accountEntries.map((entry) => (
-                            <TableRow key={entry.id}>
-                              <TableCell>{new Date(entry.date).toLocaleDateString('tr-TR')}</TableCell>
-                              <TableCell>{new Date(entry.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</TableCell>
-                              <TableCell>{entry.description}</TableCell>
-                              <TableCell>
-                                <Badge variant={entry.type === 'debit' ? 'destructive' : 'default'}>
-                                  {entry.type === 'debit' ? 'Borç' : 'Alacak'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>₺{Math.round(entry.amountExcludingVat * 100) / 100}</TableCell>
-                              <TableCell>₺{Math.round(entry.vatAmount * 100) / 100} (%{entry.vatRate})</TableCell>
-                              <TableCell className={entry.type === 'debit' ? 'text-red-600' : 'text-green-600'}>
-                                {entry.type === 'debit' ? '+' : '-'}₺{Math.round(entry.amountIncludingVat * 100) / 100}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {(() => {
+                            // FIXED: Sort entries chronologically (newest first) and calculate running balance
+                            const sortedEntries = [...accountEntries].sort((a, b) => {
+                              const dateA = new Date(a.date);
+                              const dateB = new Date(b.date);
+                              return dateB.getTime() - dateA.getTime(); // Newest first
+                            });
+                            
+                            // Calculate running balance for each entry (from oldest to newest for calculation)
+                            const entriesWithBalance = [...sortedEntries].reverse().map((entry, index, reversedArray) => {
+                              // Calculate balance up to this point
+                              const balance = reversedArray.slice(0, index + 1).reduce((total, e) => {
+                                const amount = parseFloat(String(e.amountIncludingVat || 0).replace(',', '.')) || 0;
+                                return e.type === 'debit' 
+                                  ? total + amount
+                                  : total - amount;
+                              }, 0);
+                              
+                              return {
+                                ...entry,
+                                runningBalance: Math.round(balance * 100) / 100
+                              };
+                            }).reverse(); // Reverse back to newest first for display
+                            
+                            return entriesWithBalance.map((entry) => (
+                              <TableRow key={entry.id}>
+                                <TableCell className="font-medium">
+                                  {new Date(entry.date).toLocaleDateString('tr-TR')}
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(entry.month + '-01').toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}
+                                </TableCell>
+                                <TableCell className="max-w-xs">
+                                  <div className="truncate" title={entry.description}>
+                                    {entry.description}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={entry.type === 'debit' ? 'destructive' : 'default'}>
+                                    {entry.type === 'debit' ? 'Borç' : 'Alacak'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>₺{Math.round(entry.amountExcludingVat * 100) / 100}</TableCell>
+                                <TableCell>₺{Math.round(entry.vatAmount * 100) / 100} (%{entry.vatRate})</TableCell>
+                                <TableCell className={entry.type === 'debit' ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                                  {entry.type === 'debit' ? '+' : '-'}₺{Math.round(entry.amountIncludingVat * 100) / 100}
+                                </TableCell>
+                                <TableCell className={`font-bold ${entry.runningBalance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  ₺{Math.abs(entry.runningBalance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  <div className="text-xs text-muted-foreground">
+                                    {entry.runningBalance >= 0 ? 'Borç' : 'Alacak'}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ));
+                          })()}
                         </TableBody>
                       </Table>
                     ) : (
