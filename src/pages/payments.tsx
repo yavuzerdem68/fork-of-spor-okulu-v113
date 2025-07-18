@@ -1541,7 +1541,7 @@ export default function Payments() {
     setIsAccountDialogOpen(true);
   };
 
-  // ENHANCED EMERGENCY DIAGNOSTIC FUNCTION WITH VERCEL COMPATIBILITY
+  // ENHANCED EMERGENCY DIAGNOSTIC FUNCTION WITH ACCOUNT CARD INITIALIZATION
   const runEmergencyDiagnostic = async () => {
     console.log('🚨 DIAGNOSTIC BUTTON CLICKED - Starting function...');
     
@@ -1611,6 +1611,29 @@ export default function Payments() {
         toast.error(`localStorage erişim hatası: ${error.message}`);
         setIsDiagnosticRunning(false);
         return;
+      }
+      
+      // CRITICAL FIX: Initialize missing account cards
+      let initializedCount = 0;
+      console.log('\n🔧 INITIALIZING MISSING ACCOUNT CARDS...');
+      
+      for (const athlete of allAthletes) {
+        const accountKey = `account_${athlete.id}`;
+        const hasAccountData = localStorage.getItem(accountKey);
+        
+        if (!hasAccountData) {
+          console.log(`🆕 Creating account card for: ${athlete.studentName} ${athlete.studentSurname} (ID: ${athlete.id})`);
+          
+          // Initialize empty account card
+          const initialAccountEntries: any[] = [];
+          localStorage.setItem(accountKey, JSON.stringify(initialAccountEntries));
+          initializedCount++;
+        }
+      }
+      
+      if (initializedCount > 0) {
+        console.log(`✅ Initialized ${initializedCount} missing account cards`);
+        toast.success(`🔧 ${initializedCount} eksik cari hesap kartı oluşturuldu!`, { duration: 5000 });
       }
       
       // Process athletes with progress tracking
@@ -1748,6 +1771,7 @@ export default function Payments() {
       console.log(`- Athletes with Bulk/Bank Payments: ${athletesWithBulkPayments}`);
       console.log(`- Problematic Athletes: ${problematicAthletes.length}`);
       console.log(`- Athletes with Errors: ${athletesWithErrors.length}`);
+      console.log(`- Account Cards Initialized: ${initializedCount}`);
       
       // Log problematic athletes
       if (problematicAthletes.length > 0) {
@@ -1766,23 +1790,39 @@ export default function Payments() {
       
       // Show success toast
       console.log('🎉 Showing success toast...');
-      toast.success(
-        `✅ ACİL TESHİS TAMAMLANDI!\n\n` +
-        `📊 İşlenen Sporcu: ${processedCount}/${allAthletes.length}\n` +
-        `✅ Cari Hesabı Olan: ${athletesWithData}\n` +
-        `💰 Borcu Olan: ${athletesWithBalance}\n` +
-        `📦 Toplu Ödeme Kaydı Olan: ${athletesWithBulkPayments}\n` +
-        `🚨 Sorunlu Sporcu: ${problematicAthletes.length}\n` +
-        `❌ Hatalı Kayıt: ${athletesWithErrors.length}\n\n` +
-        `Detaylı sonuçlar açılacak pencerede!`,
-        { duration: 10000 }
-      );
+      const successMessage = initializedCount > 0 
+        ? `✅ ACİL TESHİS VE ONARIM TAMAMLANDI!\n\n` +
+          `🔧 ${initializedCount} eksik cari hesap kartı oluşturuldu\n` +
+          `📊 İşlenen Sporcu: ${processedCount}/${allAthletes.length}\n` +
+          `✅ Cari Hesabı Olan: ${athletesWithData}\n` +
+          `💰 Borcu Olan: ${athletesWithBalance}\n` +
+          `📦 Toplu Ödeme Kaydı Olan: ${athletesWithBulkPayments}\n` +
+          `🚨 Sorunlu Sporcu: ${problematicAthletes.length}\n` +
+          `❌ Hatalı Kayıt: ${athletesWithErrors.length}\n\n` +
+          `🎯 Artık tüm sporcuların cari hesap kartı mevcut!`
+        : `✅ ACİL TESHİS TAMAMLANDI!\n\n` +
+          `📊 İşlenen Sporcu: ${processedCount}/${allAthletes.length}\n` +
+          `✅ Cari Hesabı Olan: ${athletesWithData}\n` +
+          `💰 Borcu Olan: ${athletesWithBalance}\n` +
+          `📦 Toplu Ödeme Kaydı Olan: ${athletesWithBulkPayments}\n` +
+          `🚨 Sorunlu Sporcu: ${problematicAthletes.length}\n` +
+          `❌ Hatalı Kayıt: ${athletesWithErrors.length}\n\n` +
+          `Detaylı sonuçlar açılacak pencerede!`;
+      
+      toast.success(successMessage, { duration: 10000 });
       
       // Open diagnostic results dialog with logging
       console.log('🔓 Opening diagnostic dialog...');
       setIsDiagnosticDialogOpen(true);
       
       console.log('✅ DIAGNOSTIC COMPLETED SUCCESSFULLY');
+      
+      // Reload payments to reflect the new account cards
+      if (initializedCount > 0) {
+        console.log('🔄 Reloading payments to reflect new account cards...');
+        loadPayments();
+      }
+      
       return diagnosticResults;
       
     } catch (error: any) {
@@ -3198,6 +3238,12 @@ export default function Payments() {
                               <p className="text-xl font-bold text-green-600">
                                 {diagnosticResults.filter(r => r.account.hasData && !r.account.error).length}
                               </p>
+                              <p className="text-xs text-muted-foreground">
+                                {diagnosticResults.length === diagnosticResults.filter(r => r.account.hasData && !r.account.error).length 
+                                  ? "✅ Tüm sporcular" 
+                                  : `${diagnosticResults.length - diagnosticResults.filter(r => r.account.hasData && !r.account.error).length} eksik`
+                                }
+                              </p>
                             </div>
                           </div>
                         </CardContent>
@@ -3237,6 +3283,31 @@ export default function Payments() {
                         </CardContent>
                       </Card>
                     </div>
+
+                    {/* Account Card Status Alert */}
+                    {diagnosticResults.length > 0 && (
+                      <Alert className="border-blue-200 bg-blue-50">
+                        <CheckCircle className="h-4 w-4 text-blue-600" />
+                        <AlertDescription>
+                          <div className="space-y-2">
+                            <p className="font-medium text-blue-900">
+                              🔧 Cari Hesap Kartları Durumu
+                            </p>
+                            <div className="text-sm text-blue-800">
+                              {diagnosticResults.length === diagnosticResults.filter(r => r.account.hasData && !r.account.error).length ? (
+                                <p>✅ <strong>Mükemmel!</strong> Tüm {diagnosticResults.length} sporcunun cari hesap kartı mevcut.</p>
+                              ) : (
+                                <div>
+                                  <p>⚠️ {diagnosticResults.length - diagnosticResults.filter(r => r.account.hasData && !r.account.error).length} sporcunun cari hesap kartı eksikti.</p>
+                                  <p>🔧 <strong>Otomatik Onarım:</strong> Eksik cari hesap kartları oluşturuldu.</p>
+                                  <p>✅ Artık tüm sporcuların cari hesap kartı mevcut!</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
                     {/* Detailed Results Table */}
                     <Card>
