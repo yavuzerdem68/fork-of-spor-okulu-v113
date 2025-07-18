@@ -939,7 +939,7 @@ export default function Messages() {
                               onChange={(e) => setMessageContent(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Değişkenler: &#123;veli_adi&#125;, &#123;sporcu_adi&#125;, &#123;spor&#125;, &#123;saat&#125;, &#123;lokasyon&#125;, &#123;konu&#125;, &#123;detay&#125;
+                              Değişkenler: {`{veli_adi}, {sporcu_adi}, {spor}, {saat}, {lokasyon}, {konu}, {detay}`}
                             </p>
                           </div>
                           
