@@ -1470,16 +1470,201 @@ export default function Payments() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  // Account dialog functions
+  // Account dialog functions - ENHANCED WITH DIAGNOSTICS
   const loadAccountEntries = (athleteId: string) => {
-    const entries = JSON.parse(localStorage.getItem(`account_${athleteId}`) || '[]');
-    setAccountEntries(entries);
+    console.log(`🔍 DIAGNOSTIC: Loading account entries for athlete ID: ${athleteId}`);
+    
+    // Get all localStorage keys to check what exists
+    const allKeys = Object.keys(localStorage);
+    const accountKeys = allKeys.filter(key => key.startsWith('account_'));
+    console.log(`📊 DIAGNOSTIC: Found ${accountKeys.length} account keys in localStorage:`, accountKeys);
+    
+    // Check if this specific athlete has account data
+    const accountKey = `account_${athleteId}`;
+    const hasAccountData = localStorage.getItem(accountKey);
+    console.log(`🎯 DIAGNOSTIC: Account key "${accountKey}" exists:`, !!hasAccountData);
+    
+    if (hasAccountData) {
+      try {
+        const entries = JSON.parse(hasAccountData);
+        console.log(`✅ DIAGNOSTIC: Successfully loaded ${entries.length} entries for athlete ${athleteId}:`, entries);
+        setAccountEntries(entries);
+        
+        // Additional diagnostics
+        const debitEntries = entries.filter((e: any) => e.type === 'debit');
+        const creditEntries = entries.filter((e: any) => e.type === 'credit');
+        const totalDebit = debitEntries.reduce((sum: number, e: any) => sum + (parseFloat(e.amountIncludingVat) || 0), 0);
+        const totalCredit = creditEntries.reduce((sum: number, e: any) => sum + (parseFloat(e.amountIncludingVat) || 0), 0);
+        const balance = totalDebit - totalCredit;
+        
+        console.log(`💰 DIAGNOSTIC: Account summary for athlete ${athleteId}:`);
+        console.log(`  - Debit entries: ${debitEntries.length} (Total: ₺${totalDebit})`);
+        console.log(`  - Credit entries: ${creditEntries.length} (Total: ₺${totalCredit})`);
+        console.log(`  - Balance: ₺${balance}`);
+        
+        // Check for bulk payment entries
+        const bulkPaymentEntries = entries.filter((e: any) => 
+          e.description && (
+            e.description.includes('Toplu') || 
+            e.description.includes('Bulk') ||
+            e.description.includes('EFT/Havale') ||
+            e.description.includes('Kardeş')
+          )
+        );
+        console.log(`📦 DIAGNOSTIC: Found ${bulkPaymentEntries.length} bulk/bank payment entries:`, bulkPaymentEntries);
+        
+      } catch (error) {
+        console.error(`❌ DIAGNOSTIC: Error parsing account data for athlete ${athleteId}:`, error);
+        setAccountEntries([]);
+      }
+    } else {
+      console.log(`⚠️ DIAGNOSTIC: No account data found for athlete ${athleteId}`);
+      setAccountEntries([]);
+    }
   };
 
   const openAccountDialog = (athlete: any) => {
+    console.log(`🚀 DIAGNOSTIC: Opening account dialog for athlete:`, {
+      id: athlete.id,
+      name: `${athlete.studentName} ${athlete.studentSurname}`,
+      status: athlete.status,
+      parentName: `${athlete.parentName} ${athlete.parentSurname}`
+    });
+    
     setSelectedAthlete(athlete);
     loadAccountEntries(athlete.id);
     setIsAccountDialogOpen(true);
+  };
+
+  // EMERGENCY DIAGNOSTIC FUNCTION
+  const runEmergencyDiagnostic = () => {
+    console.log('\n🚨 EMERGENCY DIAGNOSTIC STARTING 🚨');
+    
+    // Get all athletes
+    const allAthletes = JSON.parse(localStorage.getItem('students') || '[]');
+    console.log(`👥 Total athletes in system: ${allAthletes.length}`);
+    
+    // Get all account keys
+    const allKeys = Object.keys(localStorage);
+    const accountKeys = allKeys.filter(key => key.startsWith('account_'));
+    console.log(`📊 Total account keys found: ${accountKeys.length}`);
+    
+    // Check each athlete's account status
+    const diagnosticResults = allAthletes.map((athlete: any) => {
+      const accountKey = `account_${athlete.id}`;
+      const hasAccountData = localStorage.getItem(accountKey);
+      
+      let accountSummary = {
+        hasData: false,
+        entryCount: 0,
+        debitCount: 0,
+        creditCount: 0,
+        balance: 0,
+        bulkPaymentCount: 0
+      };
+      
+      if (hasAccountData) {
+        try {
+          const entries = JSON.parse(hasAccountData);
+          const debitEntries = entries.filter((e: any) => e.type === 'debit');
+          const creditEntries = entries.filter((e: any) => e.type === 'credit');
+          const totalDebit = debitEntries.reduce((sum: number, e: any) => sum + (parseFloat(e.amountIncludingVat) || 0), 0);
+          const totalCredit = creditEntries.reduce((sum: number, e: any) => sum + (parseFloat(e.amountIncludingVat) || 0), 0);
+          const bulkPaymentEntries = entries.filter((e: any) => 
+            e.description && (
+              e.description.includes('Toplu') || 
+              e.description.includes('Bulk') ||
+              e.description.includes('EFT/Havale') ||
+              e.description.includes('Kardeş')
+            )
+          );
+          
+          accountSummary = {
+            hasData: true,
+            entryCount: entries.length,
+            debitCount: debitEntries.length,
+            creditCount: creditEntries.length,
+            balance: totalDebit - totalCredit,
+            bulkPaymentCount: bulkPaymentEntries.length
+          };
+        } catch (error) {
+          console.error(`Error parsing account data for athlete ${athlete.id}:`, error);
+        }
+      }
+      
+      return {
+        id: athlete.id,
+        name: `${athlete.studentName} ${athlete.studentSurname}`,
+        status: athlete.status || 'Aktif',
+        parentName: `${athlete.parentName} ${athlete.parentSurname}`,
+        account: accountSummary
+      };
+    });
+    
+    // Sort by athletes with account data first, then by balance
+    diagnosticResults.sort((a, b) => {
+      if (a.account.hasData !== b.account.hasData) {
+        return a.account.hasData ? -1 : 1;
+      }
+      return b.account.balance - a.account.balance;
+    });
+    
+    console.log('\n📋 COMPLETE DIAGNOSTIC RESULTS:');
+    console.log('=====================================');
+    
+    diagnosticResults.forEach((result, index) => {
+      console.log(`${index + 1}. ${result.name} (ID: ${result.id}) - Status: ${result.status}`);
+      console.log(`   Parent: ${result.parentName}`);
+      if (result.account.hasData) {
+        console.log(`   ✅ Account Data: ${result.account.entryCount} entries`);
+        console.log(`   💰 Balance: ₺${result.account.balance.toFixed(2)}`);
+        console.log(`   📦 Bulk Payments: ${result.account.bulkPaymentCount}`);
+        console.log(`   📊 Debit: ${result.account.debitCount}, Credit: ${result.account.creditCount}`);
+      } else {
+        console.log(`   ❌ No Account Data Found`);
+      }
+      console.log('   ---');
+    });
+    
+    // Find problematic athletes (have account data but no bulk payments showing)
+    const problematicAthletes = diagnosticResults.filter(result => 
+      result.account.hasData && 
+      result.account.entryCount > 0 && 
+      result.account.bulkPaymentCount === 0 &&
+      result.account.creditCount === 0
+    );
+    
+    console.log(`\n🚨 PROBLEMATIC ATHLETES (${problematicAthletes.length}):`);
+    console.log('These athletes have account entries but no bulk/bank payments:');
+    problematicAthletes.forEach(athlete => {
+      console.log(`- ${athlete.name} (ID: ${athlete.id}) - ${athlete.account.entryCount} entries, ₺${athlete.account.balance.toFixed(2)} balance`);
+    });
+    
+    // Show summary
+    const athletesWithData = diagnosticResults.filter(r => r.account.hasData).length;
+    const athletesWithBalance = diagnosticResults.filter(r => r.account.balance > 0).length;
+    const athletesWithBulkPayments = diagnosticResults.filter(r => r.account.bulkPaymentCount > 0).length;
+    
+    console.log(`\n📊 SUMMARY:`);
+    console.log(`- Total Athletes: ${allAthletes.length}`);
+    console.log(`- Athletes with Account Data: ${athletesWithData}`);
+    console.log(`- Athletes with Positive Balance: ${athletesWithBalance}`);
+    console.log(`- Athletes with Bulk/Bank Payments: ${athletesWithBulkPayments}`);
+    console.log(`- Problematic Athletes: ${problematicAthletes.length}`);
+    
+    // Show toast with summary
+    toast.success(
+      `🔍 ACİL TESHİS TAMAMLANDI!\n\n` +
+      `📊 Toplam Sporcu: ${allAthletes.length}\n` +
+      `✅ Cari Hesabı Olan: ${athletesWithData}\n` +
+      `💰 Borcu Olan: ${athletesWithBalance}\n` +
+      `📦 Toplu Ödeme Kaydı Olan: ${athletesWithBulkPayments}\n` +
+      `🚨 Sorunlu Sporcu: ${problematicAthletes.length}\n\n` +
+      `Detaylar konsol logunda!`,
+      { duration: 15000 }
+    );
+    
+    return diagnosticResults;
   };
 
   const saveAccountEntry = () => {
@@ -1794,6 +1979,11 @@ export default function Payments() {
                       </div>
                       
                       <div className="flex gap-2">
+                        <Button variant="outline" onClick={runEmergencyDiagnostic} className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100">
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          ACİL TESHİS
+                        </Button>
+
                         <Button variant="outline" onClick={exportPaymentsToExcel}>
                           <Download className="h-4 w-4 mr-2" />
                           Excel Dışa Aktar
