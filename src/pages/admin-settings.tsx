@@ -183,6 +183,7 @@ export default function AdminSettings() {
   }, [router]);
 
   const getDefaultPermissions = (role: string) => {
+    // Initialize with proper structure
     const defaultPerms: any = {
       athletes: { view: false, create: false, edit: false, delete: false },
       payments: { view: false, create: false, edit: false, delete: false },
@@ -198,30 +199,24 @@ export default function AdminSettings() {
       switch (role) {
         case "super_admin":
           Object.keys(defaultPerms).forEach(key => {
-            if (defaultPerms[key]) {
-              defaultPerms[key] = { view: true, create: true, edit: true, delete: true };
-            }
+            defaultPerms[key] = { view: true, create: true, edit: true, delete: true };
           });
           break;
         case "admin":
           Object.keys(defaultPerms).forEach(key => {
-            if (defaultPerms[key] && key !== "settings") {
+            if (key !== "settings") {
               defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
             }
           });
           break;
         case "coach":
           ["athletes", "trainings", "attendance", "messages", "media", "reports"].forEach(key => {
-            if (defaultPerms[key]) {
-              defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
-            }
+            defaultPerms[key] = { view: true, create: true, edit: true, delete: false };
           });
           break;
         case "staff":
           ["athletes", "attendance"].forEach(key => {
-            if (defaultPerms[key]) {
-              defaultPerms[key] = { view: true, create: false, edit: false, delete: false };
-            }
+            defaultPerms[key] = { view: true, create: false, edit: false, delete: false };
           });
           break;
       }
@@ -244,23 +239,33 @@ export default function AdminSettings() {
 
   const handlePermissionChange = (module: string, action: string, value: boolean, isNewUser = false) => {
     if (isNewUser) {
-      setNewUser(prev => ({
-        ...prev,
-        permissions: {
-          ...prev.permissions,
-          [module]: {
-            ...(prev.permissions[module] || {}),
-            [action]: value
+      setNewUser(prev => {
+        // Ensure permissions object exists
+        const currentPermissions = prev.permissions || {};
+        const modulePermissions = currentPermissions[module] || { view: false, create: false, edit: false, delete: false };
+        
+        return {
+          ...prev,
+          permissions: {
+            ...currentPermissions,
+            [module]: {
+              ...modulePermissions,
+              [action]: value
+            }
           }
-        }
-      }));
+        };
+      });
     } else if (selectedUser) {
+      // Ensure permissions object exists
+      const currentPermissions = selectedUser.permissions || {};
+      const modulePermissions = currentPermissions[module] || { view: false, create: false, edit: false, delete: false };
+      
       setSelectedUser({
         ...selectedUser,
         permissions: {
-          ...selectedUser.permissions,
+          ...currentPermissions,
           [module]: {
-            ...(selectedUser.permissions[module] || {}),
+            ...modulePermissions,
             [action]: value
           }
         }
@@ -885,23 +890,37 @@ export default function AdminSettings() {
                           <h4 className="font-medium text-sm">Varsayılan Yetkiler:</h4>
                           <div className="space-y-2">
                             {permissionModules.map((module) => {
-                              const defaultPerms = getDefaultPermissions(role.value);
-                              const modulePerms = defaultPerms[module.key as keyof typeof defaultPerms];
-                              const hasAnyPerm = Object.values(modulePerms).some(Boolean);
-                              
-                              if (!hasAnyPerm) return null;
-                              
-                              return (
-                                <div key={module.key} className="flex items-center justify-between text-sm">
-                                  <span>{module.name}</span>
-                                  <div className="flex space-x-1">
-                                    {modulePerms.view && <Badge variant="outline" className="text-xs">Görüntüle</Badge>}
-                                    {modulePerms.create && <Badge variant="outline" className="text-xs">Oluştur</Badge>}
-                                    {modulePerms.edit && <Badge variant="outline" className="text-xs">Düzenle</Badge>}
-                                    {modulePerms.delete && <Badge variant="outline" className="text-xs">Sil</Badge>}
+                              try {
+                                const defaultPerms = getDefaultPermissions(role.value);
+                                const modulePerms = defaultPerms && defaultPerms[module.key] ? defaultPerms[module.key] : { view: false, create: false, edit: false, delete: false };
+                                
+                                // Ensure modulePerms is an object with the expected properties
+                                const safeModulePerms = {
+                                  view: modulePerms?.view || false,
+                                  create: modulePerms?.create || false,
+                                  edit: modulePerms?.edit || false,
+                                  delete: modulePerms?.delete || false
+                                };
+                                
+                                const hasAnyPerm = Object.values(safeModulePerms).some(Boolean);
+                                
+                                if (!hasAnyPerm) return null;
+                                
+                                return (
+                                  <div key={module.key} className="flex items-center justify-between text-sm">
+                                    <span>{module.name}</span>
+                                    <div className="flex space-x-1">
+                                      {safeModulePerms.view && <Badge variant="outline" className="text-xs">Görüntüle</Badge>}
+                                      {safeModulePerms.create && <Badge variant="outline" className="text-xs">Oluştur</Badge>}
+                                      {safeModulePerms.edit && <Badge variant="outline" className="text-xs">Düzenle</Badge>}
+                                      {safeModulePerms.delete && <Badge variant="outline" className="text-xs">Sil</Badge>}
+                                    </div>
                                   </div>
-                                </div>
-                              );
+                                );
+                              } catch (error) {
+                                console.error(`Error rendering permissions for module ${module.key}:`, error);
+                                return null;
+                              }
                             })}
                           </div>
                         </div>
