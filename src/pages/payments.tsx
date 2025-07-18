@@ -1613,10 +1613,14 @@ export default function Payments() {
         return;
       }
       
-      // CRITICAL FIX: Initialize missing account cards AND populate with existing data
+      // ENHANCED FIX: Initialize missing account cards AND transfer ALL existing data
       let initializedCount = 0;
       let populatedCount = 0;
       console.log('\n🔧 INITIALIZING MISSING ACCOUNT CARDS...');
+      
+      // Get existing payments data once for efficiency
+      const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+      console.log(`📊 Found ${existingPayments.length} total payments in system`);
       
       for (const athlete of allAthletes) {
         const accountKey = `account_${athlete.id}`;
@@ -1625,41 +1629,42 @@ export default function Payments() {
         if (!hasAccountData) {
           console.log(`🆕 Creating account card for: ${athlete.studentName} ${athlete.studentSurname} (ID: ${athlete.id})`);
           
-          // Initialize account card with potential existing data
+          // Initialize account card with comprehensive data transfer
           const initialAccountEntries: any[] = [];
           
-          // CRITICAL FIX: Check for existing bulk fee entries and payments that should be in this account
-          // Look for any payments in the payments array that belong to this athlete
-          const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+          // ENHANCED FIX 1: Transfer ALL payments for this athlete (not just paid ones)
           const athletePayments = existingPayments.filter((payment: any) => 
-            payment.athleteId && payment.athleteId.toString() === athlete.id.toString() && 
-            payment.status === "Ödendi"
+            payment.athleteId && payment.athleteId.toString() === athlete.id.toString()
           );
           
-          // Add payment entries as credits to the account
+          console.log(`💰 Found ${athletePayments.length} payments for athlete ${athlete.id}`);
+          
+          // Add ALL payment entries as credits to the account
           athletePayments.forEach((payment: any) => {
-            const paymentEntry = {
-              id: Date.now() + Math.random(),
-              date: payment.paymentDate ? new Date(payment.paymentDate).toISOString() : new Date().toISOString(),
-              month: payment.paymentDate ? payment.paymentDate.slice(0, 7) : new Date().toISOString().slice(0, 7),
-              description: `Ödeme Transferi - ${payment.method || 'Ödeme'} - ${payment.description || 'Sistem transferi'}`,
-              amountExcludingVat: payment.amount,
-              vatRate: 0,
-              vatAmount: 0,
-              amountIncludingVat: payment.amount,
-              unitCode: 'Adet',
-              type: 'credit',
-              transferredFromPayments: true,
-              originalPaymentId: payment.id
-            };
-            initialAccountEntries.push(paymentEntry);
-            populatedCount++;
+            if (payment.status === "Ödendi" && payment.amount > 0) {
+              const paymentEntry = {
+                id: Date.now() + Math.random(),
+                date: payment.paymentDate ? new Date(payment.paymentDate).toISOString() : new Date().toISOString(),
+                month: payment.paymentDate ? payment.paymentDate.slice(0, 7) : new Date().toISOString().slice(0, 7),
+                description: `Ödeme Transferi - ${payment.method || 'Ödeme'} - ${payment.description || 'Sistem transferi'} - Ref: ${payment.reference || payment.invoiceNumber || 'N/A'}`,
+                amountExcludingVat: payment.amount,
+                vatRate: 0,
+                vatAmount: 0,
+                amountIncludingVat: payment.amount,
+                unitCode: 'Adet',
+                type: 'credit',
+                transferredFromPayments: true,
+                originalPaymentId: payment.id
+              };
+              initialAccountEntries.push(paymentEntry);
+              populatedCount++;
+              console.log(`  ✅ Transferred payment: ₺${payment.amount} - ${payment.description || 'N/A'}`);
+            }
           });
           
-          // CRITICAL FIX: Look for any bulk fee entries that might exist in other storage locations
-          // Check if there are any bulk fee entries stored elsewhere that should be transferred
+          // ENHANCED FIX 2: Look for bulk fee entries in multiple locations
           try {
-            // Check for any temporary bulk fee storage or other data sources
+            // Check temporary bulk fee storage
             const bulkFeeKey = `bulkFee_${athlete.id}`;
             const tempBulkFees = localStorage.getItem(bulkFeeKey);
             if (tempBulkFees) {
@@ -1681,14 +1686,67 @@ export default function Payments() {
                   };
                   initialAccountEntries.push(feeEntry);
                   populatedCount++;
+                  console.log(`  ✅ Transferred bulk fee: ₺${feeEntry.amountIncludingVat} - ${feeEntry.description}`);
                 });
                 
                 // Clean up temporary storage
                 localStorage.removeItem(bulkFeeKey);
+                console.log(`  🧹 Cleaned up temporary bulk fee storage for athlete ${athlete.id}`);
               }
             }
+            
+            // ENHANCED FIX 3: Check for any other athlete-specific data that might need transfer
+            const allKeys = Object.keys(localStorage);
+            const athleteKeys = allKeys.filter(key => 
+              key.includes(`_${athlete.id}`) && 
+              key !== accountKey && 
+              !key.startsWith('account_')
+            );
+            
+            if (athleteKeys.length > 0) {
+              console.log(`  🔍 Found ${athleteKeys.length} other data keys for athlete ${athlete.id}:`, athleteKeys);
+              
+              // Check each key for transferable data
+              athleteKeys.forEach(key => {
+                try {
+                  const data = localStorage.getItem(key);
+                  if (data) {
+                    const parsedData = JSON.parse(data);
+                    if (Array.isArray(parsedData) && parsedData.length > 0) {
+                      console.log(`  📦 Found data in ${key}:`, parsedData.length, 'entries');
+                      
+                      // Try to transfer if it looks like account entries
+                      parsedData.forEach((entry: any) => {
+                        if (entry.amount || entry.amountIncludingVat) {
+                          const transferEntry = {
+                            id: Date.now() + Math.random(),
+                            date: entry.date || new Date().toISOString(),
+                            month: entry.month || new Date().toISOString().slice(0, 7),
+                            description: `Transfer from ${key} - ${entry.description || 'Veri transferi'}`,
+                            amountExcludingVat: entry.amountExcludingVat || entry.amount || 0,
+                            vatRate: entry.vatRate || 0,
+                            vatAmount: entry.vatAmount || 0,
+                            amountIncludingVat: entry.amountIncludingVat || entry.amount || 0,
+                            unitCode: entry.unitCode || 'Adet',
+                            type: entry.type || 'debit',
+                            transferredFromOtherData: true,
+                            originalKey: key
+                          };
+                          initialAccountEntries.push(transferEntry);
+                          populatedCount++;
+                          console.log(`    ✅ Transferred from ${key}: ₺${transferEntry.amountIncludingVat}`);
+                        }
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.warn(`  ⚠️ Could not process data from ${key}:`, error);
+                }
+              });
+            }
+            
           } catch (error) {
-            console.warn(`Error checking bulk fee data for athlete ${athlete.id}:`, error);
+            console.warn(`Error checking additional data for athlete ${athlete.id}:`, error);
           }
           
           // Save the initialized account card (empty or with transferred data)
@@ -1697,18 +1755,79 @@ export default function Payments() {
           
           if (initialAccountEntries.length > 0) {
             console.log(`📦 Populated account card for ${athlete.studentName} ${athlete.studentSurname} with ${initialAccountEntries.length} entries`);
+          } else {
+            console.log(`📝 Created empty account card for ${athlete.studentName} ${athlete.studentSurname}`);
+          }
+        } else {
+          // ENHANCED FIX 4: Even for existing accounts, check if we need to transfer missing data
+          try {
+            const existingEntries = JSON.parse(hasAccountData);
+            let addedToExisting = 0;
+            
+            // Check if there are payments that aren't reflected in the account
+            const athletePayments = existingPayments.filter((payment: any) => 
+              payment.athleteId && payment.athleteId.toString() === athlete.id.toString() &&
+              payment.status === "Ödendi" && payment.amount > 0
+            );
+            
+            // Check if these payments are already in the account
+            athletePayments.forEach((payment: any) => {
+              const paymentAlreadyExists = existingEntries.some((entry: any) => 
+                entry.originalPaymentId === payment.id ||
+                (entry.description && entry.description.includes(payment.reference || payment.invoiceNumber || '')) ||
+                (Math.abs(entry.amountIncludingVat - payment.amount) < 0.01 && 
+                 entry.type === 'credit' &&
+                 entry.date && payment.paymentDate &&
+                 Math.abs(new Date(entry.date).getTime() - new Date(payment.paymentDate).getTime()) < 24 * 60 * 60 * 1000)
+              );
+              
+              if (!paymentAlreadyExists) {
+                const paymentEntry = {
+                  id: Date.now() + Math.random(),
+                  date: payment.paymentDate ? new Date(payment.paymentDate).toISOString() : new Date().toISOString(),
+                  month: payment.paymentDate ? payment.paymentDate.slice(0, 7) : new Date().toISOString().slice(0, 7),
+                  description: `Eksik Ödeme Transferi - ${payment.method || 'Ödeme'} - ${payment.description || 'Sistem transferi'} - Ref: ${payment.reference || payment.invoiceNumber || 'N/A'}`,
+                  amountExcludingVat: payment.amount,
+                  vatRate: 0,
+                  vatAmount: 0,
+                  amountIncludingVat: payment.amount,
+                  unitCode: 'Adet',
+                  type: 'credit',
+                  transferredFromPayments: true,
+                  originalPaymentId: payment.id,
+                  lateTransfer: true
+                };
+                existingEntries.push(paymentEntry);
+                addedToExisting++;
+                populatedCount++;
+                console.log(`  ✅ Added missing payment to existing account: ₺${payment.amount} for ${athlete.studentName} ${athlete.studentSurname}`);
+              }
+            });
+            
+            if (addedToExisting > 0) {
+              localStorage.setItem(accountKey, JSON.stringify(existingEntries));
+              console.log(`📦 Added ${addedToExisting} missing entries to existing account for ${athlete.studentName} ${athlete.studentSurname}`);
+            }
+            
+          } catch (error) {
+            console.warn(`Error checking existing account for athlete ${athlete.id}:`, error);
           }
         }
       }
       
-      if (initializedCount > 0) {
+      if (initializedCount > 0 || populatedCount > 0) {
         console.log(`✅ Initialized ${initializedCount} missing account cards`);
-        if (populatedCount > 0) {
-          console.log(`📦 Populated ${populatedCount} entries from existing data`);
+        console.log(`📦 Populated/transferred ${populatedCount} entries from existing data`);
+        
+        if (initializedCount > 0 && populatedCount > 0) {
           toast.success(`🔧 ${initializedCount} eksik cari hesap kartı oluşturuldu ve ${populatedCount} mevcut kayıt aktarıldı!`, { duration: 8000 });
-        } else {
+        } else if (initializedCount > 0) {
           toast.success(`🔧 ${initializedCount} eksik cari hesap kartı oluşturuldu!`, { duration: 5000 });
+        } else if (populatedCount > 0) {
+          toast.success(`📦 ${populatedCount} eksik kayıt mevcut cari hesap kartlarına aktarıldı!`, { duration: 6000 });
         }
+      } else {
+        console.log(`✅ All account cards exist and are up to date`);
       }
       
       // Process athletes with progress tracking
