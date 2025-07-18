@@ -262,7 +262,6 @@ export default function AdminSettings() {
 
     return defaultPerms;
   };
-=======
 
   const handleRoleChange = (role: string, isNewUser = false) => {
     const permissions = getDefaultPermissions(role);
