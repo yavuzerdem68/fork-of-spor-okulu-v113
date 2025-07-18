@@ -158,38 +158,57 @@ export default function Login() {
         console.log('WordPress login failed, trying localStorage fallback:', wpError.message);
         
         // Fallback to localStorage-based authentication for backward compatibility
-        let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+        // First check the 'users' array (from cloud storage adapter)
+        let users = JSON.parse(localStorage.getItem('users') || '[]');
+        let admin = users.find((u: any) => u.email === email && u.role === 'admin');
         
-        if (adminUsers.length === 0) {
-          // Create default admin with hashed password
-          const hashedPassword = await hashPassword('admin123');
-          const defaultAdmin = {
-            id: 'default-admin',
-            name: 'Sistem',
-            surname: 'Yöneticisi',
-            email: 'admin@sportscr.com',
-            password: hashedPassword,
-            role: 'admin',
-            createdAt: new Date().toISOString(),
-            isDefault: true
-          };
-          adminUsers = [defaultAdmin];
-          localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
+        // If not found in 'users', check legacy 'adminUsers' array
+        if (!admin) {
+          let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+          
+          if (adminUsers.length === 0) {
+            // Create default admin with hashed password
+            const hashedPassword = await hashPassword('admin123');
+            const defaultAdmin = {
+              id: 'default-admin',
+              name: 'Sistem',
+              surname: 'Yöneticisi',
+              email: 'admin@sportscr.com',
+              password: hashedPassword,
+              role: 'admin',
+              createdAt: new Date().toISOString(),
+              isDefault: true
+            };
+            adminUsers = [defaultAdmin];
+            localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
+          }
+
+          // Find admin by email in legacy array
+          admin = adminUsers.find((a: any) => a.email === email);
         }
 
-        // Find admin by email
-        const admin = adminUsers.find((a: any) => a.email === email);
-
         if (admin) {
+          // Check if this is a user from the 'users' array (cloud storage adapter)
+          const isCloudUser = users.some((u: any) => u.id === admin.id);
+          
           // Verify password
-          const isPasswordValid = admin.isDefault && admin.password === 'admin123' 
-            ? password === 'admin123' // Backward compatibility for default admin
-            : await verifyPassword(password, admin.password);
+          let isPasswordValid = false;
+          
+          if (isCloudUser) {
+            // For cloud users, password is stored as plain text (should be hashed in production)
+            isPasswordValid = password === admin.password;
+          } else {
+            // For legacy admin users, handle both hashed and plain text passwords
+            isPasswordValid = admin.isDefault && admin.password === 'admin123' 
+              ? password === 'admin123' // Backward compatibility for default admin
+              : await verifyPassword(password, admin.password);
+          }
 
           if (isPasswordValid) {
-            // If using old plain text password, update to hashed
-            if (admin.isDefault && admin.password === 'admin123') {
+            // If using old plain text password for legacy admin, update to hashed
+            if (!isCloudUser && admin.isDefault && admin.password === 'admin123') {
               admin.password = await hashPassword('admin123');
+              const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
               const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
               localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
             }
@@ -199,8 +218,17 @@ export default function Login() {
             
             // Update last login
             admin.lastLogin = new Date().toISOString();
-            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+            
+            if (isCloudUser) {
+              // Update in users array
+              const updatedUsers = users.map((u: any) => u.id === admin.id ? admin : u);
+              localStorage.setItem('users', JSON.stringify(updatedUsers));
+            } else {
+              // Update in adminUsers array
+              const adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+              const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
+              localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
+            }
 
             // Set legacy localStorage for compatibility
             localStorage.setItem("userRole", "admin");
