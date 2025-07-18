@@ -255,6 +255,38 @@ export default function ParentDashboard() {
     );
   };
 
+  // FIXED: Add function to calculate total debt for all linked athletes
+  const getTotalDebt = () => {
+    if (!linkedAthletes || linkedAthletes.length === 0) {
+      return 0;
+    }
+
+    let totalDebt = 0;
+
+    linkedAthletes.forEach(athlete => {
+      // Load account entries for this athlete
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      
+      // Calculate balance (debit - credit) with proper number handling
+      const balance = accountEntries.reduce((total: number, entry: any) => {
+        const amount = parseFloat(String(entry.amountIncludingVat || 0).replace(',', '.')) || 0;
+        return entry.type === 'debit' 
+          ? total + amount
+          : total - amount;
+      }, 0);
+      
+      // Round to 2 decimal places to avoid floating point errors
+      const roundedBalance = Math.round(balance * 100) / 100;
+      
+      // Only add positive balances (debts)
+      if (roundedBalance > 0) {
+        totalDebt += roundedBalance;
+      }
+    });
+
+    return Math.round(totalDebt * 100) / 100;
+  };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -513,8 +545,10 @@ export default function ParentDashboard() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Ödeme Durumu</p>
-                    <p className="text-2xl font-bold">Güncel</p>
+                    <p className="text-sm font-medium text-muted-foreground">Toplam Borç</p>
+                    <p className={`text-2xl font-bold ${getTotalDebt() > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ₺{getTotalDebt().toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                   <CreditCard className="h-8 w-8 text-purple-600" />
                 </div>
@@ -686,6 +720,140 @@ export default function ParentDashboard() {
                     <p className="text-sm text-muted-foreground">
                       Antrenman programı henüz oluşturulmamış olabilir veya sporcunuz herhangi bir antrenmana atanmamış olabilir.
                     </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Current Account Section - ADDED */}
+          <motion.div 
+            className="space-y-6 mb-8"
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CreditCard className="h-5 w-5" />
+                  <span>Cari Hesap Durumu</span>
+                </CardTitle>
+                <CardDescription>
+                  Sporcularınızın ödeme ve borç durumu
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {linkedAthletes.length > 0 ? (
+                  <div className="space-y-4">
+                    {linkedAthletes.map((athlete, index) => {
+                      // Calculate balance for this athlete
+                      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+                      const balance = accountEntries.reduce((total: number, entry: any) => {
+                        const amount = parseFloat(String(entry.amountIncludingVat || 0).replace(',', '.')) || 0;
+                        return entry.type === 'debit' 
+                          ? total + amount
+                          : total - amount;
+                      }, 0);
+                      const roundedBalance = Math.round(balance * 100) / 100;
+                      
+                      // Get recent entries
+                      const recentEntries = accountEntries
+                        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .slice(0, 3);
+
+                      return (
+                        <Card key={athlete.id || index} className="border-l-4 border-l-primary">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center">
+                                  {athlete.studentName?.charAt(0)}{athlete.studentSurname?.charAt(0)}
+                                </div>
+                                <div>
+                                  <h3 className="font-medium">{athlete.studentName} {athlete.studentSurname}</h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {athlete.sportsBranches?.join(', ') || 'Branş belirtilmemiş'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-muted-foreground">Bakiye</p>
+                                <p className={`text-lg font-bold ${roundedBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  ₺{Math.abs(roundedBalance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {roundedBalance > 0 ? 'Borç' : roundedBalance < 0 ? 'Alacak' : 'Sıfır'}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {recentEntries.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">Son Hareketler</h4>
+                                <div className="space-y-2">
+                                  {recentEntries.map((entry: any, entryIndex: number) => (
+                                    <div key={entryIndex} className="flex items-center justify-between p-2 bg-accent/30 rounded">
+                                      <div>
+                                        <p className="text-sm font-medium">{entry.description}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {new Date(entry.date).toLocaleDateString('tr-TR')}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className={`text-sm font-medium ${entry.type === 'debit' ? 'text-red-600' : 'text-green-600'}`}>
+                                          {entry.type === 'debit' ? '+' : '-'}₺{Math.round(entry.amountIncludingVat * 100) / 100}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {entry.type === 'debit' ? 'Borç' : 'Ödeme'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                {accountEntries.length > 3 && (
+                                  <p className="text-xs text-muted-foreground text-center mt-2">
+                                    ... ve {accountEntries.length - 3} hareket daha
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            
+                            {accountEntries.length === 0 && (
+                              <div className="text-center py-4">
+                                <CreditCard className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                                <p className="text-sm text-muted-foreground">Henüz cari hesap hareketi bulunmuyor</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                    
+                    {/* Total Summary */}
+                    <Card className="bg-primary/5 border-primary/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium">Toplam Borç Durumu</h3>
+                            <p className="text-sm text-muted-foreground">Tüm sporcular için</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-xl font-bold ${getTotalDebt() > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              ₺{getTotalDebt().toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {getTotalDebt() > 0 ? 'Toplam Borç' : 'Borç Yok'}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Henüz bağlı sporcu bulunmuyor</p>
                   </div>
                 )}
               </CardContent>

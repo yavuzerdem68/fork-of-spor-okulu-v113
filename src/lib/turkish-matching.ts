@@ -335,6 +335,7 @@ export class TurkishMatchingMemory {
 
 /**
  * Enhanced matching function that uses Turkish-aware algorithms
+ * FIXED: Now includes ALL athletes (active AND passive) for payment matching
  */
 export const findTurkishMatches = (
   excelRows: any[],
@@ -343,14 +344,21 @@ export const findTurkishMatches = (
   console.log('\n🇹🇷 STARTING TURKISH-AWARE MATCHING PROCESS');
   console.log(`📊 Processing ${excelRows.length} Excel rows against ${athletes.length} athletes`);
   
-  // Filter to only active athletes
+  // FIXED: Include ALL athletes for payment matching (active AND passive)
+  // Payments can come from passive athletes too!
+  const allAthletes = athletes;
   const activeAthletes = athletes.filter(athlete => {
     const status = athlete.status?.toLowerCase();
     const isActive = !status || status === 'aktif' || status === 'active';
     return isActive;
   });
+  const passiveAthletes = athletes.filter(athlete => {
+    const status = athlete.status?.toLowerCase();
+    const isPassive = status === 'pasif' || status === 'passive';
+    return isPassive;
+  });
   
-  console.log(`✅ ACTIVE ATHLETES: ${activeAthletes.length} out of ${athletes.length} total athletes`);
+  console.log(`✅ TOTAL ATHLETES FOR MATCHING: ${allAthletes.length} (Active: ${activeAthletes.length}, Passive: ${passiveAthletes.length})`);
   
   const results: any[] = [];
   
@@ -365,16 +373,19 @@ export const findTurkishMatches = (
       similarity: 0,
       isManual: false,
       isSiblingPayment: false,
-      isHistorical: false
+      isHistorical: false,
+      isPassiveAthlete: false
     };
     
     // First, check for historical/manual matches
     const historicalMatch = TurkishMatchingMemory.findMatch(row.description);
     
     if (historicalMatch && historicalMatch.athleteId) {
-      // Verify historical match is still with an ACTIVE athlete
-      const athlete = activeAthletes.find(a => a.id.toString() === historicalMatch.athleteId);
+      // FIXED: Check historical match against ALL athletes (not just active)
+      const athlete = allAthletes.find(a => a.id.toString() === historicalMatch.athleteId);
       if (athlete) {
+        const isPassive = athlete.status?.toLowerCase() === 'pasif' || athlete.status?.toLowerCase() === 'passive';
+        
         bestMatch = {
           excelRow: row,
           athleteId: athlete.id.toString(),
@@ -384,20 +395,22 @@ export const findTurkishMatches = (
           isManual: false,
           isHistorical: true,
           isSiblingPayment: historicalMatch.isSiblingPayment || false,
-          siblingIds: historicalMatch.siblingIds || []
+          siblingIds: historicalMatch.siblingIds || [],
+          isPassiveAthlete: isPassive
         };
         
-        console.log(`✅ HISTORICAL TURKISH MATCH FOUND (ACTIVE): ${bestMatch.athleteName} for "${row.description}"`);
+        console.log(`✅ HISTORICAL TURKISH MATCH FOUND (${isPassive ? 'PASSIVE' : 'ACTIVE'}): ${bestMatch.athleteName} for "${row.description}"`);
       } else {
-        console.log(`❌ HISTORICAL TURKISH MATCH IGNORED: Athlete no longer active for "${row.description}"`);
+        console.log(`❌ HISTORICAL TURKISH MATCH IGNORED: Athlete not found for "${row.description}"`);
       }
     } else {
-      // Try to match with ACTIVE athletes using Turkish-aware similarity
-      console.log(`🔍 Searching for new Turkish matches among ${activeAthletes.length} ACTIVE athletes...`);
+      // FIXED: Try to match with ALL athletes (active AND passive) using Turkish-aware similarity
+      console.log(`🔍 Searching for new Turkish matches among ${allAthletes.length} ALL athletes (including passive)...`);
       
-      activeAthletes.forEach(athlete => {
+      allAthletes.forEach(athlete => {
         const athleteName = `${athlete.studentName || ''} ${athlete.studentSurname || ''}`.trim();
         const parentName = `${athlete.parentName || ''} ${athlete.parentSurname || ''}`.trim();
+        const isPassive = athlete.status?.toLowerCase() === 'pasif' || athlete.status?.toLowerCase() === 'passive';
         
         if (!athleteName && !parentName) return;
         
@@ -407,7 +420,7 @@ export const findTurkishMatches = (
         
         const maxSimilarity = Math.max(athleteSimilarity, parentSimilarity);
         
-        console.log(`  👤 ${athleteName} (${parentName}): Athlete=${athleteSimilarity}%, Parent=${parentSimilarity}%, Max=${maxSimilarity}%`);
+        console.log(`  👤 ${athleteName} (${parentName}) [${isPassive ? 'PASSIVE' : 'ACTIVE'}]: Athlete=${athleteSimilarity}%, Parent=${parentSimilarity}%, Max=${maxSimilarity}%`);
         
         // Turkish-aware threshold: 70% for better accuracy
         if (maxSimilarity >= 70 && maxSimilarity > bestMatch.similarity) {
@@ -419,10 +432,11 @@ export const findTurkishMatches = (
             similarity: maxSimilarity,
             isManual: false,
             isHistorical: false,
-            isSiblingPayment: false
+            isSiblingPayment: false,
+            isPassiveAthlete: isPassive
           };
           
-          console.log(`  🎯 NEW BEST TURKISH MATCH: ${athleteName} with ${maxSimilarity}%`);
+          console.log(`  🎯 NEW BEST TURKISH MATCH: ${athleteName} [${isPassive ? 'PASSIVE' : 'ACTIVE'}] with ${maxSimilarity}%`);
           
           // Auto-learn high confidence matches
           TurkishMatchingMemory.autoLearnMatch(
@@ -438,10 +452,10 @@ export const findTurkishMatches = (
     
     // Add confidence warnings
     if (bestMatch.similarity > 0 && bestMatch.similarity < 85 && !bestMatch.isHistorical) {
-      console.log(`⚠️  MEDIUM CONFIDENCE TURKISH MATCH: ${bestMatch.athleteName} (${bestMatch.similarity}%) - MANUAL REVIEW RECOMMENDED`);
+      console.log(`⚠️  MEDIUM CONFIDENCE TURKISH MATCH: ${bestMatch.athleteName} [${bestMatch.isPassiveAthlete ? 'PASSIVE' : 'ACTIVE'}] (${bestMatch.similarity}%) - MANUAL REVIEW RECOMMENDED`);
     }
     
-    console.log(`✅ FINAL TURKISH MATCH for "${row.description}": ${bestMatch.athleteName || 'NO MATCH'} (${bestMatch.similarity}%)`);
+    console.log(`✅ FINAL TURKISH MATCH for "${row.description}": ${bestMatch.athleteName || 'NO MATCH'} [${bestMatch.isPassiveAthlete ? 'PASSIVE' : 'ACTIVE'}] (${bestMatch.similarity}%)`);
     results.push(bestMatch);
   });
   
@@ -451,6 +465,7 @@ export const findTurkishMatches = (
   const mediumConfidenceMatches = results.filter(r => r.similarity >= 70 && r.similarity < 85).length;
   const lowConfidenceMatches = results.filter(r => r.similarity > 0 && r.similarity < 70).length;
   const noMatches = results.filter(r => r.similarity === 0).length;
+  const passiveMatches = results.filter(r => r.isPassiveAthlete && r.similarity > 0).length;
   
   console.log(`\n📊 TURKISH MATCHING SUMMARY:`);
   console.log(`  🎯 Historical (Learned): ${historicalMatches}`);
@@ -458,6 +473,7 @@ export const findTurkishMatches = (
   console.log(`  ⚠️ Medium Confidence (70-84%): ${mediumConfidenceMatches}`);
   console.log(`  ❓ Low Confidence (<70%): ${lowConfidenceMatches}`);
   console.log(`  ❌ No Match: ${noMatches}`);
+  console.log(`  🔄 Passive Athlete Matches: ${passiveMatches}`);
   
   return results;
 };
