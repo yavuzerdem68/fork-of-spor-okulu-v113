@@ -26,7 +26,7 @@ export default function Home() {
   const [coachCredentials, setCoachCredentials] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState("");
+
 
   // Check if user is already logged in
   useEffect(() => {
@@ -68,7 +68,6 @@ export default function Home() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setDebugInfo("");
 
     let credentials;
     switch (role) {
@@ -84,27 +83,7 @@ export default function Home() {
     }
 
     try {
-      console.log('Attempting login with:', { email: credentials.email, password: credentials.password, role });
-      
-      // Get all users for debugging
-      const allUsers = simpleAuthManager.getAllUsers();
-      console.log('All users in system:', allUsers);
-      
-      // Find the user manually to debug
-      const foundUser = allUsers.find(u => u.email === credentials.email);
-      console.log('Found user:', foundUser);
-      
-      if (foundUser) {
-        console.log('Password match check:', {
-          inputPassword: credentials.password,
-          storedPassword: foundUser.password,
-          match: credentials.password === foundUser.password,
-          isActive: foundUser.isActive
-        });
-      }
-      
       const user = await simpleAuthManager.signIn(credentials.email, credentials.password);
-      console.log('Login successful:', user);
       
       // Add a small delay to ensure state is set
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -112,86 +91,25 @@ export default function Home() {
       // Redirect based on role
       switch (user.role) {
         case 'admin':
-          console.log('Redirecting to dashboard...');
           router.push('/dashboard');
           break;
         case 'coach':
-          console.log('Redirecting to coach dashboard...');
           router.push('/coach-dashboard');
           break;
         case 'parent':
-          console.log('Redirecting to parent dashboard...');
           router.push('/parent-dashboard');
           break;
         default:
           setError("Geçersiz kullanıcı rolü");
       }
     } catch (error: any) {
-      console.error('Login error:', error);
       setError(`Giriş hatası: ${error.message || "Bilinmeyen hata"}`);
-      
-      // Show debug info on error
-      const debugText = `
-Giriş Hatası Detayları:
-Email: ${credentials.email}
-Şifre: ${credentials.password}
-Rol: ${role}
-Hata: ${error.message}
-      `;
-      setDebugInfo(debugText);
     }
     
     setLoading(false);
   };
 
-  const debugAuth = async () => {
-    try {
-      await simpleAuthManager.initialize();
-      await simpleAuthManager.initializeDefaultUsers();
-      
-      const allUsers = simpleAuthManager.getAllUsers();
-      console.log('All users:', allUsers);
-      
-      const debugText = `
-Kullanıcı Sayısı: ${allUsers.length}
-Kullanıcılar:
-${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: ${u.isActive}`).join('\n')}
-      `;
-      
-      setDebugInfo(debugText);
-      
-      // Try to create default admin if it doesn't exist
-      const adminExists = allUsers.find(u => u.email === 'yavuz@g7spor.org');
-      if (!adminExists) {
-        await simpleAuthManager.createDefaultAdmin();
-        setDebugInfo(prev => prev + '\n\nVarsayılan admin oluşturuldu: yavuz@g7spor.org / 444125yA/');
-      }
-    } catch (error: any) {
-      console.error('Debug error:', error);
-      setDebugInfo('Debug hatası: ' + error.message);
-    }
-  };
 
-  const quickFillAdmin = () => {
-    setAdminCredentials({
-      email: 'yavuz@g7spor.org',
-      password: '444125yA/'
-    });
-  };
-
-  const quickFillCoach = () => {
-    setCoachCredentials({
-      email: 'coach@sportscr.com',
-      password: 'coach123'
-    });
-  };
-
-  const quickFillParent = () => {
-    setParentCredentials({
-      email: 'parent@sportscr.com',
-      password: 'parent123'
-    });
-  };
 
 
 
@@ -310,20 +228,9 @@ ${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: $
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? "Giriş yapılıyor..." : "Yönetici Girişi"}
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={quickFillAdmin}
-                            className="w-full text-xs"
-                          >
-                            ⚡ Hızlı Doldur (yavuz@g7spor.org)
-                          </Button>
-                        </div>
+                        <Button type="submit" className="w-full" disabled={loading}>
+                          {loading ? "Giriş yapılıyor..." : "Yönetici Girişi"}
+                        </Button>
                       </div>
                     </motion.form>
                   </TabsContent>
@@ -367,20 +274,9 @@ ${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: $
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? "Giriş yapılıyor..." : "Antrenör Girişi"}
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={quickFillCoach}
-                            className="w-full text-xs"
-                          >
-                            ⚡ Hızlı Doldur (coach@sportscr.com)
-                          </Button>
-                        </div>
+                        <Button type="submit" className="w-full" disabled={loading}>
+                          {loading ? "Giriş yapılıyor..." : "Antrenör Girişi"}
+                        </Button>
                       </div>
                     </motion.form>
                   </TabsContent>
@@ -424,47 +320,19 @@ ${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: $
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? "Giriş yapılıyor..." : "Veli Girişi"}
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={quickFillParent}
-                            className="w-full text-xs"
-                          >
-                            ⚡ Hızlı Doldur (parent@sportscr.com)
-                          </Button>
-                        </div>
+                        <Button type="submit" className="w-full" disabled={loading}>
+                          {loading ? "Giriş yapılıyor..." : "Veli Girişi"}
+                        </Button>
                       </div>
                     </motion.form>
                   </TabsContent>
                 </Tabs>
 
-                <div className="mt-6 text-center space-y-3">
+                <div className="mt-6 text-center">
                   <Link href="/parent-signup" className="text-sm text-primary hover:underline block">
                     Hesabınız yok mu? Kayıt olun
                   </Link>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={debugAuth}
-                    className="text-xs"
-                  >
-                    🔍 Giriş Tanılama
-                  </Button>
                 </div>
-
-                {debugInfo && (
-                  <Alert className="mt-4">
-                    <AlertDescription>
-                      <pre className="text-xs whitespace-pre-wrap">{debugInfo}</pre>
-                    </AlertDescription>
-                  </Alert>
-                )}
               </CardContent>
             </Card>
           </motion.div>
