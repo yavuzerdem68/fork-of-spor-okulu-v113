@@ -45,7 +45,8 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Database
+  Database,
+  RefreshCw
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/router";
@@ -360,6 +361,7 @@ export default function Dashboard() {
     { icon: Camera, label: "Medya", href: "/media" },
     { icon: FileText, label: "Raporlar", href: "/reports" },
     { icon: Database, label: "Veri Yedekleme", href: "/data-backup" },
+    { icon: RefreshCw, label: "Veri Kurtarma", href: "/data-recovery" },
     { icon: AlertTriangle, label: "Veri Temizleme", href: "/data-cleanup" },
     { icon: Settings, label: "Ayarlar", href: "/settings" },
     { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
@@ -423,12 +425,19 @@ export default function Dashboard() {
             <div className="flex items-center space-x-3">
               <Avatar>
                 <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face" />
-                <AvatarFallback>AY</AvatarFallback>
+                <AvatarFallback>
+                  {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'Y'}
+                  {currentUser?.surname ? currentUser.surname.charAt(0).toUpperCase() : 'A'}
+                </AvatarFallback>
               </Avatar>
               {sidebarOpen && (
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Yönetici</p>
-                  <p className="text-xs text-muted-foreground">Admin</p>
+                  <p className="text-sm font-medium">
+                    {currentUser?.name} {currentUser?.surname}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentUser?.email}
+                  </p>
                 </div>
               )}
               <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -654,11 +663,11 @@ export default function Dashboard() {
                     </Button>
                     <Button 
                       variant="outline" 
-                      className="h-20 flex flex-col space-y-2 border-orange-200 hover:bg-orange-50"
-                      onClick={() => router.push('/data-cleanup')}
+                      className="h-20 flex flex-col space-y-2 border-blue-200 hover:bg-blue-50"
+                      onClick={() => router.push('/data-recovery')}
                     >
-                      <AlertTriangle className="h-6 w-6 text-orange-600" />
-                      <span className="text-sm">Veri Temizle</span>
+                      <RefreshCw className="h-6 w-6 text-blue-600" />
+                      <span className="text-sm">Veri Kurtar</span>
                     </Button>
                     <Button 
                       variant="outline" 
