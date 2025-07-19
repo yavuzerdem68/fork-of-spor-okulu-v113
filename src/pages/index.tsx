@@ -111,21 +111,23 @@ export default function Home() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="flex items-center justify-center lg:justify-start space-x-4 mb-8">
+            <div className="flex items-center justify-center lg:justify-start space-x-6 mb-8">
               <img 
-                src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/g7-spor-kulubu-logo-1543f61.png" 
+                src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/g7-spor-kulubu-logo-a3c923c.png" 
                 alt="G7 Spor Kulübü Logo" 
-                className="h-20 w-20 object-contain"
+                className="h-40 w-40 object-contain"
               />
               <img 
                 src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/asset-7-fe3257c.png" 
                 alt="Lüleburgaz Tofaş Basketbol Okulu Logo" 
-                className="h-20 w-20 object-contain"
+                className="h-40 w-40 object-contain"
               />
             </div>
             
             <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-3 leading-tight">
-              G7 Spor Kulübü ve Lüleburgaz Tofaş Basketbol Okulu
+              G7 Spor Kulübü ve
+              <br />
+              <span className="text-2xl lg:text-3xl">Lüleburgaz Tofaş Basketbol Okulu</span>
               <span className="text-primary block text-2xl lg:text-3xl mt-2">Yönetim Sistemi</span>
             </h1>
             
