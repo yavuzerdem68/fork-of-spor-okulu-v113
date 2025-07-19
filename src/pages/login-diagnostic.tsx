@@ -19,9 +19,16 @@ export default function LoginDiagnostic() {
   
   const [newUser, setNewUser] = useState({
     email: "yavuz@g7spor.org",
-    password: "",
+    password: "yavuz123",
     name: "Yavuz",
     surname: "Yönetici"
+  });
+
+  const [newCoach, setNewCoach] = useState({
+    email: "",
+    password: "",
+    name: "",
+    surname: ""
   });
 
   useEffect(() => {
@@ -53,7 +60,7 @@ export default function LoginDiagnostic() {
 
     try {
       await simpleAuthManager.createCustomAdmin(newUser.email, newUser.password, newUser.name, newUser.surname);
-      setSuccess(`${newUser.email} başarıyla oluşturuldu! Şifre: ${newUser.password}`);
+      setSuccess(`Admin kullanıcı ${newUser.email} başarıyla oluşturuldu! Şifre: ${newUser.password}`);
       setNewUser({ email: "", password: "", name: "", surname: "" });
       
       // Reload users
@@ -61,8 +68,48 @@ export default function LoginDiagnostic() {
       
       setTimeout(() => setSuccess(""), 10000);
     } catch (error: any) {
-      console.error('Error creating user:', error);
-      setError(error.message || 'Kullanıcı oluşturulurken hata oluştu');
+      console.error('Error creating admin user:', error);
+      setError(error.message || 'Admin kullanıcı oluşturulurken hata oluştu');
+    }
+  };
+
+  const createCoachUser = async () => {
+    if (!newCoach.email || !newCoach.password) {
+      setError('Antrenör için email ve şifre gerekli');
+      return;
+    }
+
+    try {
+      await simpleAuthManager.createCoach(newCoach.email, newCoach.password, newCoach.name, newCoach.surname);
+      setSuccess(`Antrenör ${newCoach.email} başarıyla oluşturuldu! Şifre: ${newCoach.password}`);
+      setNewCoach({ email: "", password: "", name: "", surname: "" });
+      
+      // Reload users
+      await loadUsers();
+      
+      setTimeout(() => setSuccess(""), 10000);
+    } catch (error: any) {
+      console.error('Error creating coach user:', error);
+      setError(error.message || 'Antrenör oluşturulurken hata oluştu');
+    }
+  };
+
+  const deleteDefaultAdmin = async () => {
+    const defaultAdmin = allUsers.find(u => u.email === 'admin@sportscr.com');
+    if (!defaultAdmin) {
+      setError('Varsayılan admin bulunamadı');
+      return;
+    }
+
+    if (confirm('Varsayılan admin hesabını (admin@sportscr.com) silmek istediğinizden emin misiniz?')) {
+      try {
+        await simpleAuthManager.deleteUser(defaultAdmin.id);
+        setSuccess('Varsayılan admin hesabı silindi');
+        await loadUsers();
+        setTimeout(() => setSuccess(""), 3000);
+      } catch (error: any) {
+        setError(error.message || 'Varsayılan admin silinirken hata oluştu');
+      }
     }
   };
 
@@ -173,6 +220,10 @@ export default function LoginDiagnostic() {
                   <Button variant="outline" onClick={loadUsers}>
                     Verileri Yenile
                   </Button>
+                  <Button variant="secondary" onClick={deleteDefaultAdmin}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Varsayılan Admin'i Sil
+                  </Button>
                   <Button variant="destructive" onClick={clearAllData}>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Tüm Verileri Temizle
@@ -189,9 +240,9 @@ export default function LoginDiagnostic() {
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="admin-email">Email</Label>
                     <Input
-                      id="email"
+                      id="admin-email"
                       type="email"
                       value={newUser.email}
                       onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
@@ -199,9 +250,9 @@ export default function LoginDiagnostic() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="password">Şifre</Label>
+                    <Label htmlFor="admin-password">Şifre</Label>
                     <Input
-                      id="password"
+                      id="admin-password"
                       type="password"
                       value={newUser.password}
                       onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
@@ -209,18 +260,18 @@ export default function LoginDiagnostic() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="name">Ad</Label>
+                    <Label htmlFor="admin-name">Ad</Label>
                     <Input
-                      id="name"
+                      id="admin-name"
                       value={newUser.name}
                       onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Ad"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="surname">Soyad</Label>
+                    <Label htmlFor="admin-surname">Soyad</Label>
                     <Input
-                      id="surname"
+                      id="admin-surname"
                       value={newUser.surname}
                       onChange={(e) => setNewUser(prev => ({ ...prev, surname: e.target.value }))}
                       placeholder="Soyad"
@@ -230,6 +281,59 @@ export default function LoginDiagnostic() {
                 <Button onClick={createAdminUser}>
                   <Plus className="w-4 h-4 mr-2" />
                   Yönetici Kullanıcı Oluştur
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Create New Coach User */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Yeni Antrenör Kullanıcı Oluştur</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="coach-email">Email</Label>
+                    <Input
+                      id="coach-email"
+                      type="email"
+                      value={newCoach.email}
+                      onChange={(e) => setNewCoach(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="antrenor@example.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="coach-password">Şifre</Label>
+                    <Input
+                      id="coach-password"
+                      type="password"
+                      value={newCoach.password}
+                      onChange={(e) => setNewCoach(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="coach-name">Ad</Label>
+                    <Input
+                      id="coach-name"
+                      value={newCoach.name}
+                      onChange={(e) => setNewCoach(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ad"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="coach-surname">Soyad</Label>
+                    <Input
+                      id="coach-surname"
+                      value={newCoach.surname}
+                      onChange={(e) => setNewCoach(prev => ({ ...prev, surname: e.target.value }))}
+                      placeholder="Soyad"
+                    />
+                  </div>
+                </div>
+                <Button onClick={createCoachUser}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Antrenör Kullanıcı Oluştur
                 </Button>
               </CardContent>
             </Card>

@@ -228,11 +228,8 @@ export class SimpleAuthManager {
     }
   }
 
-  // Get all users (admin only)
+  // Get all users (for diagnostic purposes)
   getAllUsers(): SimpleUser[] {
-    if (!this.isAdmin()) {
-      throw new Error('Yetkisiz erişim');
-    }
     return this.getUsers();
   }
 
