@@ -28,31 +28,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
 
-  // Check if user is already logged in
+  // Initialize auth without auto-redirect to prevent loops
   useEffect(() => {
     const initAuth = async () => {
       try {
         await simpleAuthManager.initialize();
         await simpleAuthManager.initializeDefaultUsers();
-        const user = simpleAuthManager.getCurrentUser();
-        
-        if (user && user.isActive) {
-          // Redirect based on role without causing a loop
-          switch (user.role) {
-            case 'admin':
-              router.replace('/dashboard');
-              break;
-            case 'coach':
-              router.replace('/coach-dashboard');
-              break;
-            case 'parent':
-              router.replace('/parent-dashboard');
-              break;
-            default:
-              // Invalid role, sign out
-              await simpleAuthManager.signOut();
-          }
-        }
       } catch (error) {
         console.error('Auth initialization error:', error);
         // Clear any corrupted auth state
@@ -60,9 +41,8 @@ export default function Home() {
       }
     };
 
-    // Only run once when component mounts
     initAuth();
-  }, []); // Remove router dependency to prevent loops
+  }, []);
 
   const handleLogin = async (e: React.FormEvent, role: 'admin' | 'coach' | 'parent') => {
     e.preventDefault();
