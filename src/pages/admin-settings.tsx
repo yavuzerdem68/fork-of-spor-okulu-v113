@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { hashPassword, validatePasswordStrength, sanitizeInput } from "@/utils/security";
 import { SessionManager } from "@/utils/security";
+import { simpleAuthManager } from "@/lib/simple-auth";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -171,15 +172,27 @@ export default function AdminSettings() {
   };
 
   useEffect(() => {
-    // Check if user is logged in and has admin role
-    const role = localStorage.getItem("userRole");
-    if (!role || (role !== "admin" && role !== "super_admin")) {
-      router.push("/login");
-      return;
-    }
+    const checkAuth = async () => {
+      try {
+        // Initialize auth manager first
+        await simpleAuthManager.initialize();
+        
+        // Check if user is authenticated and has admin role
+        const currentUser = simpleAuthManager.getCurrentUser();
+        if (!currentUser || !simpleAuthManager.isAdmin()) {
+          router.push("/login");
+          return;
+        }
 
-    // Load admin users
-    loadAdminUsers();
+        // Load admin users
+        loadAdminUsers();
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        router.push("/login");
+      }
+    };
+
+    checkAuth();
   }, [router]);
 
   const getDefaultPermissions = (role: string) => {

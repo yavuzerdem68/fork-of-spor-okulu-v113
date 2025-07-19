@@ -32,6 +32,7 @@ import {
   Home
 } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { simpleAuthManager } from '@/lib/simple-auth';
 
 const SystemSettings = () => {
   const router = useRouter();
@@ -77,21 +78,35 @@ const SystemSettings = () => {
   });
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole');
-    if (role !== 'admin') {
-      router.push('/login');
-      return;
-    }
-    setUserRole(role);
+    const checkAuth = async () => {
+      try {
+        // Initialize auth manager first
+        await simpleAuthManager.initialize();
+        
+        // Check if user is authenticated and has admin role
+        const currentUser = simpleAuthManager.getCurrentUser();
+        if (!currentUser || !simpleAuthManager.isAdmin()) {
+          router.push("/login");
+          return;
+        }
 
-    // Load existing settings
-    const savedSettings = localStorage.getItem('systemSettings');
-    if (savedSettings) {
-      setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
-    }
+        setUserRole(currentUser.role);
 
-    // Load admin users
-    loadAdminUsers();
+        // Load existing settings
+        const savedSettings = localStorage.getItem('systemSettings');
+        if (savedSettings) {
+          setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
+        }
+
+        // Load admin users
+        loadAdminUsers();
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        router.push("/login");
+      }
+    };
+
+    checkAuth();
   }, [router]);
 
   const loadAdminUsers = () => {
