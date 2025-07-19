@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trophy, Shield, Users, Eye, EyeOff, Zap, Settings } from "lucide-react";
+import { Trophy, Shield, Users, Eye, EyeOff, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { simpleAuthManager } from "@/lib/simple-auth";
@@ -104,22 +104,7 @@ export default function Home() {
     setLoading(false);
   };
 
-  const createQuickAdmin = async () => {
-    try {
-      await simpleAuthManager.createDefaultAdmin();
-      setError("");
-      alert("Varsayılan admin hesabı oluşturuldu!\nEmail: yavuz@g7spor.org\nŞifre: 444125yA/");
-      setAdminCredentials({ email: "yavuz@g7spor.org", password: "444125yA/" });
-    } catch (error: any) {
-      if (error.message.includes('zaten kullanılıyor')) {
-        alert("Varsayılan admin hesabı zaten mevcut!\nEmail: yavuz@g7spor.org\nŞifre: 444125yA/");
-        setAdminCredentials({ email: "yavuz@g7spor.org", password: "444125yA/" });
-        setError("");
-      } else {
-        setError("Admin hesabı oluşturulamadı: " + error.message);
-      }
-    }
-  };
+
 
   return (
     <>
@@ -206,7 +191,7 @@ export default function Home() {
                           <Input
                             id="admin-email"
                             type="email"
-                            placeholder="yavuz@g7spor.org"
+                            placeholder="admin@example.com"
                             value={adminCredentials.email}
                             onChange={(e) => setAdminCredentials({...adminCredentials, email: e.target.value})}
                             required
@@ -239,18 +224,6 @@ export default function Home() {
                         <Button type="submit" className="w-full" disabled={loading}>
                           {loading ? "Giriş yapılıyor..." : "Yönetici Girişi"}
                         </Button>
-
-                        <div className="text-center">
-                          <Button 
-                            type="button"
-                            variant="outline" 
-                            size="sm" 
-                            onClick={createQuickAdmin}
-                            className="text-xs"
-                          >
-                            Hızlı Admin Oluştur
-                          </Button>
-                        </div>
                       </div>
                     </motion.form>
                   </TabsContent>
@@ -348,28 +321,10 @@ export default function Home() {
                   </TabsContent>
                 </Tabs>
 
-                <div className="mt-6 text-center space-y-2">
+                <div className="mt-6 text-center">
                   <Link href="/parent-signup" className="text-sm text-primary hover:underline block">
                     Hesabınız yok mu? Kayıt olun
                   </Link>
-                  <div className="pt-4 border-t border-border/50 mt-4">
-                    <Link href="/login-diagnostic" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Giriş Tanılama
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Info Card */}
-                <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="text-center text-sm text-muted-foreground">
-                    <h4 className="font-medium mb-2">Varsayılan Hesaplar</h4>
-                    <div className="space-y-1 text-xs">
-                      <p><strong>Admin:</strong> yavuz@g7spor.org / 444125yA/</p>
-                      <p><strong>Antrenör:</strong> coach@sportscr.com / coach123</p>
-                      <p><strong>Veli:</strong> parent@sportscr.com / parent123</p>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
