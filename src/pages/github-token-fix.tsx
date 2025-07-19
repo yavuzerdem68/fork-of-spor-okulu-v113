@@ -145,56 +145,115 @@ export default function GitHubTokenFixPage() {
     setLoading(true);
     
     addResult({
-      test: 'Basic GitHub Access Test',
+      test: 'Comprehensive GitHub Diagnostic',
       status: 'success',
-      message: 'Testing basic GitHub API access...'
+      message: 'Running comprehensive GitHub diagnostics...'
     });
 
     try {
-      // Test basic GitHub API access without using our API
       const response = await fetch('/api/debug-github');
       const result = await response.json();
       
-      if (result.success && result.githubApiTest) {
-        const { githubApiTest } = result;
+      if (result.success) {
+        const { userTest, repoListTest, githubApiTest, diagnosticSummary } = result;
         
-        if (githubApiTest.accessible) {
+        // Test 1: Token Validation
+        if (userTest) {
           addResult({
-            test: 'Basic GitHub Access Test',
-            status: 'success',
-            message: 'GitHub API access successful',
+            test: 'GitHub Token Validation',
+            status: userTest.accessible ? 'success' : 'error',
+            message: userTest.accessible 
+              ? `Token is valid for user: ${userTest.username}` 
+              : 'GitHub token validation failed',
+            details: {
+              status: userTest.status,
+              statusText: userTest.statusText,
+              username: userTest.username,
+              userType: userTest.userType,
+              scopes: userTest.scopes,
+              error: userTest.error,
+              rateLimitRemaining: userTest.rateLimitRemaining
+            }
+          });
+        }
+
+        // Test 2: Owner/Organization Check
+        if (repoListTest) {
+          addResult({
+            test: 'GitHub Owner/Organization Check',
+            status: repoListTest.accessible ? 'success' : 'error',
+            message: repoListTest.accessible 
+              ? `Owner '${result.envCheck.GITHUB_OWNER_VALUE}' exists with ${repoListTest.repoCount} repositories` 
+              : `Owner '${result.envCheck.GITHUB_OWNER_VALUE}' not found or not accessible`,
+            details: {
+              status: repoListTest.status,
+              statusText: repoListTest.statusText,
+              repoCount: repoListTest.repoCount,
+              sampleRepos: repoListTest.sampleRepos,
+              targetRepoExists: repoListTest.targetRepoExists,
+              error: repoListTest.error
+            }
+          });
+        }
+
+        // Test 3: Repository Access
+        if (githubApiTest) {
+          addResult({
+            test: 'Repository Access Test',
+            status: githubApiTest.accessible ? 'success' : 'error',
+            message: githubApiTest.accessible 
+              ? `Repository '${githubApiTest.repoFullName}' is accessible` 
+              : `Repository '${result.envCheck.GITHUB_OWNER_VALUE}/${result.envCheck.GITHUB_REPO_VALUE}' not accessible`,
             details: {
               status: githubApiTest.status,
+              statusText: githubApiTest.statusText,
               repoName: githubApiTest.repoName,
+              repoFullName: githubApiTest.repoFullName,
               permissions: githubApiTest.permissions,
+              private: githubApiTest.private,
+              defaultBranch: githubApiTest.defaultBranch,
+              error: githubApiTest.error,
               rateLimitRemaining: githubApiTest.rateLimitRemaining
+            }
+          });
+        }
+
+        // Summary with specific issues
+        if (diagnosticSummary.possibleIssues.length > 0) {
+          addResult({
+            test: 'Issue Analysis',
+            status: 'error',
+            message: `Found ${diagnosticSummary.possibleIssues.length} potential issue(s)`,
+            details: {
+              issues: diagnosticSummary.possibleIssues,
+              configurationComplete: diagnosticSummary.configurationComplete,
+              tokenValid: diagnosticSummary.tokenValid,
+              ownerExists: diagnosticSummary.ownerExists,
+              repositoryAccessible: diagnosticSummary.repositoryAccessible
             }
           });
         } else {
           addResult({
-            test: 'Basic GitHub Access Test',
-            status: 'error',
-            message: 'GitHub API access failed',
-            details: {
-              status: githubApiTest.status,
-              statusText: githubApiTest.statusText,
-              error: githubApiTest.error
-            }
+            test: 'Issue Analysis',
+            status: 'success',
+            message: 'No issues detected - GitHub configuration appears correct',
+            details: diagnosticSummary
           });
         }
+
       } else {
         addResult({
-          test: 'Basic GitHub Access Test',
+          test: 'Comprehensive GitHub Diagnostic',
           status: 'error',
-          message: 'Failed to test GitHub access',
+          message: 'Failed to run GitHub diagnostics',
           details: result.error || 'Unknown error'
         });
       }
     } catch (error) {
       addResult({
-        test: 'Basic GitHub Access Test',
+        test: 'Comprehensive GitHub Diagnostic',
         status: 'error',
-        message: 'GitHub access test error',
+        message: 'GitHub diagnostic error',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
