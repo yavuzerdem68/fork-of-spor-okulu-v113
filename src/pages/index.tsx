@@ -26,45 +26,49 @@ export default function Home() {
   const [coachCredentials, setCoachCredentials] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState("");
 
   // Check if user is already logged in
   useEffect(() => {
     const initAuth = async () => {
-      await simpleAuthManager.initialize();
-      await simpleAuthManager.initializeDefaultUsers();
-      const user = simpleAuthManager.getCurrentUser();
-      
-      if (user) {
-        // Only redirect if we're not already navigating
-        const isNavigating = router.asPath !== router.route;
-        if (!isNavigating) {
-          // Use a small delay to prevent rapid navigation
-          setTimeout(() => {
-            switch (user.role) {
-              case 'admin':
-                router.replace('/dashboard');
-                break;
-              case 'coach':
-                router.replace('/coach-dashboard');
-                break;
-              case 'parent':
-                router.replace('/parent-dashboard');
-                break;
-              default:
-                simpleAuthManager.signOut();
-            }
-          }, 100);
+      try {
+        await simpleAuthManager.initialize();
+        await simpleAuthManager.initializeDefaultUsers();
+        const user = simpleAuthManager.getCurrentUser();
+        
+        if (user && user.isActive) {
+          // Redirect based on role without causing a loop
+          switch (user.role) {
+            case 'admin':
+              router.replace('/dashboard');
+              break;
+            case 'coach':
+              router.replace('/coach-dashboard');
+              break;
+            case 'parent':
+              router.replace('/parent-dashboard');
+              break;
+            default:
+              // Invalid role, sign out
+              await simpleAuthManager.signOut();
+          }
         }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        // Clear any corrupted auth state
+        await simpleAuthManager.signOut();
       }
     };
 
+    // Only run once when component mounts
     initAuth();
-  }, [router]);
+  }, []); // Remove router dependency to prevent loops
 
   const handleLogin = async (e: React.FormEvent, role: 'admin' | 'coach' | 'parent') => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setDebugInfo("");
 
     let credentials;
     switch (role) {
@@ -80,7 +84,9 @@ export default function Home() {
     }
 
     try {
+      console.log('Attempting login with:', { email: credentials.email, role });
       const user = await simpleAuthManager.signIn(credentials.email, credentials.password);
+      console.log('Login successful:', user);
       
       // Redirect based on role
       switch (user.role) {
@@ -102,6 +108,34 @@ export default function Home() {
     }
     
     setLoading(false);
+  };
+
+  const debugAuth = async () => {
+    try {
+      await simpleAuthManager.initialize();
+      await simpleAuthManager.initializeDefaultUsers();
+      
+      const allUsers = simpleAuthManager.getAllUsers();
+      console.log('All users:', allUsers);
+      
+      const debugText = `
+Kullanıcı Sayısı: ${allUsers.length}
+Kullanıcılar:
+${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: ${u.isActive}`).join('\n')}
+      `;
+      
+      setDebugInfo(debugText);
+      
+      // Try to create default admin if it doesn't exist
+      const adminExists = allUsers.find(u => u.email === 'yavuz@g7spor.org');
+      if (!adminExists) {
+        await simpleAuthManager.createDefaultAdmin();
+        setDebugInfo(prev => prev + '\n\nVarsayılan admin oluşturuldu: yavuz@g7spor.org / 444125yA/');
+      }
+    } catch (error: any) {
+      console.error('Debug error:', error);
+      setDebugInfo('Debug hatası: ' + error.message);
+    }
   };
 
 
@@ -321,11 +355,28 @@ export default function Home() {
                   </TabsContent>
                 </Tabs>
 
-                <div className="mt-6 text-center">
+                <div className="mt-6 text-center space-y-3">
                   <Link href="/parent-signup" className="text-sm text-primary hover:underline block">
                     Hesabınız yok mu? Kayıt olun
                   </Link>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={debugAuth}
+                    className="text-xs"
+                  >
+                    🔍 Giriş Tanılama
+                  </Button>
                 </div>
+
+                {debugInfo && (
+                  <Alert className="mt-4">
+                    <AlertDescription>
+                      <pre className="text-xs whitespace-pre-wrap">{debugInfo}</pre>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </motion.div>
