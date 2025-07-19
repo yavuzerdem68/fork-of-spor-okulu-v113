@@ -159,16 +159,16 @@ export class SimpleAuthManager {
   // Create default admin user
   async createDefaultAdmin(): Promise<SimpleUser> {
     try {
-      return await this.createUser('admin@sportscr.com', 'admin123', {
-        name: 'Sistem',
-        surname: 'Yöneticisi',
+      return await this.createUser('yavuz@g7spor.org', '444125yA/', {
+        name: 'Yavuz',
+        surname: 'Admin',
         role: 'admin'
       });
     } catch (error: any) {
       if (error.message.includes('zaten kullanılıyor')) {
         // Return existing user
         const users = this.getUsers();
-        const existingUser = users.find(u => u.email === 'admin@sportscr.com');
+        const existingUser = users.find(u => u.email === 'yavuz@g7spor.org');
         if (existingUser) {
           return existingUser;
         }

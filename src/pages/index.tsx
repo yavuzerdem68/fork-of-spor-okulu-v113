@@ -108,12 +108,12 @@ export default function Home() {
     try {
       await simpleAuthManager.createDefaultAdmin();
       setError("");
-      alert("Varsayılan admin hesabı oluşturuldu!\nEmail: admin@sportscr.com\nŞifre: admin123");
-      setAdminCredentials({ email: "admin@sportscr.com", password: "admin123" });
+      alert("Varsayılan admin hesabı oluşturuldu!\nEmail: yavuz@g7spor.org\nŞifre: 444125yA/");
+      setAdminCredentials({ email: "yavuz@g7spor.org", password: "444125yA/" });
     } catch (error: any) {
       if (error.message.includes('zaten kullanılıyor')) {
-        alert("Varsayılan admin hesabı zaten mevcut!\nEmail: admin@sportscr.com\nŞifre: admin123");
-        setAdminCredentials({ email: "admin@sportscr.com", password: "admin123" });
+        alert("Varsayılan admin hesabı zaten mevcut!\nEmail: yavuz@g7spor.org\nŞifre: 444125yA/");
+        setAdminCredentials({ email: "yavuz@g7spor.org", password: "444125yA/" });
         setError("");
       } else {
         setError("Admin hesabı oluşturulamadı: " + error.message);
@@ -124,8 +124,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>SportsCRM - Spor Okulu Yönetim Sistemi</title>
-        <meta name="description" content="SportsCRM sistemine giriş yapın" />
+        <title>G7 Spor Okulu Yönetim Sistemi</title>
+        <meta name="description" content="G7 Spor Okulu Yönetim Sistemi'ne giriş yapın" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -140,12 +140,16 @@ export default function Home() {
             transition={{ duration: 0.8 }}
           >
             <div className="flex items-center justify-center lg:justify-start space-x-3 mb-6">
-              <Trophy className="h-12 w-12 text-primary" />
-              <span className="text-3xl font-bold text-primary">SportsCRM</span>
+              <img 
+                src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/g7-spor-kulubu-logo-1543f61.png" 
+                alt="G7 Spor Kulübü Logo" 
+                className="h-16 w-16 object-contain"
+              />
+              <span className="text-3xl font-bold text-primary">G7 Spor Okulu</span>
             </div>
             
             <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
-              Spor Okulu
+              G7 Spor Okulu
               <span className="text-primary block">Yönetim Sistemi</span>
             </h1>
             
@@ -202,7 +206,7 @@ export default function Home() {
                           <Input
                             id="admin-email"
                             type="email"
-                            placeholder="admin@sportscr.com"
+                            placeholder="yavuz@g7spor.org"
                             value={adminCredentials.email}
                             onChange={(e) => setAdminCredentials({...adminCredentials, email: e.target.value})}
                             required
@@ -361,7 +365,7 @@ export default function Home() {
                   <div className="text-center text-sm text-muted-foreground">
                     <h4 className="font-medium mb-2">Varsayılan Hesaplar</h4>
                     <div className="space-y-1 text-xs">
-                      <p><strong>Admin:</strong> admin@sportscr.com / admin123</p>
+                      <p><strong>Admin:</strong> yavuz@g7spor.org / 444125yA/</p>
                       <p><strong>Antrenör:</strong> coach@sportscr.com / coach123</p>
                       <p><strong>Veli:</strong> parent@sportscr.com / parent123</p>
                     </div>
