@@ -31,6 +31,7 @@ import {
 import { useRouter } from "next/router";
 import { hashPassword, verifyPassword } from "@/utils/security";
 import { SessionManager } from "@/utils/security";
+import { simpleAuthManager } from "@/lib/simple-auth";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -56,25 +57,33 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Simple authentication check like coach-dashboard
-    const role = localStorage.getItem("userRole");
-    const user = localStorage.getItem("currentUser");
-    
-    if (role !== "parent" || !user) {
-      router.push("/login");
-      return;
-    }
-    
-    const userData = JSON.parse(user);
-    setCurrentUser(userData);
-    
-    // Load linked athletes
-    loadLinkedAthletes(userData);
-    
-    // Check if user has temporary password
-    if (userData.isTemporaryPassword) {
-      setShowPasswordDialog(true);
-    }
+    // Use the new simple auth manager
+    const initAuth = async () => {
+      try {
+        await simpleAuthManager.initialize();
+        const user = simpleAuthManager.getCurrentUser();
+        
+        if (!user || user.role !== "parent") {
+          router.push("/login");
+          return;
+        }
+        
+        setCurrentUser(user);
+        
+        // Load linked athletes
+        loadLinkedAthletes(user);
+        
+        // Check if user has temporary password
+        if (user.isTemporaryPassword) {
+          setShowPasswordDialog(true);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        router.push("/login");
+      }
+    };
+
+    initAuth();
   }, [router]);
 
   const loadLinkedAthletes = (user: any) => {
@@ -367,9 +376,8 @@ export default function ParentDashboard() {
     setLoading(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("currentUser");
+  const handleLogout = async () => {
+    await simpleAuthManager.signOut();
     router.push("/login");
   };
 

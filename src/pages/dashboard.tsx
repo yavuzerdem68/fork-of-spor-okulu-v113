@@ -51,6 +51,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/router";
 import { SessionManager } from "@/utils/security";
 import { hashPassword, verifyPassword } from "@/utils/security";
+import { simpleAuthManager } from "@/lib/simple-auth";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -122,28 +123,35 @@ export default function Dashboard() {
   const [upcomingTrainings, setUpcomingTrainings] = useState<any[]>([]);
 
   useEffect(() => {
-    // Simple authentication check like coach-dashboard
-    const role = localStorage.getItem("userRole");
-    const user = localStorage.getItem("currentUser");
-    
-    if (role !== "admin" || !user) {
-      router.push("/login");
-      return;
-    }
-    
-    setUserRole(role);
-    
-    const userData = JSON.parse(user);
-    setCurrentUser(userData);
-    setUserEmail(userData.email || "");
-    
-    // Check if user has temporary password
-    if (userData.isTemporaryPassword) {
-      setShowPasswordDialog(true);
-    }
-    
-    // Load real data from localStorage
-    loadDashboardData();
+    // Use the new simple auth manager
+    const initAuth = async () => {
+      try {
+        await simpleAuthManager.initialize();
+        const user = simpleAuthManager.getCurrentUser();
+        
+        if (!user || user.role !== "admin") {
+          router.push("/login");
+          return;
+        }
+        
+        setUserRole(user.role);
+        setCurrentUser(user);
+        setUserEmail(user.email || "");
+        
+        // Check if user has temporary password
+        if (user.isTemporaryPassword) {
+          setShowPasswordDialog(true);
+        }
+        
+        // Load real data from localStorage
+        loadDashboardData();
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        router.push("/login");
+      }
+    };
+
+    initAuth();
   }, [router]);
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -333,9 +341,8 @@ export default function Dashboard() {
     setRecentActivities([]);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("currentUser");
+  const handleLogout = async () => {
+    await simpleAuthManager.signOut();
     router.push("/login");
   };
 
