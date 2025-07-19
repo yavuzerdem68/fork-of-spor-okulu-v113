@@ -56,31 +56,25 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check authentication
-    const checkAuth = setTimeout(() => {
-      const { isValid, session } = SessionManager.validateSession();
-      const role = localStorage.getItem("userRole");
-      const user = localStorage.getItem("currentUser");
-      
-      if (!isValid || role !== "parent" || !user) {
-        SessionManager.destroySession();
-        router.replace("/login");
-        return;
-      }
-      
-      const userData = JSON.parse(user);
-      setCurrentUser(userData);
-      
-      // Load linked athletes
-      loadLinkedAthletes(userData);
-      
-      // Check if user has temporary password
-      if (userData.isTemporaryPassword) {
-        setShowPasswordDialog(true);
-      }
-    }, 50);
-
-    return () => clearTimeout(checkAuth);
+    // Simple authentication check like coach-dashboard
+    const role = localStorage.getItem("userRole");
+    const user = localStorage.getItem("currentUser");
+    
+    if (role !== "parent" || !user) {
+      router.replace("/");
+      return;
+    }
+    
+    const userData = JSON.parse(user);
+    setCurrentUser(userData);
+    
+    // Load linked athletes
+    loadLinkedAthletes(userData);
+    
+    // Check if user has temporary password
+    if (userData.isTemporaryPassword) {
+      setShowPasswordDialog(true);
+    }
   }, [router]);
 
   const loadLinkedAthletes = (user: any) => {
@@ -374,7 +368,8 @@ export default function ParentDashboard() {
   };
 
   const handleLogout = () => {
-    SessionManager.destroySession();
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("currentUser");
     router.replace("/");
   };
 

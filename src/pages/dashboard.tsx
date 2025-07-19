@@ -122,29 +122,24 @@ export default function Dashboard() {
   const [upcomingTrainings, setUpcomingTrainings] = useState<any[]>([]);
 
   useEffect(() => {
-    // Immediate check to prevent flickering
-    const { isValid, session } = SessionManager.validateSession();
+    // Simple authentication check like coach-dashboard
     const role = localStorage.getItem("userRole");
-    const email = localStorage.getItem("userEmail");
     const user = localStorage.getItem("currentUser");
     
-    if (!isValid || role !== "admin") {
-      SessionManager.destroySession();
-      router.replace("/login");
+    if (role !== "admin" || !user) {
+      router.replace("/");
       return;
     }
     
     setUserRole(role);
-    setUserEmail(email || "");
     
-    if (user) {
-      const userData = JSON.parse(user);
-      setCurrentUser(userData);
-      
-      // Check if user has temporary password
-      if (userData.isTemporaryPassword) {
-        setShowPasswordDialog(true);
-      }
+    const userData = JSON.parse(user);
+    setCurrentUser(userData);
+    setUserEmail(userData.email || "");
+    
+    // Check if user has temporary password
+    if (userData.isTemporaryPassword) {
+      setShowPasswordDialog(true);
     }
     
     // Load real data from localStorage
@@ -339,7 +334,8 @@ export default function Dashboard() {
   };
 
   const handleLogout = () => {
-    SessionManager.destroySession();
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("currentUser");
     router.replace("/");
   };
 
