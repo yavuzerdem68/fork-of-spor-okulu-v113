@@ -7,12 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trophy, Shield, Users, Eye, EyeOff, Zap } from "lucide-react";
+import { Trophy, Shield, Users, Eye, EyeOff, Zap, Settings } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { verifyPassword, hashPassword } from "@/utils/security";
-import { RateLimiter, SessionManager } from "@/utils/security";
-import { sanitizeInput } from "@/utils/security";
+import { simpleAuthManager } from "@/lib/simple-auth";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -28,242 +26,93 @@ export default function Home() {
   const [coachCredentials, setCoachCredentials] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [rateLimiter] = useState(() => new RateLimiter(5, 15 * 60 * 1000)); // 5 attempts per 15 minutes
 
   // Check if user is already logged in
   useEffect(() => {
-    // Immediate check without delay to prevent flickering
-    const { isValid, session } = SessionManager.validateSession();
-    if (isValid && session) {
-      // Redirect based on role immediately
-      switch (session.userRole) {
-        case 'admin':
-          router.replace('/dashboard');
-          break;
-        case 'coach':
-          router.replace('/coach-dashboard');
-          break;
-        case 'parent':
-          router.replace('/parent-dashboard');
-          break;
-        default:
-          SessionManager.destroySession();
+    const initAuth = async () => {
+      await simpleAuthManager.initialize();
+      await simpleAuthManager.initializeDefaultUsers();
+      const user = simpleAuthManager.getCurrentUser();
+      
+      if (user) {
+        // Redirect based on role
+        switch (user.role) {
+          case 'admin':
+            router.replace('/dashboard');
+            break;
+          case 'coach':
+            router.replace('/coach-dashboard');
+            break;
+          case 'parent':
+            router.replace('/parent-dashboard');
+            break;
+          default:
+            await simpleAuthManager.signOut();
+        }
       }
-    }
+    };
+
+    initAuth();
   }, [router]);
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent, role: 'admin' | 'coach' | 'parent') => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Sanitize inputs
-    const email = sanitizeInput(adminCredentials.email.trim(), 100);
-    const password = adminCredentials.password;
-
-    // Rate limiting
-    const clientId = `admin_${email}`;
-    if (!rateLimiter.isAllowed(clientId)) {
-      const remainingTime = Math.ceil(rateLimiter.getRemainingTime(clientId) / 1000 / 60);
-      setError(`Çok fazla başarısız deneme. ${remainingTime} dakika sonra tekrar deneyin.`);
-      setLoading(false);
-      return;
+    let credentials;
+    switch (role) {
+      case 'admin':
+        credentials = adminCredentials;
+        break;
+      case 'coach':
+        credentials = coachCredentials;
+        break;
+      case 'parent':
+        credentials = parentCredentials;
+        break;
     }
 
     try {
-      // Initialize default admin if no admin users exist
-      let adminUsers = JSON.parse(localStorage.getItem('adminUsers') || '[]');
+      const user = await simpleAuthManager.signIn(credentials.email, credentials.password);
       
-      if (adminUsers.length === 0) {
-        // Create default admin with hashed password
-        const hashedPassword = await hashPassword('admin123');
-        const defaultAdmin = {
-          id: 'default-admin',
-          name: 'Sistem',
-          surname: 'Yöneticisi',
-          email: 'admin@sportscr.com',
-          password: hashedPassword,
-          role: 'admin',
-          createdAt: new Date().toISOString(),
-          isDefault: true
-        };
-        adminUsers = [defaultAdmin];
-        localStorage.setItem('adminUsers', JSON.stringify(adminUsers));
+      // Redirect based on role
+      switch (user.role) {
+        case 'admin':
+          router.push('/dashboard');
+          break;
+        case 'coach':
+          router.push('/coach-dashboard');
+          break;
+        case 'parent':
+          router.push('/parent-dashboard');
+          break;
+        default:
+          setError("Geçersiz kullanıcı rolü");
       }
-
-      // Find admin by email
-      const admin = adminUsers.find((a: any) => a.email === email);
-
-      if (admin) {
-        // Verify password
-        const isPasswordValid = admin.isDefault && admin.password === 'admin123' 
-          ? password === 'admin123' // Backward compatibility for default admin
-          : await verifyPassword(password, admin.password);
-
-        if (isPasswordValid) {
-          // If using old plain text password, update to hashed
-          if (admin.isDefault && admin.password === 'admin123') {
-            admin.password = await hashPassword('admin123');
-            const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-            localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
-          }
-
-          // Create secure session
-          const sessionId = SessionManager.createSession(admin.id, 'admin');
-          
-          // Update last login
-          admin.lastLogin = new Date().toISOString();
-          const updatedAdmins = adminUsers.map((a: any) => a.id === admin.id ? admin : a);
-          localStorage.setItem('adminUsers', JSON.stringify(updatedAdmins));
-
-          // Set legacy localStorage for compatibility
-          localStorage.setItem("userRole", "admin");
-          localStorage.setItem("currentUser", JSON.stringify(admin));
-          localStorage.setItem("userEmail", admin.email);
-
-          // Reset rate limiter on successful login
-          rateLimiter.reset(clientId);
-          
-          router.push("/dashboard");
-        } else {
-          setError("Geçersiz email veya şifre");
-        }
-      } else {
-        setError("Geçersiz email veya şifre");
-      }
-    } catch (error) {
-      console.error('Admin login error:', error);
-      setError("Giriş sırasında bir hata oluştu");
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setError(error.message || "Giriş sırasında bir hata oluştu");
     }
     
     setLoading(false);
   };
 
-  const handleCoachLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    // Sanitize inputs
-    const email = sanitizeInput(coachCredentials.email.trim(), 100);
-    const password = coachCredentials.password;
-
-    // Rate limiting
-    const clientId = `coach_${email}`;
-    if (!rateLimiter.isAllowed(clientId)) {
-      const remainingTime = Math.ceil(rateLimiter.getRemainingTime(clientId) / 1000 / 60);
-      setError(`Çok fazla başarısız deneme. ${remainingTime} dakika sonra tekrar deneyin.`);
-      setLoading(false);
-      return;
-    }
-
+  const createQuickAdmin = async () => {
     try {
-      // Check against registered coaches
-      const coaches = JSON.parse(localStorage.getItem('coaches') || '[]');
-      const coach = coaches.find((c: any) => c.email === email);
-
-      if (coach) {
-        // Verify password (handle both hashed and plain text for backward compatibility)
-        const isPasswordValid = coach.password && coach.password.length > 50
-          ? await verifyPassword(password, coach.password)
-          : password === coach.password;
-
-        if (isPasswordValid) {
-          // If using old plain text password, update to hashed
-          if (coach.password && coach.password.length <= 50) {
-            coach.password = await hashPassword(coach.password);
-            const updatedCoaches = coaches.map((c: any) => c.id === coach.id ? coach : c);
-            localStorage.setItem('coaches', JSON.stringify(updatedCoaches));
-          }
-
-          // Create secure session
-          const sessionId = SessionManager.createSession(coach.id, 'coach');
-          
-          // Set legacy localStorage for compatibility
-          localStorage.setItem("userRole", "coach");
-          localStorage.setItem("currentUser", JSON.stringify(coach));
-
-          // Reset rate limiter on successful login
-          rateLimiter.reset(clientId);
-          
-          router.push("/coach-dashboard");
-        } else {
-          setError("Geçersiz email veya şifre");
-        }
+      await simpleAuthManager.createDefaultAdmin();
+      setError("");
+      alert("Varsayılan admin hesabı oluşturuldu!\nEmail: admin@sportscr.com\nŞifre: admin123");
+      setAdminCredentials({ email: "admin@sportscr.com", password: "admin123" });
+    } catch (error: any) {
+      if (error.message.includes('zaten kullanılıyor')) {
+        alert("Varsayılan admin hesabı zaten mevcut!\nEmail: admin@sportscr.com\nŞifre: admin123");
+        setAdminCredentials({ email: "admin@sportscr.com", password: "admin123" });
+        setError("");
       } else {
-        setError("Geçersiz email veya şifre");
+        setError("Admin hesabı oluşturulamadı: " + error.message);
       }
-    } catch (error) {
-      console.error('Coach login error:', error);
-      setError("Giriş sırasında bir hata oluştu");
     }
-    
-    setLoading(false);
-  };
-
-  const handleParentLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    // Sanitize inputs
-    const emailOrUsername = sanitizeInput(parentCredentials.email.trim(), 100);
-    const password = parentCredentials.password;
-
-    // Rate limiting
-    const clientId = `parent_${emailOrUsername}`;
-    if (!rateLimiter.isAllowed(clientId)) {
-      const remainingTime = Math.ceil(rateLimiter.getRemainingTime(clientId) / 1000 / 60);
-      setError(`Çok fazla başarısız deneme. ${remainingTime} dakika sonra tekrar deneyin.`);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Check against registered parent users
-      const parentUsers = JSON.parse(localStorage.getItem('parentUsers') || '[]');
-      const user = parentUsers.find((u: any) => 
-        u.email === emailOrUsername || u.username === emailOrUsername
-      );
-
-      if (user) {
-        // Verify password (handle both hashed and plain text for backward compatibility)
-        const isPasswordValid = user.password && user.password.length > 50
-          ? await verifyPassword(password, user.password)
-          : password === user.password;
-
-        if (isPasswordValid) {
-          // If using old plain text password, update to hashed
-          if (user.password && user.password.length <= 50) {
-            user.password = await hashPassword(user.password);
-            const updatedUsers = parentUsers.map((u: any) => u.id === user.id ? user : u);
-            localStorage.setItem('parentUsers', JSON.stringify(updatedUsers));
-          }
-
-          // Create secure session
-          const sessionId = SessionManager.createSession(user.id, 'parent');
-          
-          // Set legacy localStorage for compatibility
-          localStorage.setItem("userRole", "parent");
-          localStorage.setItem("currentUser", JSON.stringify(user));
-          localStorage.setItem("userEmail", user.email);
-
-          // Reset rate limiter on successful login
-          rateLimiter.reset(clientId);
-          
-          router.push("/parent-dashboard");
-        } else {
-          setError("Geçersiz kullanıcı adı/email veya şifre");
-        }
-      } else {
-        setError("Geçersiz kullanıcı adı/email veya şifre");
-      }
-    } catch (error) {
-      console.error('Parent login error:', error);
-      setError("Giriş sırasında bir hata oluştu");
-    }
-    
-    setLoading(false);
   };
 
   return (
@@ -340,7 +189,7 @@ export default function Home() {
 
                   {/* Admin Login */}
                   <TabsContent value="admin">
-                    <motion.form onSubmit={handleAdminLogin} variants={fadeInUp}>
+                    <motion.form onSubmit={(e) => handleLogin(e, 'admin')} variants={fadeInUp}>
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="admin-email">Email</Label>
@@ -380,20 +229,32 @@ export default function Home() {
                         <Button type="submit" className="w-full" disabled={loading}>
                           {loading ? "Giriş yapılıyor..." : "Yönetici Girişi"}
                         </Button>
+
+                        <div className="text-center">
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm" 
+                            onClick={createQuickAdmin}
+                            className="text-xs"
+                          >
+                            Hızlı Admin Oluştur
+                          </Button>
+                        </div>
                       </div>
                     </motion.form>
                   </TabsContent>
 
                   {/* Coach Login */}
                   <TabsContent value="coach">
-                    <motion.form onSubmit={handleCoachLogin} variants={fadeInUp}>
+                    <motion.form onSubmit={(e) => handleLogin(e, 'coach')} variants={fadeInUp}>
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="coach-email">Email</Label>
                           <Input
                             id="coach-email"
                             type="email"
-                            placeholder="antrenor@example.com"
+                            placeholder="coach@sportscr.com"
                             value={coachCredentials.email}
                             onChange={(e) => setCoachCredentials({...coachCredentials, email: e.target.value})}
                             required
@@ -432,14 +293,14 @@ export default function Home() {
 
                   {/* Parent Login */}
                   <TabsContent value="parent">
-                    <motion.form onSubmit={handleParentLogin} variants={fadeInUp}>
+                    <motion.form onSubmit={(e) => handleLogin(e, 'parent')} variants={fadeInUp}>
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="parent-email">Email / Kullanıcı Adı</Label>
                           <Input
                             id="parent-email"
                             type="text"
-                            placeholder="veli@example.com"
+                            placeholder="parent@sportscr.com"
                             value={parentCredentials.email}
                             onChange={(e) => setParentCredentials({...parentCredentials, email: e.target.value})}
                             required
@@ -478,19 +339,26 @@ export default function Home() {
                 </Tabs>
 
                 <div className="mt-6 text-center space-y-2">
-                  <Link href="/forgot-password" className="text-sm text-primary hover:underline block">
-                    Şifremi Unuttum
-                  </Link>
                   <Link href="/parent-signup" className="text-sm text-primary hover:underline block">
                     Hesabınız yok mu? Kayıt olun
                   </Link>
                   <div className="pt-4 border-t border-border/50 mt-4">
-                    <Link href="/simple-login" className="text-sm text-green-600 hover:underline block">
-                      🚀 Basit Giriş (Düz Şifre)
+                    <Link href="/login-diagnostic" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Giriş Tanılama
                     </Link>
-                    <Link href="/cloud-login" className="text-sm text-blue-600 hover:underline block">
-                      ☁️ Cloud Giriş
-                    </Link>
+                  </div>
+                </div>
+
+                {/* Info Card */}
+                <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="text-center text-sm text-muted-foreground">
+                    <h4 className="font-medium mb-2">Varsayılan Hesaplar</h4>
+                    <div className="space-y-1 text-xs">
+                      <p><strong>Admin:</strong> admin@sportscr.com / admin123</p>
+                      <p><strong>Antrenör:</strong> coach@sportscr.com / coach123</p>
+                      <p><strong>Veli:</strong> parent@sportscr.com / parent123</p>
+                    </div>
                   </div>
                 </div>
               </CardContent>
