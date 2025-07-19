@@ -84,19 +84,43 @@ export default function Home() {
     }
 
     try {
-      console.log('Attempting login with:', { email: credentials.email, role });
+      console.log('Attempting login with:', { email: credentials.email, password: credentials.password, role });
+      
+      // Get all users for debugging
+      const allUsers = simpleAuthManager.getAllUsers();
+      console.log('All users in system:', allUsers);
+      
+      // Find the user manually to debug
+      const foundUser = allUsers.find(u => u.email === credentials.email);
+      console.log('Found user:', foundUser);
+      
+      if (foundUser) {
+        console.log('Password match check:', {
+          inputPassword: credentials.password,
+          storedPassword: foundUser.password,
+          match: credentials.password === foundUser.password,
+          isActive: foundUser.isActive
+        });
+      }
+      
       const user = await simpleAuthManager.signIn(credentials.email, credentials.password);
       console.log('Login successful:', user);
+      
+      // Add a small delay to ensure state is set
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Redirect based on role
       switch (user.role) {
         case 'admin':
+          console.log('Redirecting to dashboard...');
           router.push('/dashboard');
           break;
         case 'coach':
+          console.log('Redirecting to coach dashboard...');
           router.push('/coach-dashboard');
           break;
         case 'parent':
+          console.log('Redirecting to parent dashboard...');
           router.push('/parent-dashboard');
           break;
         default:
@@ -104,7 +128,17 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(error.message || "Giriş sırasında bir hata oluştu");
+      setError(`Giriş hatası: ${error.message || "Bilinmeyen hata"}`);
+      
+      // Show debug info on error
+      const debugText = `
+Giriş Hatası Detayları:
+Email: ${credentials.email}
+Şifre: ${credentials.password}
+Rol: ${role}
+Hata: ${error.message}
+      `;
+      setDebugInfo(debugText);
     }
     
     setLoading(false);
@@ -136,6 +170,27 @@ ${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: $
       console.error('Debug error:', error);
       setDebugInfo('Debug hatası: ' + error.message);
     }
+  };
+
+  const quickFillAdmin = () => {
+    setAdminCredentials({
+      email: 'yavuz@g7spor.org',
+      password: '444125yA/'
+    });
+  };
+
+  const quickFillCoach = () => {
+    setCoachCredentials({
+      email: 'coach@sportscr.com',
+      password: 'coach123'
+    });
+  };
+
+  const quickFillParent = () => {
+    setParentCredentials({
+      email: 'parent@sportscr.com',
+      password: 'parent123'
+    });
   };
 
 
@@ -255,9 +310,20 @@ ${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: $
                           </div>
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={loading}>
-                          {loading ? "Giriş yapılıyor..." : "Yönetici Girişi"}
-                        </Button>
+                        <div className="space-y-2">
+                          <Button type="submit" className="w-full" disabled={loading}>
+                            {loading ? "Giriş yapılıyor..." : "Yönetici Girişi"}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={quickFillAdmin}
+                            className="w-full text-xs"
+                          >
+                            ⚡ Hızlı Doldur (yavuz@g7spor.org)
+                          </Button>
+                        </div>
                       </div>
                     </motion.form>
                   </TabsContent>
@@ -301,9 +367,20 @@ ${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: $
                           </div>
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={loading}>
-                          {loading ? "Giriş yapılıyor..." : "Antrenör Girişi"}
-                        </Button>
+                        <div className="space-y-2">
+                          <Button type="submit" className="w-full" disabled={loading}>
+                            {loading ? "Giriş yapılıyor..." : "Antrenör Girişi"}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={quickFillCoach}
+                            className="w-full text-xs"
+                          >
+                            ⚡ Hızlı Doldur (coach@sportscr.com)
+                          </Button>
+                        </div>
                       </div>
                     </motion.form>
                   </TabsContent>
@@ -347,9 +424,20 @@ ${allUsers.map(u => `- ${u.email} (${u.role}) - Şifre: ${u.password} - Aktif: $
                           </div>
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={loading}>
-                          {loading ? "Giriş yapılıyor..." : "Veli Girişi"}
-                        </Button>
+                        <div className="space-y-2">
+                          <Button type="submit" className="w-full" disabled={loading}>
+                            {loading ? "Giriş yapılıyor..." : "Veli Girişi"}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={quickFillParent}
+                            className="w-full text-xs"
+                          >
+                            ⚡ Hızlı Doldur (parent@sportscr.com)
+                          </Button>
+                        </div>
                       </div>
                     </motion.form>
                   </TabsContent>
