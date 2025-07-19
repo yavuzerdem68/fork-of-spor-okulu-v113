@@ -35,19 +35,25 @@ export default function Home() {
       const user = simpleAuthManager.getCurrentUser();
       
       if (user) {
-        // Redirect based on role
-        switch (user.role) {
-          case 'admin':
-            router.replace('/dashboard');
-            break;
-          case 'coach':
-            router.replace('/coach-dashboard');
-            break;
-          case 'parent':
-            router.replace('/parent-dashboard');
-            break;
-          default:
-            await simpleAuthManager.signOut();
+        // Only redirect if we're not already navigating
+        const isNavigating = router.asPath !== router.route;
+        if (!isNavigating) {
+          // Use a small delay to prevent rapid navigation
+          setTimeout(() => {
+            switch (user.role) {
+              case 'admin':
+                router.replace('/dashboard');
+                break;
+              case 'coach':
+                router.replace('/coach-dashboard');
+                break;
+              case 'parent':
+                router.replace('/parent-dashboard');
+                break;
+              default:
+                simpleAuthManager.signOut();
+            }
+          }, 100);
         }
       }
     };

@@ -27,33 +27,15 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Check if user is already logged in
+  // Initialize auth without automatic redirect
   useEffect(() => {
     const initAuth = async () => {
       await simpleAuthManager.initialize();
       await simpleAuthManager.initializeDefaultUsers();
-      const user = simpleAuthManager.getCurrentUser();
-      
-      if (user) {
-        // Redirect based on role
-        switch (user.role) {
-          case 'admin':
-            router.replace('/dashboard');
-            break;
-          case 'coach':
-            router.replace('/coach-dashboard');
-            break;
-          case 'parent':
-            router.replace('/parent-dashboard');
-            break;
-          default:
-            await simpleAuthManager.signOut();
-        }
-      }
     };
 
     initAuth();
-  }, [router]);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent, role: 'admin' | 'coach' | 'parent') => {
     e.preventDefault();
