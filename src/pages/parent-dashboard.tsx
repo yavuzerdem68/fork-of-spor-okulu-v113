@@ -61,7 +61,7 @@ export default function ParentDashboard() {
     const user = localStorage.getItem("currentUser");
     
     if (role !== "parent" || !user) {
-      router.replace("/");
+      router.push("/login");
       return;
     }
     
@@ -370,7 +370,7 @@ export default function ParentDashboard() {
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("currentUser");
-    router.replace("/");
+    router.push("/login");
   };
 
   if (!currentUser) {
