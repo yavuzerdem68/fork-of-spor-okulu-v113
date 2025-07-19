@@ -141,8 +141,71 @@ export default function GitHubTokenFixPage() {
     setLoading(false);
   };
 
+  const testBasicGitHubAccess = async () => {
+    setLoading(true);
+    
+    addResult({
+      test: 'Basic GitHub Access Test',
+      status: 'success',
+      message: 'Testing basic GitHub API access...'
+    });
+
+    try {
+      // Test basic GitHub API access without using our API
+      const response = await fetch('/api/debug-github');
+      const result = await response.json();
+      
+      if (result.success && result.githubApiTest) {
+        const { githubApiTest } = result;
+        
+        if (githubApiTest.accessible) {
+          addResult({
+            test: 'Basic GitHub Access Test',
+            status: 'success',
+            message: 'GitHub API access successful',
+            details: {
+              status: githubApiTest.status,
+              repoName: githubApiTest.repoName,
+              permissions: githubApiTest.permissions,
+              rateLimitRemaining: githubApiTest.rateLimitRemaining
+            }
+          });
+        } else {
+          addResult({
+            test: 'Basic GitHub Access Test',
+            status: 'error',
+            message: 'GitHub API access failed',
+            details: {
+              status: githubApiTest.status,
+              statusText: githubApiTest.statusText,
+              error: githubApiTest.error
+            }
+          });
+        }
+      } else {
+        addResult({
+          test: 'Basic GitHub Access Test',
+          status: 'error',
+          message: 'Failed to test GitHub access',
+          details: result.error || 'Unknown error'
+        });
+      }
+    } catch (error) {
+      addResult({
+        test: 'Basic GitHub Access Test',
+        status: 'error',
+        message: 'GitHub access test error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
+    setLoading(false);
+  };
+
   const runAllDiagnostics = async () => {
     await checkCurrentGitHubConfig();
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await testBasicGitHubAccess();
     await new Promise(resolve => setTimeout(resolve, 1000));
     await testGitHubPush();
     toast.success('GitHub diagnostics completed');
@@ -201,14 +264,24 @@ export default function GitHubTokenFixPage() {
           <CardTitle>Tanılama Kontrolleri</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-4 gap-4">
             <Button
               onClick={checkCurrentGitHubConfig}
               disabled={loading}
               className="flex items-center space-x-2"
             >
               <Settings className="w-4 h-4" />
-              <span>Mevcut Yapılandırma</span>
+              <span>Yapılandırma</span>
+            </Button>
+            
+            <Button
+              onClick={testBasicGitHubAccess}
+              disabled={loading}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Temel Erişim</span>
             </Button>
             
             <Button
@@ -243,6 +316,53 @@ export default function GitHubTokenFixPage() {
               </Button>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Fix Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            <span>Hızlı Çözüm</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertTriangle className="w-4 h-4" />
+            <AlertDescription>
+              <strong>Sorun:</strong> GitHub token geçersiz veya eksik. Bu durumda otomatik GitHub push sistemi çalışmayacaktır.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              GitHub token sorununu çözmek için aşağıdaki adımları takip edin:
+            </p>
+            
+            <div className="grid gap-3">
+              <div className="p-3 border rounded-md">
+                <p className="text-sm font-medium mb-2">1. Yeni GitHub Token Oluşturun</p>
+                <p className="text-xs text-muted-foreground">
+                  Aşağıdaki "GitHub Token Nasıl Oluşturulur" bölümündeki adımları takip ederek yeni bir token oluşturun.
+                </p>
+              </div>
+              
+              <div className="p-3 border rounded-md">
+                <p className="text-sm font-medium mb-2">2. Environment Variable'ı Güncelleyin</p>
+                <p className="text-xs text-muted-foreground">
+                  Oluşturduğunuz token'ı <code>GITHUB_TOKEN</code> environment variable'ı olarak ayarlayın.
+                </p>
+              </div>
+              
+              <div className="p-3 border rounded-md">
+                <p className="text-sm font-medium mb-2">3. Sistemi Yeniden Test Edin</p>
+                <p className="text-xs text-muted-foreground">
+                  Token'ı ayarladıktan sonra yukarıdaki "Tüm Testler" butonuna tıklayarak sistemi test edin.
+                </p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
