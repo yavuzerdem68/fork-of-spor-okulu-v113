@@ -484,6 +484,14 @@ export default function Home() {
                   <Link href="/parent-signup" className="text-sm text-primary hover:underline block">
                     Hesabınız yok mu? Kayıt olun
                   </Link>
+                  <div className="pt-4 border-t border-border/50 mt-4">
+                    <Link href="/simple-login" className="text-sm text-green-600 hover:underline block">
+                      🚀 Basit Giriş (Düz Şifre)
+                    </Link>
+                    <Link href="/cloud-login" className="text-sm text-blue-600 hover:underline block">
+                      ☁️ Cloud Giriş
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>

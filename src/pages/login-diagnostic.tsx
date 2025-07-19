@@ -9,11 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, User, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { hashPassword, verifyPassword } from "@/utils/security";
+import { simpleAuthManager } from "@/lib/simple-auth";
 
 export default function LoginDiagnostic() {
-  const [adminUsers, setAdminUsers] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
@@ -29,13 +28,17 @@ export default function LoginDiagnostic() {
     loadUsers();
   }, []);
 
-  const loadUsers = () => {
+  const loadUsers = async () => {
     try {
-      const adminUsersData = JSON.parse(localStorage.getItem('adminUsers') || '[]');
-      const usersData = JSON.parse(localStorage.getItem('users') || '[]');
+      await simpleAuthManager.initialize();
+      await simpleAuthManager.initializeDefaultUsers();
       
-      setAdminUsers(adminUsersData);
-      setUsers(usersData);
+      // Get all users from localStorage directly since getUsers is private
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('simple_auth_users');
+        const users = stored ? JSON.parse(stored) : [];
+        setAllUsers(users);
+      }
     } catch (error) {
       console.error('Error loading users:', error);
       setError('Kullanıcı verileri yüklenirken hata oluştu');
@@ -49,80 +52,45 @@ export default function LoginDiagnostic() {
     }
 
     try {
-      // Check if user already exists
-      const existingUser = adminUsers.find(u => u.email === newUser.email);
-      if (existingUser) {
-        setError('Bu email adresi zaten kullanılıyor');
-        return;
-      }
-
-      // Hash password
-      const hashedPassword = await hashPassword(newUser.password);
-
-      // Create new admin user
-      const newAdminUser = {
-        id: Date.now(),
-        name: newUser.name,
-        surname: newUser.surname,
-        email: newUser.email,
-        password: hashedPassword,
-        plainTextPassword: newUser.password, // Store for diagnostic purposes
-        role: 'super_admin',
-        permissions: {
-          athletes: { view: true, create: true, edit: true, delete: true },
-          payments: { view: true, create: true, edit: true, delete: true },
-          trainings: { view: true, create: true, edit: true, delete: true },
-          attendance: { view: true, create: true, edit: true, delete: true },
-          messages: { view: true, create: true, edit: true, delete: true },
-          media: { view: true, create: true, edit: true, delete: true },
-          reports: { view: true, create: true, edit: true, delete: true },
-          settings: { view: true, create: true, edit: true, delete: true }
-        },
-        isActive: true,
-        lastLogin: new Date().toISOString(),
-        createdAt: new Date().toISOString()
-      };
-
-      const updatedAdminUsers = [...adminUsers, newAdminUser];
-      localStorage.setItem('adminUsers', JSON.stringify(updatedAdminUsers));
-      
-      setAdminUsers(updatedAdminUsers);
+      await simpleAuthManager.createCustomAdmin(newUser.email, newUser.password, newUser.name, newUser.surname);
       setSuccess(`${newUser.email} başarıyla oluşturuldu! Şifre: ${newUser.password}`);
       setNewUser({ email: "", password: "", name: "", surname: "" });
       
+      // Reload users
+      await loadUsers();
+      
       setTimeout(() => setSuccess(""), 10000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating user:', error);
-      setError('Kullanıcı oluşturulurken hata oluştu');
+      setError(error.message || 'Kullanıcı oluşturulurken hata oluştu');
     }
   };
 
-  const deleteUser = (userId: number) => {
-    const updatedAdminUsers = adminUsers.filter(u => u.id !== userId);
-    localStorage.setItem('adminUsers', JSON.stringify(updatedAdminUsers));
-    setAdminUsers(updatedAdminUsers);
-    setSuccess('Kullanıcı silindi');
-    setTimeout(() => setSuccess(""), 3000);
+  const deleteUser = async (userId: string) => {
+    try {
+      await simpleAuthManager.deleteUser(userId);
+      setSuccess('Kullanıcı silindi');
+      await loadUsers();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (error: any) {
+      setError(error.message || 'Kullanıcı silinirken hata oluştu');
+    }
   };
 
-  const resetPassword = async (userId: number, newPassword: string) => {
+  const resetPassword = async (userId: string, newPassword: string) => {
     if (!newPassword) {
       setError('Yeni şifre gerekli');
       return;
     }
 
     try {
-      const hashedPassword = await hashPassword(newPassword);
-      const updatedAdminUsers = adminUsers.map(u => 
-        u.id === userId ? { ...u, password: hashedPassword, plainTextPassword: newPassword } : u
-      );
-      localStorage.setItem('adminUsers', JSON.stringify(updatedAdminUsers));
-      setAdminUsers(updatedAdminUsers);
+      await simpleAuthManager.resetPassword(userId, newPassword);
       setSuccess(`Şifre güncellendi. Yeni şifre: ${newPassword}`);
+      await loadUsers();
       setTimeout(() => setSuccess(""), 5000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resetting password:', error);
-      setError('Şifre güncellenirken hata oluştu');
+      setError(error.message || 'Şifre güncellenirken hata oluştu');
     }
   };
 
@@ -131,32 +99,24 @@ export default function LoginDiagnostic() {
     if (!testPassword) return;
 
     try {
-      const isValid = await verifyPassword(testPassword, user.password);
-      if (isValid) {
-        setSuccess(`✅ Şifre doğru! ${user.email} ile giriş yapabilirsiniz.`);
-      } else {
-        setError(`❌ Şifre yanlış! ${user.email} için girdiğiniz şifre hatalı.`);
-      }
-      setTimeout(() => {
-        setSuccess("");
-        setError("");
-      }, 5000);
-    } catch (error) {
-      console.error('Test login error:', error);
-      setError('Şifre testi sırasında hata oluştu');
+      await simpleAuthManager.signIn(user.email, testPassword);
+      setSuccess(`✅ Şifre doğru! ${user.email} ile giriş yapabilirsiniz.`);
+      // Sign out after test
+      await simpleAuthManager.signOut();
+    } catch (error: any) {
+      setError(`❌ Şifre yanlış! ${user.email} için girdiğiniz şifre hatalı.`);
     }
+    
+    setTimeout(() => {
+      setSuccess("");
+      setError("");
+    }, 5000);
   };
 
   const clearAllData = () => {
     if (confirm('TÜM kullanıcı verilerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!')) {
-      localStorage.removeItem('adminUsers');
-      localStorage.removeItem('users');
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userEmail');
-      
-      setAdminUsers([]);
-      setUsers([]);
+      simpleAuthManager.clearAllData();
+      setAllUsers([]);
       setSuccess('Tüm kullanıcı verileri temizlendi');
       setTimeout(() => setSuccess(""), 3000);
     }
@@ -274,14 +234,14 @@ export default function LoginDiagnostic() {
               </CardContent>
             </Card>
 
-            {/* Admin Users */}
+            {/* All Users */}
             <Card>
               <CardHeader>
-                <CardTitle>Yönetici Kullanıcıları ({adminUsers.length})</CardTitle>
+                <CardTitle>Tüm Kullanıcılar ({allUsers.length})</CardTitle>
               </CardHeader>
               <CardContent>
-                {adminUsers.length === 0 ? (
-                  <p className="text-muted-foreground">Hiç yönetici kullanıcı bulunamadı</p>
+                {allUsers.length === 0 ? (
+                  <p className="text-muted-foreground">Hiç kullanıcı bulunamadı</p>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -291,20 +251,19 @@ export default function LoginDiagnostic() {
                         <TableHead>Email</TableHead>
                         <TableHead>Rol</TableHead>
                         <TableHead>Durum</TableHead>
-                        {showPasswords && <TableHead>Gerçek Şifre</TableHead>}
-                        {showPasswords && <TableHead>Şifre (Hash)</TableHead>}
+                        {showPasswords && <TableHead>Şifre</TableHead>}
                         <TableHead>Son Giriş</TableHead>
                         <TableHead>İşlemler</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {adminUsers.map((user) => (
+                      {allUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell>{user.id}</TableCell>
                           <TableCell>{user.name} {user.surname}</TableCell>
                           <TableCell>{user.email}</TableCell>
                           <TableCell>
-                            <Badge variant={user.role === 'super_admin' ? 'destructive' : 'default'}>
+                            <Badge variant={user.role === 'admin' ? 'destructive' : user.role === 'coach' ? 'default' : 'secondary'}>
                               {user.role}
                             </Badge>
                           </TableCell>
@@ -315,16 +274,11 @@ export default function LoginDiagnostic() {
                           </TableCell>
                           {showPasswords && (
                             <TableCell className="font-bold text-green-600">
-                              {user.plainTextPassword || 'Bilinmiyor'}
-                            </TableCell>
-                          )}
-                          {showPasswords && (
-                            <TableCell className="font-mono text-xs max-w-32 truncate">
                               {user.password}
                             </TableCell>
                           )}
                           <TableCell>
-                            {user.lastLogin ? new Date(user.lastLogin).toLocaleString('tr-TR') : 'Hiç'}
+                            {user.last_login ? new Date(user.last_login).toLocaleString('tr-TR') : 'Hiç'}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2 flex-wrap">
@@ -355,51 +309,6 @@ export default function LoginDiagnostic() {
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Cloud Users */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Cloud Kullanıcıları ({users.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {users.length === 0 ? (
-                  <p className="text-muted-foreground">Hiç cloud kullanıcı bulunamadı</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Ad Soyad</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Rol</TableHead>
-                        {showPasswords && <TableHead>Şifre</TableHead>}
-                        <TableHead>Oluşturulma</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>{user.id}</TableCell>
-                          <TableCell>{user.name} {user.surname}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <Badge>{user.role}</Badge>
-                          </TableCell>
-                          {showPasswords && (
-                            <TableCell className="font-mono text-xs">
-                              {user.password}
-                            </TableCell>
-                          )}
-                          <TableCell>
-                            {user.created_at ? new Date(user.created_at).toLocaleString('tr-TR') : 'Bilinmiyor'}
                           </TableCell>
                         </TableRow>
                       ))}

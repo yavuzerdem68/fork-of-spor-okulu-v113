@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Trophy, Shield, Users, Eye, EyeOff, ArrowLeft, Zap, Cloud } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { cloudAuthManager } from "@/lib/cloud-auth";
+import { simpleAuthManager } from "@/lib/simple-auth";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -29,8 +29,9 @@ export default function CloudLogin() {
   // Check if user is already logged in
   useEffect(() => {
     const initAuth = async () => {
-      await cloudAuthManager.initialize();
-      const user = cloudAuthManager.getCurrentUser();
+      await simpleAuthManager.initialize();
+      await simpleAuthManager.initializeDefaultUsers(); // Create default users if none exist
+      const user = simpleAuthManager.getCurrentUser();
       
       if (user) {
         // Redirect based on role
@@ -45,7 +46,7 @@ export default function CloudLogin() {
             router.replace('/parent-dashboard');
             break;
           default:
-            await cloudAuthManager.signOut();
+            await simpleAuthManager.signOut();
         }
       }
     };
@@ -59,7 +60,7 @@ export default function CloudLogin() {
     setError("");
 
     try {
-      const user = await cloudAuthManager.signIn(credentials.email, credentials.password);
+      const user = await simpleAuthManager.signIn(credentials.email, credentials.password);
       
       // Redirect based on role
       switch (user.role) {
@@ -89,18 +90,17 @@ export default function CloudLogin() {
     setError("");
 
     try {
-      // For demo purposes, create as parent role
-      // In production, you might want a separate signup form with role selection
+      // Create new user as parent role
       const userData = {
         name: credentials.email.split('@')[0],
         surname: 'User',
         role: 'parent' as const
       };
 
-      await cloudAuthManager.signUp(credentials.email, credentials.password, userData);
+      await simpleAuthManager.createUser(credentials.email, credentials.password, userData);
       
       // After successful signup, sign in
-      const user = await cloudAuthManager.signIn(credentials.email, credentials.password);
+      const user = await simpleAuthManager.signIn(credentials.email, credentials.password);
       router.push('/parent-dashboard');
     } catch (error: any) {
       console.error('Sign up error:', error);
@@ -112,11 +112,16 @@ export default function CloudLogin() {
 
   const createDefaultAdmin = async () => {
     try {
-      await cloudAuthManager.createDefaultAdmin();
+      await simpleAuthManager.createDefaultAdmin();
       setError("");
       alert("Varsayılan admin hesabı oluşturuldu!\nEmail: admin@sportscr.com\nŞifre: admin123");
     } catch (error: any) {
-      setError("Admin hesabı oluşturulamadı: " + error.message);
+      if (error.message.includes('zaten kullanılıyor')) {
+        alert("Varsayılan admin hesabı zaten mevcut!\nEmail: admin@sportscr.com\nŞifre: admin123");
+        setError("");
+      } else {
+        setError("Admin hesabı oluşturulamadı: " + error.message);
+      }
     }
   };
 
@@ -130,13 +135,19 @@ export default function CloudLogin() {
     const name = credentials.email.split('@')[0];
     
     try {
-      await cloudAuthManager.createCustomAdmin(credentials.email, defaultPassword, name, "Admin");
+      await simpleAuthManager.createCustomAdmin(credentials.email, defaultPassword, name, "Admin");
       setError("");
       alert(`Admin hesabı oluşturuldu!\nEmail: ${credentials.email}\nŞifre: ${defaultPassword}`);
       // Auto-fill the password field
       setCredentials({...credentials, password: defaultPassword});
     } catch (error: any) {
-      setError("Admin hesabı oluşturulamadı: " + error.message);
+      if (error.message.includes('zaten kullanılıyor')) {
+        alert(`Bu email ile admin hesabı zaten mevcut!\nEmail: ${credentials.email}\nŞifre: admin123 (varsayılan)`);
+        setCredentials({...credentials, password: "admin123"});
+        setError("");
+      } else {
+        setError("Admin hesabı oluşturulamadı: " + error.message);
+      }
     }
   };
 
