@@ -253,10 +253,34 @@ export class SimpleAuthManager {
   async initializeDefaultUsers(): Promise<void> {
     const users = this.getUsers();
     
-    // Create default admin if no users exist
-    if (users.length === 0) {
+    // Always ensure the main admin exists and is correct
+    const mainAdmin = users.find(u => u.email === 'yavuz@g7spor.org');
+    if (!mainAdmin) {
       await this.createDefaultAdmin();
-      
+    } else {
+      // Update existing admin to ensure correct details
+      await this.updateUser(mainAdmin.id, {
+        name: 'Yavuz',
+        surname: 'Admin',
+        role: 'admin',
+        password: '444125yA/',
+        isActive: true
+      });
+    }
+    
+    // Remove any conflicting admin accounts
+    const conflictingAdmins = users.filter(u => 
+      u.email !== 'yavuz@g7spor.org' && 
+      (u.email.includes('admin@') || u.email.includes('sportscr.com'))
+    );
+    
+    for (const admin of conflictingAdmins) {
+      await this.deleteUser(admin.id);
+    }
+    
+    // Create sample users only if no other users exist
+    const remainingUsers = this.getUsers().filter(u => u.email !== 'yavuz@g7spor.org');
+    if (remainingUsers.length === 0) {
       // Create a sample coach
       await this.createCoach('coach@sportscr.com', 'coach123', 'Örnek', 'Antrenör');
       

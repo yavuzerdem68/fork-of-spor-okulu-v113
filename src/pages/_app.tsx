@@ -5,6 +5,8 @@ import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import NetworkStatus from '@/components/NetworkStatus'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { SessionManager } from '@/utils/security'
+import { persistentStorageManager } from '@/lib/persistent-storage'
+import { simpleAuthManager } from '@/lib/simple-auth'
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
@@ -13,6 +15,24 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
 
   useEffect(() => {
+    // Initialize persistent storage and authentication
+    const initializeApp = async () => {
+      try {
+        // Initialize persistent storage first
+        await persistentStorageManager.initialize();
+        
+        // Then initialize authentication
+        await simpleAuthManager.initialize();
+        await simpleAuthManager.initializeDefaultUsers();
+        
+        console.log('App initialized successfully');
+      } catch (error) {
+        console.error('App initialization failed:', error);
+      }
+    };
+
+    initializeApp();
+
     // Get the color-scheme value from :root
     const root = document.documentElement;
     const computedStyle = getComputedStyle(root);

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { simpleAuthManager } from "@/lib/simple-auth";
+import { persistentStorageManager } from "@/lib/persistent-storage";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -125,45 +126,13 @@ export default function DataRecovery() {
     setLoading(false);
   };
 
-  const createFullBackup = () => {
+  const createFullBackup = async () => {
     setLoading(true);
     setMessage("");
 
     try {
-      const backupData = {
-        timestamp: new Date().toISOString(),
-        version: "1.0",
-        data: {
-          // User data
-          users: simpleAuthManager.getAllUsers(),
-          
-          // Athletes data
-          students: JSON.parse(localStorage.getItem('students') || '[]'),
-          
-          // Training data
-          trainings: JSON.parse(localStorage.getItem('trainings') || '[]'),
-          
-          // Payment data for all athletes
-          payments: {},
-          
-          // Other system data
-          coaches: JSON.parse(localStorage.getItem('coaches') || '[]'),
-          events: JSON.parse(localStorage.getItem('events') || '[]'),
-          inventory: JSON.parse(localStorage.getItem('inventory') || '[]'),
-          settings: JSON.parse(localStorage.getItem('systemSettings') || '{}')
-        }
-      };
-
-      // Collect payment data for each athlete
-      const athletes = JSON.parse(localStorage.getItem('students') || '[]');
-      athletes.forEach((athlete: any) => {
-        const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
-        if (accountEntries.length > 0) {
-          backupData.data.payments[`account_${athlete.id}`] = accountEntries;
-        }
-      });
-
-      const backupJson = JSON.stringify(backupData, null, 2);
+      // Use the persistent storage manager to create backup
+      const backupJson = await persistentStorageManager.exportBackup();
       setBackupData(backupJson);
 
       // Create download
@@ -177,7 +146,7 @@ export default function DataRecovery() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setMessage("Tam yedek başarıyla oluşturuldu ve indirildi!");
+      setMessage("Tam yedek başarıyla oluşturuldu ve indirildi! Otomatik yedekleme de aktif.");
       setMessageType("success");
     } catch (error: any) {
       setMessage(`Yedekleme hatası: ${error.message}`);
@@ -198,71 +167,22 @@ export default function DataRecovery() {
     setMessage("");
 
     try {
-      const parsedData = JSON.parse(backupData);
+      // Use the persistent storage manager to import backup
+      await persistentStorageManager.importBackup(backupData);
       
-      if (!parsedData.data) {
-        throw new Error("Geçersiz yedek formatı");
-      }
-
-      // Restore athletes
-      if (parsedData.data.students) {
-        localStorage.setItem('students', JSON.stringify(parsedData.data.students));
-      }
-
-      // Restore trainings
-      if (parsedData.data.trainings) {
-        localStorage.setItem('trainings', JSON.stringify(parsedData.data.trainings));
-      }
-
-      // Restore payments
-      if (parsedData.data.payments) {
-        Object.keys(parsedData.data.payments).forEach(key => {
-          localStorage.setItem(key, JSON.stringify(parsedData.data.payments[key]));
-        });
-      }
-
-      // Restore other data
-      if (parsedData.data.coaches) {
-        localStorage.setItem('coaches', JSON.stringify(parsedData.data.coaches));
-      }
-      if (parsedData.data.events) {
-        localStorage.setItem('events', JSON.stringify(parsedData.data.events));
-      }
-      if (parsedData.data.inventory) {
-        localStorage.setItem('inventory', JSON.stringify(parsedData.data.inventory));
-      }
-      if (parsedData.data.settings) {
-        localStorage.setItem('systemSettings', JSON.stringify(parsedData.data.settings));
-      }
-
-      // Restore users (but keep current admin)
-      if (parsedData.data.users) {
-        // Clear existing users except current admin
-        simpleAuthManager.clearAllData();
-        
-        // Re-create users from backup
-        for (const user of parsedData.data.users) {
-          if (user.email === "yavuz@g7spor.org") {
-            // Ensure the admin user is correct
-            await simpleAuthManager.createUser(user.email, user.password, {
-              name: "Yavuz",
-              surname: "Admin",
-              role: "admin"
-            });
-          } else {
-            await simpleAuthManager.createUser(user.email, user.password, {
-              name: user.name,
-              surname: user.surname,
-              role: user.role
-            });
-          }
-        }
-      }
+      // Re-initialize authentication after restore
+      await simpleAuthManager.initialize();
+      await simpleAuthManager.initializeDefaultUsers();
+      
+      // Update current user
+      const user = simpleAuthManager.getCurrentUser();
+      setCurrentUser(user);
 
       // Reload stats
       loadDataStats();
 
-      setMessage(`Yedek başarıyla geri yüklendi! ${parsedData.data.students?.length || 0} sporcu, ${Object.keys(parsedData.data.payments || {}).length} ödeme kaydı geri yüklendi.`);
+      const parsedData = JSON.parse(backupData);
+      setMessage(`Yedek başarıyla geri yüklendi! ${parsedData.data.students?.length || 0} sporcu, ${Object.keys(parsedData.data.payments || {}).length} ödeme kaydı geri yüklendi. Otomatik yedekleme aktif.`);
       setMessageType("success");
       
       // Clear the backup data field
