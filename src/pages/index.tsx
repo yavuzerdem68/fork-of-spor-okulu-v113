@@ -96,8 +96,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>G7 Spor Okulu Yönetim Sistemi</title>
-        <meta name="description" content="G7 Spor Okulu Yönetim Sistemi'ne giriş yapın" />
+        <title>G7 Spor Kulübü ve Lüleburgaz Tofaş Basketbol Okulu - Yönetim Sistemi</title>
+        <meta name="description" content="G7 Spor Kulübü ve Lüleburgaz Tofaş Basketbol Okulu Yönetim Sistemi - Sporcu kayıtları, aidat takibi, antrenman programları ve daha fazlası için kapsamlı CRM sistemi." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -111,23 +111,26 @@ export default function Home() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="flex items-center justify-center lg:justify-start space-x-3 mb-6">
+            <div className="flex items-center justify-center lg:justify-start space-x-4 mb-8">
               <img 
                 src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/g7-spor-kulubu-logo-1543f61.png" 
                 alt="G7 Spor Kulübü Logo" 
-                className="h-16 w-16 object-contain"
+                className="h-20 w-20 object-contain"
               />
-              <span className="text-3xl font-bold text-primary">G7 Spor Okulu</span>
+              <img 
+                src="https://assets.co.dev/c2a6b84b-12f8-489e-a0f1-11644e41c5cc/asset-7-fe3257c.png" 
+                alt="Lüleburgaz Tofaş Basketbol Okulu Logo" 
+                className="h-20 w-20 object-contain"
+              />
             </div>
             
-            <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
-              G7 Spor Okulu
-              <span className="text-primary block">Yönetim Sistemi</span>
+            <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-3 leading-tight">
+              G7 Spor Kulübü ve Lüleburgaz Tofaş Basketbol Okulu
+              <span className="text-primary block text-2xl lg:text-3xl mt-2">Yönetim Sistemi</span>
             </h1>
             
             <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-              Spor okulunuzu dijitalleştirin. Sporcu kayıtları, aidat takibi, 
-              antrenman programları ve daha fazlası için kapsamlı CRM sistemi.
+              Sporcu kayıtları, aidat takibi, antrenman programları ve daha fazlası için kapsamlı CRM sistemi.
             </p>
 
 
