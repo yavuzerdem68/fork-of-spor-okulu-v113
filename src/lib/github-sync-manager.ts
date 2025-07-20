@@ -42,9 +42,11 @@ export class GitHubSyncManager {
   private readonly LAST_SYNC_KEY = 'github_last_sync';
   private readonly SYNC_LOCK_KEY = 'github_sync_lock';
   private readonly ERROR_COUNT_KEY = 'github_sync_errors';
+  private readonly INIT_LOCK_KEY = 'github_init_lock';
   private readonly MAX_ERRORS = 5;
   private syncInterval: NodeJS.Timeout | null = null;
   private isInitialized = false;
+  private isInitializing = false;
   private isSyncing = false;
   private changeTimeout: NodeJS.Timeout | null = null;
   private isEnabled = true;
@@ -108,7 +110,29 @@ export class GitHubSyncManager {
 
   // Initialize GitHub sync
   async initialize(): Promise<void> {
-    if (typeof window === 'undefined' || this.isInitialized) return;
+    // Prevent multiple initializations
+    if (typeof window === 'undefined' || this.isInitialized || this.isInitializing) {
+      if (this.isInitializing) {
+        console.log('GitHub Sync Manager initialization already in progress, skipping...');
+      }
+      return;
+    }
+
+    // Check initialization lock
+    const initLock = localStorage.getItem(this.INIT_LOCK_KEY);
+    if (initLock) {
+      const lockTime = new Date(initLock).getTime();
+      const now = new Date().getTime();
+      if (now - lockTime < 30 * 1000) { // 30 second lock
+        console.log('GitHub Sync Manager initialization locked, skipping...');
+        return;
+      } else {
+        localStorage.removeItem(this.INIT_LOCK_KEY);
+      }
+    }
+
+    this.isInitializing = true;
+    localStorage.setItem(this.INIT_LOCK_KEY, new Date().toISOString());
 
     try {
       console.log('GitHub Sync Manager initializing...');
@@ -170,6 +194,9 @@ export class GitHubSyncManager {
       this.isEnabled = false;
       this.isInitialized = true; // Prevent retry loops
       // Don't re-throw error to prevent app crashes
+    } finally {
+      this.isInitializing = false;
+      localStorage.removeItem(this.INIT_LOCK_KEY);
     }
   }
 

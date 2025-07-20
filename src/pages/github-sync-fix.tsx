@@ -53,7 +53,8 @@ export default function GitHubSyncFixPage() {
         'github_full_sync',
         'github_last_sync',
         'github_sync_lock',
-        'github_sync_errors'
+        'github_sync_errors',
+        'github_init_lock'
       ];
       
       keysToRemove.forEach(key => {
