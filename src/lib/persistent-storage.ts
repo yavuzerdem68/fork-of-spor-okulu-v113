@@ -118,25 +118,57 @@ export class PersistentStorageManager {
   // Store backup in IndexedDB
   private async storeInIndexedDB(backup: StorageBackup): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('SporOkuluDB', 1);
+      const request = indexedDB.open('SporOkuluDB', 2);
       
-      request.onerror = () => reject(request.error);
-      
-      request.onsuccess = () => {
-        const db = request.result;
-        const transaction = db.transaction(['backups'], 'readwrite');
-        const store = transaction.objectStore('backups');
-        
-        store.put(backup, 'latest_backup');
-        
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
+      request.onerror = () => {
+        console.error('IndexedDB open error:', request.error);
+        resolve(); // Don't reject, just resolve to continue
       };
       
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains('backups')) {
+      request.onsuccess = () => {
+        try {
+          const db = request.result;
+          
+          // Check if the object store exists
+          if (!db.objectStoreNames.contains('backups')) {
+            console.warn('Backups object store not found, skipping IndexedDB storage');
+            resolve();
+            return;
+          }
+          
+          const transaction = db.transaction(['backups'], 'readwrite');
+          const store = transaction.objectStore('backups');
+          
+          store.put(backup, 'latest_backup');
+          
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => {
+            console.error('IndexedDB transaction error:', transaction.error);
+            resolve(); // Don't reject, just resolve to continue
+          };
+        } catch (error) {
+          console.error('IndexedDB operation error:', error);
+          resolve(); // Don't reject, just resolve to continue
+        }
+      };
+      
+      request.onupgradeneeded = (event) => {
+        try {
+          const db = request.result;
+          
+          // Clear existing object stores if they exist
+          const existingStores = Array.from(db.objectStoreNames);
+          existingStores.forEach(storeName => {
+            if (db.objectStoreNames.contains(storeName)) {
+              db.deleteObjectStore(storeName);
+            }
+          });
+          
+          // Create new object store
           db.createObjectStore('backups');
+          console.log('IndexedDB object stores created successfully');
+        } catch (error) {
+          console.error('IndexedDB upgrade error:', error);
         }
       };
     });
@@ -214,27 +246,42 @@ export class PersistentStorageManager {
   // Get backup from IndexedDB
   private async getFromIndexedDB(): Promise<StorageBackup | null> {
     return new Promise((resolve) => {
-      const request = indexedDB.open('SporOkuluDB', 1);
+      const request = indexedDB.open('SporOkuluDB', 2);
       
-      request.onerror = () => resolve(null);
-      
-      request.onsuccess = () => {
-        const db = request.result;
-        
-        if (!db.objectStoreNames.contains('backups')) {
-          resolve(null);
-          return;
-        }
-        
-        const transaction = db.transaction(['backups'], 'readonly');
-        const store = transaction.objectStore('backups');
-        const getRequest = store.get('latest_backup');
-        
-        getRequest.onsuccess = () => resolve(getRequest.result || null);
-        getRequest.onerror = () => resolve(null);
+      request.onerror = () => {
+        console.error('IndexedDB get error:', request.error);
+        resolve(null);
       };
       
-      request.onupgradeneeded = () => resolve(null);
+      request.onsuccess = () => {
+        try {
+          const db = request.result;
+          
+          if (!db.objectStoreNames.contains('backups')) {
+            console.warn('Backups object store not found for reading');
+            resolve(null);
+            return;
+          }
+          
+          const transaction = db.transaction(['backups'], 'readonly');
+          const store = transaction.objectStore('backups');
+          const getRequest = store.get('latest_backup');
+          
+          getRequest.onsuccess = () => resolve(getRequest.result || null);
+          getRequest.onerror = () => {
+            console.error('IndexedDB get request error:', getRequest.error);
+            resolve(null);
+          };
+        } catch (error) {
+          console.error('IndexedDB get operation error:', error);
+          resolve(null);
+        }
+      };
+      
+      request.onupgradeneeded = () => {
+        console.log('IndexedDB upgrade needed during get operation');
+        resolve(null);
+      };
     });
   }
 
