@@ -1,0 +1,84 @@
+{
+  "timestamp": "2025-07-20T18:09:11.690Z",
+  "dataType": "full-sync",
+  "source": "SportsCRM Web Application",
+  "data": {
+    "timestamp": "2025-07-20T18:09:11.094Z",
+    "version": "2.0",
+    "domain": "yrtndlooyuamztzl-874n5u67f.preview.co.dev",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+    "data": {
+      "users": [
+        {
+          "id": "user-1753034649138",
+          "email": "coach@sportscr.com",
+          "password": "coach123",
+          "name": "Örnek",
+          "surname": "Antrenör",
+          "role": "coach",
+          "created_at": "2025-07-20T18:04:09.138Z",
+          "isActive": true
+        },
+        {
+          "id": "user-1753034649138",
+          "email": "parent@sportscr.com",
+          "password": "parent123",
+          "name": "Örnek",
+          "surname": "Veli",
+          "role": "parent",
+          "created_at": "2025-07-20T18:04:09.138Z",
+          "isActive": true
+        }
+      ],
+      "currentUser": null,
+      "students": [],
+      "trainings": [],
+      "coaches": [],
+      "events": [],
+      "inventory": [],
+      "settings": {},
+      "theme": "light",
+      "payments": {},
+      "systemSettings": {},
+      "formData": {
+        "spor_okulu_persistent_backup": {
+          "timestamp": "2025-07-20T18:09:09.092Z",
+          "version": "1.0",
+          "domain": "yrtndlooyuamztzl-874n5u67f.preview.co.dev",
+          "data": {
+            "users": [
+              {
+                "id": "user-1753034649138",
+                "email": "coach@sportscr.com",
+                "password": "coach123",
+                "name": "Örnek",
+                "surname": "Antrenör",
+                "role": "coach",
+                "created_at": "2025-07-20T18:04:09.138Z",
+                "isActive": true
+              },
+              {
+                "id": "user-1753034649138",
+                "email": "parent@sportscr.com",
+                "password": "parent123",
+                "name": "Örnek",
+                "surname": "Veli",
+                "role": "parent",
+                "created_at": "2025-07-20T18:04:09.138Z",
+                "isActive": true
+              }
+            ],
+            "students": [],
+            "trainings": [],
+            "payments": {},
+            "coaches": [],
+            "events": [],
+            "inventory": [],
+            "settings": {}
+          }
+        },
+        "spor_okulu_last_backup": "2025-07-20T18:09:09.092Z"
+      }
+    }
+  }
+}
