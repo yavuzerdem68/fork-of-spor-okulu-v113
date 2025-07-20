@@ -1,0 +1,56 @@
+{
+  "timestamp": "2025-07-20T18:03:13.445Z",
+  "dataType": "full-sync",
+  "source": "SportsCRM Web Application",
+  "data": {
+    "timestamp": "2025-07-20T18:03:13.284Z",
+    "version": "2.0",
+    "domain": "yrtndlooyuamztzl-874n5u67f.preview.co.dev",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/134.0.6998.35 Safari/537.36",
+    "data": {
+      "users": [
+        {
+          "id": "user-1753034592951",
+          "email": "yavuz@g7spor.org",
+          "password": "444125yA/",
+          "name": "Yavuz",
+          "surname": "Admin",
+          "role": "admin",
+          "created_at": "2025-07-20T18:03:12.951Z",
+          "isActive": true
+        },
+        {
+          "id": "user-1753034592951",
+          "email": "coach@sportscr.com",
+          "password": "coach123",
+          "name": "Örnek",
+          "surname": "Antrenör",
+          "role": "coach",
+          "created_at": "2025-07-20T18:03:12.951Z",
+          "isActive": true
+        },
+        {
+          "id": "user-1753034592951",
+          "email": "parent@sportscr.com",
+          "password": "parent123",
+          "name": "Örnek",
+          "surname": "Veli",
+          "role": "parent",
+          "created_at": "2025-07-20T18:03:12.951Z",
+          "isActive": true
+        }
+      ],
+      "currentUser": null,
+      "students": [],
+      "trainings": [],
+      "coaches": [],
+      "events": [],
+      "inventory": [],
+      "settings": {},
+      "theme": "light",
+      "payments": {},
+      "systemSettings": {},
+      "formData": {}
+    }
+  }
+}
