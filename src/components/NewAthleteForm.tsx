@@ -14,7 +14,7 @@ import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Came
 import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput, sanitizeHtml } from "@/utils/security";
-import { saveAthleteData } from "@/lib/github-storage";
+
 import { storageManager } from "@/lib/storage-adapter";
 
 const sports = [
@@ -379,17 +379,7 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           );
           localStorage.setItem('students', JSON.stringify(updatedStudents));
           
-          // Try GitHub backup
-          try {
-            const githubResult = await saveAthleteData(finalStudentData, `athlete-update-${athlete.id}-${Date.now()}.json`);
-            if (githubResult.success) {
-              toast.success("Sporcu bilgileri güncellendi ve GitHub'a yedeklendi!");
-            } else {
-              toast.success("Sporcu bilgileri güncellendi! (Yedekleme başarısız)");
-            }
-          } catch (githubError) {
-            toast.success("Sporcu bilgileri güncellendi! (Yedekleme başarısız)");
-          }
+          toast.success("Sporcu bilgileri güncellendi!");
         }
       } else {
         // Create new athlete
@@ -427,17 +417,7 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           existingStudents.push(finalStudentData);
           localStorage.setItem('students', JSON.stringify(existingStudents));
           
-          // Try GitHub backup
-          try {
-            const githubResult = await saveAthleteData(finalStudentData, `athlete-new-${finalStudentData.id}.json`);
-            if (githubResult.success) {
-              toast.success("Sporcu kaydedildi ve GitHub'a yedeklendi!");
-            } else {
-              toast.success("Sporcu kaydedildi! (Yedekleme başarısız)");
-            }
-          } catch (githubError) {
-            toast.success("Sporcu kaydedildi! (Yedekleme başarısız)");
-          }
+          toast.success("Sporcu kaydedildi!");
         }
       }
       

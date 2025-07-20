@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { simpleAuthManager } from '@/lib/simple-auth';
-import { gitHubSyncManager } from '@/lib/github-sync-manager';
+
 
 const SystemSettings = () => {
   const router = useRouter();
@@ -147,52 +147,29 @@ const SystemSettings = () => {
   };
 
   const loadGitHubSyncStatus = () => {
-    try {
-      const status = gitHubSyncManager.getSyncStatus();
-      const stats = gitHubSyncManager.getSyncStats();
-      setSyncStatus(status);
-      setSyncStats(stats);
-    } catch (error) {
-      console.error('GitHub sync status load failed:', error);
-    }
+    // GitHub sync removed - show placeholder data
+    setSyncStatus({
+      lastSync: null,
+      isAutoSyncActive: false,
+      isEnabled: false,
+      errorCount: 0
+    });
+    setSyncStats({
+      totalUsers: 0,
+      totalStudents: 0,
+      totalPayments: 0,
+      syncDataSize: '0 KB'
+    });
   };
 
   const handleManualSync = async () => {
-    setIsSyncing(true);
-    try {
-      const success = await gitHubSyncManager.manualSync();
-      if (success) {
-        setMessage({ type: 'success', text: 'Veriler başarıyla GitHub\'a senkronize edildi!' });
-        loadGitHubSyncStatus();
-      } else {
-        setMessage({ type: 'error', text: 'GitHub senkronizasyonu başarısız oldu.' });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Senkronizasyon sırasında bir hata oluştu.' });
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setMessage(null), 3000);
-    }
+    setMessage({ type: 'error', text: 'GitHub senkronizasyonu şu anda kullanılamıyor.' });
+    setTimeout(() => setMessage(null), 3000);
   };
 
   const handleForceReload = async () => {
-    setIsSyncing(true);
-    try {
-      const success = await gitHubSyncManager.forceReloadFromGitHub();
-      if (success) {
-        setMessage({ type: 'success', text: 'Veriler GitHub\'dan başarıyla yüklendi!' });
-        loadGitHubSyncStatus();
-        // Reload the page to reflect changes
-        window.location.reload();
-      } else {
-        setMessage({ type: 'error', text: 'GitHub\'dan veri yükleme başarısız oldu.' });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Veri yükleme sırasında bir hata oluştu.' });
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setMessage(null), 3000);
-    }
+    setMessage({ type: 'error', text: 'GitHub\'dan veri yükleme şu anda kullanılamıyor.' });
+    setTimeout(() => setMessage(null), 3000);
   };
 
   const handleAddAdmin = () => {
