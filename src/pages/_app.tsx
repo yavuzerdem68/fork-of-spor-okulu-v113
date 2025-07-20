@@ -7,6 +7,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import { SessionManager } from '@/utils/security'
 import { persistentStorageManager } from '@/lib/persistent-storage'
 import { simpleAuthManager } from '@/lib/simple-auth'
+import { gitHubSyncManager } from '@/lib/github-sync-manager'
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
@@ -15,17 +16,23 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
 
   useEffect(() => {
-    // Initialize persistent storage and authentication
+    // Initialize GitHub sync, persistent storage and authentication
     const initializeApp = async () => {
       try {
-        // Initialize persistent storage first
+        // Initialize GitHub sync first to load data from GitHub
+        await gitHubSyncManager.initialize();
+        
+        // Initialize persistent storage as backup
         await persistentStorageManager.initialize();
         
         // Then initialize authentication
         await simpleAuthManager.initialize();
         await simpleAuthManager.initializeDefaultUsers();
         
-        console.log('App initialized successfully');
+        // Start listening for localStorage changes to auto-sync
+        gitHubSyncManager.startChangeListener();
+        
+        console.log('App initialized successfully with GitHub sync');
       } catch (error) {
         console.error('App initialization failed:', error);
       }

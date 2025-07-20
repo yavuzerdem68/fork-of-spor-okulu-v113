@@ -29,10 +29,18 @@ import {
   EyeOff,
   UserCheck,
   ArrowLeft,
-  Home
+  Home,
+  Github,
+  Cloud,
+  RefreshCw,
+  Download,
+  CheckCircle,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { simpleAuthManager } from '@/lib/simple-auth';
+import { gitHubSyncManager } from '@/lib/github-sync-manager';
 
 const SystemSettings = () => {
   const router = useRouter();
@@ -77,6 +85,11 @@ const SystemSettings = () => {
     role: 'admin'
   });
 
+  // GitHub senkronizasyon için state'ler
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [syncStats, setSyncStats] = useState<any>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -100,6 +113,9 @@ const SystemSettings = () => {
 
         // Load admin users
         loadAdminUsers();
+        
+        // Load GitHub sync status
+        loadGitHubSyncStatus();
       } catch (error) {
         console.error("Auth check failed:", error);
         router.push("/login");
@@ -127,6 +143,55 @@ const SystemSettings = () => {
       };
       setAdminUsers([defaultAdmin]);
       localStorage.setItem('adminUsers', JSON.stringify([defaultAdmin]));
+    }
+  };
+
+  const loadGitHubSyncStatus = () => {
+    try {
+      const status = gitHubSyncManager.getSyncStatus();
+      const stats = gitHubSyncManager.getSyncStats();
+      setSyncStatus(status);
+      setSyncStats(stats);
+    } catch (error) {
+      console.error('GitHub sync status load failed:', error);
+    }
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const success = await gitHubSyncManager.manualSync();
+      if (success) {
+        setMessage({ type: 'success', text: 'Veriler başarıyla GitHub\'a senkronize edildi!' });
+        loadGitHubSyncStatus();
+      } else {
+        setMessage({ type: 'error', text: 'GitHub senkronizasyonu başarısız oldu.' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Senkronizasyon sırasında bir hata oluştu.' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const handleForceReload = async () => {
+    setIsSyncing(true);
+    try {
+      const success = await gitHubSyncManager.forceReloadFromGitHub();
+      if (success) {
+        setMessage({ type: 'success', text: 'Veriler GitHub\'dan başarıyla yüklendi!' });
+        loadGitHubSyncStatus();
+        // Reload the page to reflect changes
+        window.location.reload();
+      } else {
+        setMessage({ type: 'error', text: 'GitHub\'dan veri yükleme başarısız oldu.' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Veri yükleme sırasında bir hata oluştu.' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -295,11 +360,12 @@ const SystemSettings = () => {
           )}
 
           <Tabs defaultValue="general" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="general">Genel Bilgiler</TabsTrigger>
               <TabsTrigger value="branding">Marka & Logo</TabsTrigger>
               <TabsTrigger value="contact">İletişim</TabsTrigger>
               <TabsTrigger value="email">E-posta Ayarları</TabsTrigger>
+              <TabsTrigger value="github">GitHub Senkronizasyon</TabsTrigger>
               <TabsTrigger value="admins">Admin Hesapları</TabsTrigger>
             </TabsList>
 
@@ -677,6 +743,199 @@ const SystemSettings = () => {
                       <p>3. Oluşturulan 16 haneli şifreyi yukarıdaki "E-posta Şifresi" alanına girin</p>
                       <p>4. SMTP Sunucusu: smtp.gmail.com, Port: 587</p>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="github">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Github className="h-5 w-5" />
+                    GitHub Senkronizasyon
+                  </CardTitle>
+                  <CardDescription>
+                    Tüm form verilerini ve şifreleri GitHub'da saklayın ve her yerden erişin
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Alert>
+                    <Cloud className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Otomatik Senkronizasyon Aktif:</strong> Tüm verileriniz her 2 dakikada bir otomatik olarak GitHub'a senkronize edilmektedir. 
+                      Bu sayede farklı cihazlardan sisteme eriştiğinizde verileriniz güncel olacaktır.
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Sync Status */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Senkronizasyon Durumu
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Son Senkronizasyon:</span>
+                            <span className="text-sm font-medium">
+                              {syncStatus?.lastSync 
+                                ? new Date(syncStatus.lastSync).toLocaleString('tr-TR')
+                                : 'Henüz senkronize edilmedi'
+                              }
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Otomatik Senkronizasyon:</span>
+                            <div className="flex items-center gap-1">
+                              {syncStatus?.isAutoSyncActive ? (
+                                <>
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <span className="text-sm text-green-600">Aktif</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertCircle className="h-4 w-4 text-red-600" />
+                                  <span className="text-sm text-red-600">Pasif</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <Github className="h-4 w-4" />
+                          Veri İstatistikleri
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Toplam Kullanıcı:</span>
+                            <span className="text-sm font-medium">{syncStats?.totalUsers || 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Toplam Sporcu:</span>
+                            <span className="text-sm font-medium">{syncStats?.totalStudents || 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Toplam Ödeme:</span>
+                            <span className="text-sm font-medium">{syncStats?.totalPayments || 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Veri Boyutu:</span>
+                            <span className="text-sm font-medium">{syncStats?.syncDataSize || '0 KB'}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Manual Actions */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Manuel İşlemler</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium">GitHub'a Senkronize Et</CardTitle>
+                          <CardDescription className="text-xs">
+                            Mevcut tüm verileri hemen GitHub'a yükleyin
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Button 
+                            onClick={handleManualSync}
+                            disabled={isSyncing}
+                            className="w-full flex items-center gap-2"
+                          >
+                            {isSyncing ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Cloud className="h-4 w-4" />
+                            )}
+                            {isSyncing ? 'Senkronize Ediliyor...' : 'Şimdi Senkronize Et'}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium">GitHub'dan Yükle</CardTitle>
+                          <CardDescription className="text-xs">
+                            GitHub'daki en güncel verileri sisteme yükleyin
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Button 
+                            onClick={handleForceReload}
+                            disabled={isSyncing}
+                            variant="outline"
+                            className="w-full flex items-center gap-2"
+                          >
+                            {isSyncing ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                            {isSyncing ? 'Yükleniyor...' : 'GitHub\'dan Yükle'}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* How it Works */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Nasıl Çalışır?</h3>
+                    <div className="bg-muted p-4 rounded-lg space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">1</div>
+                        <div>
+                          <p className="text-sm font-medium">Otomatik Senkronizasyon</p>
+                          <p className="text-xs text-muted-foreground">
+                            Sistem her 2 dakikada bir tüm verilerinizi (kullanıcılar, sporcular, ödemeler, ayarlar) otomatik olarak GitHub'a yedekler.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">2</div>
+                        <div>
+                          <p className="text-sm font-medium">Evrensel Erişim</p>
+                          <p className="text-xs text-muted-foreground">
+                            Farklı cihazlardan (PC, tablet, telefon) sisteme giriş yaptığınızda verileriniz otomatik olarak GitHub'dan yüklenir.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">3</div>
+                        <div>
+                          <p className="text-sm font-medium">Veri Güvenliği</p>
+                          <p className="text-xs text-muted-foreground">
+                            Tüm şifreler ve hassas veriler GitHub'da güvenli bir şekilde saklanır ve sadece yetkili kullanıcılar erişebilir.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Refresh Status Button */}
+                  <div className="flex justify-center">
+                    <Button 
+                      onClick={loadGitHubSyncStatus}
+                      variant="ghost" 
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Durumu Yenile
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
