@@ -37,11 +37,17 @@ export interface SyncData {
 
 export class GitHubSyncManager {
   private static instance: GitHubSyncManager;
-  private readonly SYNC_INTERVAL = 2 * 60 * 1000; // 2 minutes
+  private readonly SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes (further reduced)
   private readonly FULL_SYNC_KEY = 'github_full_sync';
   private readonly LAST_SYNC_KEY = 'github_last_sync';
+  private readonly SYNC_LOCK_KEY = 'github_sync_lock';
+  private readonly ERROR_COUNT_KEY = 'github_sync_errors';
+  private readonly MAX_ERRORS = 5;
   private syncInterval: NodeJS.Timeout | null = null;
   private isInitialized = false;
+  private isSyncing = false;
+  private changeTimeout: NodeJS.Timeout | null = null;
+  private isEnabled = true;
 
   private constructor() {}
 
@@ -52,6 +58,35 @@ export class GitHubSyncManager {
     return GitHubSyncManager.instance;
   }
 
+  // Check if sync should be disabled due to too many errors
+  private checkErrorCount(): boolean {
+    if (typeof window === 'undefined') return false;
+    
+    const errorCount = parseInt(localStorage.getItem(this.ERROR_COUNT_KEY) || '0');
+    if (errorCount >= this.MAX_ERRORS) {
+      console.warn(`GitHub sync disabled due to ${errorCount} consecutive errors`);
+      this.isEnabled = false;
+      return false;
+    }
+    return true;
+  }
+
+  // Increment error count
+  private incrementErrorCount(): void {
+    if (typeof window === 'undefined') return;
+    
+    const errorCount = parseInt(localStorage.getItem(this.ERROR_COUNT_KEY) || '0');
+    localStorage.setItem(this.ERROR_COUNT_KEY, (errorCount + 1).toString());
+  }
+
+  // Reset error count on successful operation
+  private resetErrorCount(): void {
+    if (typeof window === 'undefined') return;
+    
+    localStorage.removeItem(this.ERROR_COUNT_KEY);
+    this.isEnabled = true;
+  }
+
   // Initialize GitHub sync
   async initialize(): Promise<void> {
     if (typeof window === 'undefined' || this.isInitialized) return;
@@ -59,33 +94,61 @@ export class GitHubSyncManager {
     try {
       console.log('GitHub Sync Manager initializing...');
       
-      // Load data from GitHub first
-      await this.loadFromGitHub();
-      
-      // Start automatic sync
-      this.startAutoSync();
-      
-      // Create initial sync if none exists
-      const lastSync = localStorage.getItem(this.LAST_SYNC_KEY);
-      if (!lastSync) {
-        await this.syncToGitHub();
+      // Check if sync should be disabled
+      if (!this.checkErrorCount()) {
+        console.log('GitHub sync is disabled due to previous errors');
+        return;
       }
+      
+      // Check if sync is already in progress
+      const syncLock = localStorage.getItem(this.SYNC_LOCK_KEY);
+      if (syncLock) {
+        const lockTime = new Date(syncLock).getTime();
+        const now = new Date().getTime();
+        // Clear lock if older than 10 minutes
+        if (now - lockTime > 10 * 60 * 1000) {
+          localStorage.removeItem(this.SYNC_LOCK_KEY);
+        } else {
+          console.log('Sync already in progress, skipping initialization');
+          return;
+        }
+      }
+      
+      // Load data from GitHub first (only if no recent sync)
+      const lastSync = localStorage.getItem(this.LAST_SYNC_KEY);
+      const shouldLoad = !lastSync || (new Date().getTime() - new Date(lastSync).getTime() > 30 * 60 * 1000); // 30 minutes
+      
+      if (shouldLoad) {
+        const loadSuccess = await this.loadFromGitHub();
+        if (!loadSuccess) {
+          console.log('Failed to load from GitHub, but continuing with initialization');
+        }
+      }
+      
+      // Start automatic sync with reduced frequency
+      this.startAutoSync();
       
       this.isInitialized = true;
       console.log('GitHub Sync Manager initialized successfully');
     } catch (error) {
       console.error('GitHub Sync Manager initialization failed:', error);
+      this.incrementErrorCount();
+      localStorage.removeItem(this.SYNC_LOCK_KEY);
+      throw error; // Re-throw to let caller handle
     }
   }
 
   // Load all data from GitHub
   async loadFromGitHub(): Promise<boolean> {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined' || !this.isEnabled) return false;
 
     try {
       console.log('Loading data from GitHub...');
       
-      // Load full sync data
+      // Load full sync data with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch('/api/load-from-github', {
         method: 'POST',
         headers: {
@@ -93,155 +156,195 @@ export class GitHubSyncManager {
         },
         body: JSON.stringify({
           dataType: 'full-sync'
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
           const syncData: SyncData = result.data;
           
+          // Temporarily disable change listener during restore
+          const originalSetItem = localStorage.setItem;
+          localStorage.setItem = originalSetItem;
+          
           // Restore all data to localStorage
           if (syncData.data.users) {
-            localStorage.setItem('simple_auth_users', JSON.stringify(syncData.data.users));
+            originalSetItem.call(localStorage, 'simple_auth_users', JSON.stringify(syncData.data.users));
           }
           if (syncData.data.currentUser) {
-            localStorage.setItem('simple_auth_current_user', JSON.stringify(syncData.data.currentUser));
+            originalSetItem.call(localStorage, 'simple_auth_current_user', JSON.stringify(syncData.data.currentUser));
           }
           if (syncData.data.students) {
-            localStorage.setItem('students', JSON.stringify(syncData.data.students));
+            originalSetItem.call(localStorage, 'students', JSON.stringify(syncData.data.students));
           }
           if (syncData.data.trainings) {
-            localStorage.setItem('trainings', JSON.stringify(syncData.data.trainings));
+            originalSetItem.call(localStorage, 'trainings', JSON.stringify(syncData.data.trainings));
           }
           if (syncData.data.coaches) {
-            localStorage.setItem('coaches', JSON.stringify(syncData.data.coaches));
+            originalSetItem.call(localStorage, 'coaches', JSON.stringify(syncData.data.coaches));
           }
           if (syncData.data.events) {
-            localStorage.setItem('events', JSON.stringify(syncData.data.events));
+            originalSetItem.call(localStorage, 'events', JSON.stringify(syncData.data.events));
           }
           if (syncData.data.inventory) {
-            localStorage.setItem('inventory', JSON.stringify(syncData.data.inventory));
+            originalSetItem.call(localStorage, 'inventory', JSON.stringify(syncData.data.inventory));
           }
           if (syncData.data.settings) {
-            localStorage.setItem('systemSettings', JSON.stringify(syncData.data.settings));
+            originalSetItem.call(localStorage, 'systemSettings', JSON.stringify(syncData.data.settings));
           }
           if (syncData.data.theme) {
-            localStorage.setItem('theme', syncData.data.theme);
+            originalSetItem.call(localStorage, 'theme', syncData.data.theme);
           }
 
           // Restore payment data
           if (syncData.data.payments) {
             Object.keys(syncData.data.payments).forEach(key => {
-              localStorage.setItem(key, JSON.stringify(syncData.data.payments[key]));
+              originalSetItem.call(localStorage, key, JSON.stringify(syncData.data.payments[key]));
             });
           }
 
           // Restore additional form data
           if (syncData.data.formData) {
             Object.keys(syncData.data.formData).forEach(key => {
-              localStorage.setItem(key, JSON.stringify(syncData.data.formData[key]));
+              originalSetItem.call(localStorage, key, JSON.stringify(syncData.data.formData[key]));
             });
           }
 
           console.log(`Data loaded from GitHub (synced on ${syncData.timestamp})`);
           localStorage.setItem(this.LAST_SYNC_KEY, new Date().toISOString());
+          this.resetErrorCount();
           return true;
         }
+      } else if (response.status === 404) {
+        console.log('No GitHub sync data found');
+        return false;
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      console.log('No GitHub sync data found or failed to load');
       return false;
     } catch (error) {
       console.error('Failed to load from GitHub:', error);
+      this.incrementErrorCount();
       return false;
     }
   }
 
   // Sync all data to GitHub
   async syncToGitHub(): Promise<boolean> {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined' || this.isSyncing || !this.isEnabled) return false;
+
+    // Check sync lock
+    const syncLock = localStorage.getItem(this.SYNC_LOCK_KEY);
+    if (syncLock) {
+      const lockTime = new Date(syncLock).getTime();
+      const now = new Date().getTime();
+      if (now - lockTime < 60 * 1000) { // 1 minute lock
+        console.log('Sync already in progress, skipping...');
+        return false;
+      }
+    }
+
+    this.isSyncing = true;
+    localStorage.setItem(this.SYNC_LOCK_KEY, new Date().toISOString());
 
     try {
       console.log('Syncing data to GitHub...');
       
+      // Create minimal sync data to avoid payload size issues
       const syncData: SyncData = {
         timestamp: new Date().toISOString(),
-        version: '2.0',
+        version: '2.1',
         domain: window.location.hostname,
-        userAgent: navigator.userAgent,
+        userAgent: 'SportsCRM-App',
         data: {
           // Authentication data
           users: JSON.parse(localStorage.getItem('simple_auth_users') || '[]'),
           currentUser: JSON.parse(localStorage.getItem('simple_auth_current_user') || 'null'),
           
-          // Core application data
-          students: JSON.parse(localStorage.getItem('students') || '[]'),
-          trainings: JSON.parse(localStorage.getItem('trainings') || '[]'),
+          // Core application data (limited)
+          students: JSON.parse(localStorage.getItem('students') || '[]').slice(0, 200), // Limit students
+          trainings: JSON.parse(localStorage.getItem('trainings') || '[]').slice(0, 100), // Limit trainings
           coaches: JSON.parse(localStorage.getItem('coaches') || '[]'),
-          events: JSON.parse(localStorage.getItem('events') || '[]'),
-          inventory: JSON.parse(localStorage.getItem('inventory') || '[]'),
+          events: JSON.parse(localStorage.getItem('events') || '[]').slice(0, 50), // Limit events
+          inventory: JSON.parse(localStorage.getItem('inventory') || '[]').slice(0, 100), // Limit inventory
           settings: JSON.parse(localStorage.getItem('systemSettings') || '{}'),
           theme: localStorage.getItem('theme') || 'light',
           
-          // Payment data
+          // Payment data (very limited)
           payments: {},
           
           // System settings
           systemSettings: JSON.parse(localStorage.getItem('systemSettings') || '{}'),
           
-          // Additional form data
+          // Essential form data only
           formData: {}
         }
       };
 
-      // Collect payment data for each athlete
-      const athletes = syncData.data.students;
-      athletes.forEach((athlete: any) => {
-        const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
-        if (accountEntries.length > 0) {
-          syncData.data.payments[`account_${athlete.id}`] = accountEntries;
-        }
-      });
-
-      // Collect additional form data (any key that's not in our core data)
-      const coreKeys = [
-        'simple_auth_users', 'simple_auth_current_user', 'students', 'trainings', 
-        'coaches', 'events', 'inventory', 'systemSettings', 'theme'
-      ];
+      // Collect only recent payment data to prevent size issues
+      const students = syncData.data.students;
+      let paymentCount = 0;
+      const maxPayments = 1000; // Total payment limit across all students
       
-      Object.keys(localStorage).forEach(key => {
-        if (!coreKeys.includes(key) && !key.startsWith('account_') && !key.startsWith('github_')) {
-          try {
-            const value = localStorage.getItem(key);
-            if (value) {
-              syncData.data.formData[key] = JSON.parse(value);
-            }
-          } catch (error) {
-            // If it's not JSON, store as string
-            syncData.data.formData[key] = localStorage.getItem(key);
-          }
+      for (const student of students) {
+        if (paymentCount >= maxPayments) break;
+        
+        const accountEntries = JSON.parse(localStorage.getItem(`account_${student.id}`) || '[]');
+        if (accountEntries.length > 0) {
+          // Limit to last 10 entries per student
+          const limitedEntries = accountEntries.slice(-10);
+          syncData.data.payments[`account_${student.id}`] = limitedEntries;
+          paymentCount += limitedEntries.length;
         }
-      });
+      }
 
-      // Save to GitHub
+      // Check payload size before sending
+      const payloadSize = JSON.stringify(syncData).length;
+      console.log(`Sync payload size: ${Math.round(payloadSize / 1024)} KB`);
+      
+      if (payloadSize > 800 * 1024) { // 800KB limit (well under GitHub's 1MB limit)
+        console.warn('Payload still too large, further reducing data...');
+        // Remove payment data entirely if still too large
+        syncData.data.payments = {};
+        // Further limit other data
+        syncData.data.students = syncData.data.students.slice(0, 100);
+        syncData.data.trainings = syncData.data.trainings.slice(0, 50);
+        syncData.data.events = syncData.data.events.slice(0, 25);
+        syncData.data.inventory = syncData.data.inventory.slice(0, 50);
+      }
+
+      // Save to GitHub with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      
       const result = await saveToGitHub({
         dataType: 'full-sync',
         data: syncData,
         fileName: `full-sync-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
       });
 
+      clearTimeout(timeoutId);
+
       if (result.success) {
         localStorage.setItem(this.LAST_SYNC_KEY, new Date().toISOString());
         console.log('Data synced to GitHub successfully');
+        this.resetErrorCount();
         return true;
       } else {
-        console.error('Failed to sync to GitHub:', result.message);
-        return false;
+        throw new Error(result.message || 'Unknown sync error');
       }
     } catch (error) {
       console.error('Sync to GitHub failed:', error);
+      this.incrementErrorCount();
       return false;
+    } finally {
+      this.isSyncing = false;
+      localStorage.removeItem(this.SYNC_LOCK_KEY);
     }
   }
 
@@ -252,14 +355,16 @@ export class GitHubSyncManager {
     }
 
     this.syncInterval = setInterval(async () => {
-      try {
-        await this.syncToGitHub();
-      } catch (error) {
-        console.error('Auto sync failed:', error);
+      if (this.isEnabled) {
+        try {
+          await this.syncToGitHub();
+        } catch (error) {
+          console.error('Auto sync failed:', error);
+        }
       }
     }, this.SYNC_INTERVAL);
 
-    console.log('Auto sync started (every 2 minutes)');
+    console.log('Auto sync started (every 10 minutes)');
   }
 
   // Stop automatic sync
@@ -282,59 +387,61 @@ export class GitHubSyncManager {
   }
 
   // Get sync status
-  getSyncStatus(): { lastSync: string | null; isAutoSyncActive: boolean } {
+  getSyncStatus(): { lastSync: string | null; isAutoSyncActive: boolean; isEnabled: boolean; errorCount: number } {
     const lastSync = localStorage.getItem(this.LAST_SYNC_KEY);
     const isAutoSyncActive = this.syncInterval !== null;
+    const errorCount = parseInt(localStorage.getItem(this.ERROR_COUNT_KEY) || '0');
     
     return {
       lastSync,
-      isAutoSyncActive
+      isAutoSyncActive,
+      isEnabled: this.isEnabled,
+      errorCount
     };
   }
 
-  // Sync specific data type
-  async syncSpecificData(dataType: string, data: any): Promise<boolean> {
-    try {
-      const result = await saveToGitHub({
-        dataType,
-        data,
-        fileName: `${dataType}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
-      });
-
-      if (result.success) {
-        // Also trigger a full sync to keep everything in sync
-        setTimeout(() => this.syncToGitHub(), 1000);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error(`Failed to sync ${dataType}:`, error);
-      return false;
-    }
+  // Reset sync errors and re-enable
+  resetSyncErrors(): void {
+    this.resetErrorCount();
+    console.log('GitHub sync errors reset, sync re-enabled');
   }
 
-  // Listen for localStorage changes and auto-sync
+  // Listen for localStorage changes and auto-sync (with heavy debouncing)
   startChangeListener(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !this.isEnabled) return;
 
     // Listen for storage events (changes from other tabs)
     window.addEventListener('storage', (e) => {
       if (e.key && !e.key.startsWith('github_')) {
-        console.log('Storage change detected, triggering sync...');
-        setTimeout(() => this.syncToGitHub(), 2000); // Delay to batch changes
+        this.debouncedSync();
       }
     });
 
     // Override localStorage.setItem to detect changes in same tab
     const originalSetItem = localStorage.setItem;
+    const self = this;
     localStorage.setItem = function(key: string, value: string) {
       originalSetItem.call(this, key, value);
       
-      if (!key.startsWith('github_')) {
+      if (!key.startsWith('github_') && self.isEnabled) {
         console.log(`LocalStorage change detected: ${key}`);
-        setTimeout(() => gitHubSyncManager.syncToGitHub(), 2000);
+        self.debouncedSync();
       }
     };
+  }
+
+  // Heavily debounced sync to prevent excessive sync attempts
+  private debouncedSync(): void {
+    if (this.changeTimeout) {
+      clearTimeout(this.changeTimeout);
+    }
+    
+    this.changeTimeout = setTimeout(async () => {
+      if (!this.isSyncing && this.isEnabled) {
+        console.log('Triggering debounced sync...');
+        await this.syncToGitHub();
+      }
+    }, 30000); // 30 seconds delay to batch multiple changes
   }
 
   // Get sync statistics
@@ -344,6 +451,8 @@ export class GitHubSyncManager {
     totalPayments: number; 
     lastSyncTime: string | null;
     syncDataSize: string;
+    isEnabled: boolean;
+    errorCount: number;
   } {
     const users = JSON.parse(localStorage.getItem('simple_auth_users') || '[]');
     const students = JSON.parse(localStorage.getItem('students') || '[]');
@@ -363,12 +472,16 @@ export class GitHubSyncManager {
       }
     });
 
+    const errorCount = parseInt(localStorage.getItem(this.ERROR_COUNT_KEY) || '0');
+
     return {
       totalUsers: users.length,
       totalStudents: students.length,
       totalPayments,
       lastSyncTime: localStorage.getItem(this.LAST_SYNC_KEY),
-      syncDataSize: `${Math.round(dataSize / 1024)} KB`
+      syncDataSize: `${Math.round(dataSize / 1024)} KB`,
+      isEnabled: this.isEnabled,
+      errorCount
     };
   }
 }

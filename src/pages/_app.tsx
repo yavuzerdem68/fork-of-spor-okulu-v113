@@ -16,23 +16,25 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
 
   useEffect(() => {
-    // Initialize GitHub sync, persistent storage and authentication
+    // Initialize persistent storage and authentication
     const initializeApp = async () => {
       try {
-        // Initialize GitHub sync first to load data from GitHub
-        await gitHubSyncManager.initialize();
-        
-        // Initialize persistent storage as backup
+        // Initialize persistent storage first
         await persistentStorageManager.initialize();
         
         // Then initialize authentication
         await simpleAuthManager.initialize();
         await simpleAuthManager.initializeDefaultUsers();
         
-        // Start listening for localStorage changes to auto-sync
-        gitHubSyncManager.startChangeListener();
-        
-        console.log('App initialized successfully with GitHub sync');
+        // Try to initialize GitHub sync, but continue without it if it fails
+        try {
+          await gitHubSyncManager.initialize();
+          gitHubSyncManager.startChangeListener();
+          console.log('App initialized successfully with GitHub sync');
+        } catch (error) {
+          console.warn('GitHub sync initialization failed, continuing without sync:', error);
+          console.log('App initialized successfully without GitHub sync');
+        }
       } catch (error) {
         console.error('App initialization failed:', error);
       }
