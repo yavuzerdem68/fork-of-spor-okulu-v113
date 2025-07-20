@@ -37,8 +37,14 @@ export default function GitHubDiagnosticPage() {
     });
 
     try {
-      const debugResponse = await fetch('/api/debug-github');
+      // Check both debug endpoints
+      const [debugResponse, envResponse] = await Promise.all([
+        fetch('/api/debug-github'),
+        fetch('/api/debug-env')
+      ]);
+      
       const debugResult = await debugResponse.json();
+      const envResult = await envResponse.json();
       
       if (debugResult.success) {
         const { envCheck, githubApiTest } = debugResult;
