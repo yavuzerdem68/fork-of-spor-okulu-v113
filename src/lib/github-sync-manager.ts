@@ -87,6 +87,25 @@ export class GitHubSyncManager {
     this.isEnabled = true;
   }
 
+  // Test GitHub configuration before initialization
+  private async testGitHubConfig(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/debug-env');
+      const result = await response.json();
+      
+      if (result.GITHUB_TOKEN === 'SET' && result.GITHUB_OWNER === 'SET' && result.GITHUB_REPO === 'SET') {
+        console.log('GitHub configuration verified successfully');
+        return true;
+      } else {
+        console.warn('GitHub configuration incomplete:', result);
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to test GitHub configuration:', error);
+      return false;
+    }
+  }
+
   // Initialize GitHub sync
   async initialize(): Promise<void> {
     if (typeof window === 'undefined' || this.isInitialized) return;
@@ -94,9 +113,20 @@ export class GitHubSyncManager {
     try {
       console.log('GitHub Sync Manager initializing...');
       
-      // Check if sync should be disabled
+      // First, test GitHub configuration
+      const configValid = await this.testGitHubConfig();
+      if (!configValid) {
+        console.warn('GitHub configuration is missing or invalid. Disabling GitHub sync for this session.');
+        this.isEnabled = false;
+        this.isInitialized = true; // Mark as initialized to prevent retry loops
+        return;
+      }
+      
+      // Check if sync should be disabled due to errors
       if (!this.checkErrorCount()) {
         console.log('GitHub sync is disabled due to previous errors');
+        this.isEnabled = false;
+        this.isInitialized = true;
         return;
       }
       
@@ -110,6 +140,7 @@ export class GitHubSyncManager {
           localStorage.removeItem(this.SYNC_LOCK_KEY);
         } else {
           console.log('Sync already in progress, skipping initialization');
+          this.isInitialized = true;
           return;
         }
       }
@@ -125,8 +156,10 @@ export class GitHubSyncManager {
         }
       }
       
-      // Start automatic sync with reduced frequency
-      this.startAutoSync();
+      // Start automatic sync only if enabled
+      if (this.isEnabled) {
+        this.startAutoSync();
+      }
       
       this.isInitialized = true;
       console.log('GitHub Sync Manager initialized successfully');
@@ -134,7 +167,9 @@ export class GitHubSyncManager {
       console.error('GitHub Sync Manager initialization failed:', error);
       this.incrementErrorCount();
       localStorage.removeItem(this.SYNC_LOCK_KEY);
-      throw error; // Re-throw to let caller handle
+      this.isEnabled = false;
+      this.isInitialized = true; // Prevent retry loops
+      // Don't re-throw error to prevent app crashes
     }
   }
 
@@ -350,6 +385,12 @@ export class GitHubSyncManager {
 
   // Start automatic sync
   private startAutoSync(): void {
+    // Explicitly check if sync is enabled before starting
+    if (!this.isEnabled) {
+      console.log('GitHub sync is disabled, not starting auto sync');
+      return;
+    }
+
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
     }
