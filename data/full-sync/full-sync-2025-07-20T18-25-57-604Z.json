@@ -1,0 +1,46 @@
+{
+  "timestamp": "2025-07-20T18:25:58.501Z",
+  "dataType": "full-sync",
+  "source": "SportsCRM Web Application",
+  "data": {
+    "timestamp": "2025-07-20T18:25:57.604Z",
+    "version": "2.1",
+    "domain": "yrtndlooyuamztzl-7yr1n1ipn.preview.co.dev",
+    "userAgent": "SportsCRM-App",
+    "data": {
+      "users": [
+        {
+          "id": "user-1753034649138",
+          "email": "coach@sportscr.com",
+          "password": "coach123",
+          "name": "Örnek",
+          "surname": "Antrenör",
+          "role": "coach",
+          "created_at": "2025-07-20T18:04:09.138Z",
+          "isActive": true
+        },
+        {
+          "id": "user-1753034649138",
+          "email": "parent@sportscr.com",
+          "password": "parent123",
+          "name": "Örnek",
+          "surname": "Veli",
+          "role": "parent",
+          "created_at": "2025-07-20T18:04:09.138Z",
+          "isActive": true
+        }
+      ],
+      "currentUser": null,
+      "students": [],
+      "trainings": [],
+      "coaches": [],
+      "events": [],
+      "inventory": [],
+      "settings": {},
+      "theme": "light",
+      "payments": {},
+      "systemSettings": {},
+      "formData": {}
+    }
+  }
+}
