@@ -7,7 +7,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import { SessionManager } from '@/utils/security'
 import { persistentStorageManager } from '@/lib/persistent-storage'
 import { simpleAuthManager } from '@/lib/simple-auth'
-import { gitHubSyncManager } from '@/lib/github-sync-manager'
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
@@ -26,15 +26,7 @@ export default function App({ Component, pageProps }: AppProps) {
         await simpleAuthManager.initialize();
         await simpleAuthManager.initializeDefaultUsers();
         
-        // Try to initialize GitHub sync, but continue without it if it fails
-        try {
-          await gitHubSyncManager.initialize();
-          gitHubSyncManager.startChangeListener();
-          console.log('App initialized successfully with GitHub sync');
-        } catch (error) {
-          console.warn('GitHub sync initialization failed, continuing without sync:', error);
-          console.log('App initialized successfully without GitHub sync');
-        }
+        console.log('App initialized successfully');
       } catch (error) {
         console.error('App initialization failed:', error);
       }

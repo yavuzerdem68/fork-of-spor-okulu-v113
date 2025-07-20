@@ -20,7 +20,8 @@ import {
   FileText,
   Settings,
   Shield,
-  LogOut
+  LogOut,
+  Key
 } from 'lucide-react';
 
 const fadeInUp = {
@@ -68,6 +69,7 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
     { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
     { icon: Camera, label: "Medya", href: "/media" },
     { icon: FileText, label: "Raporlar", href: "/reports" },
+    { icon: Key, label: "Şifre Yöneticisi", href: "/password-manager" },
     { icon: Settings, label: "Ayarlar", href: "/settings" },
     { icon: Shield, label: "Yönetici Ayarları", href: "/admin-settings" }
   ];
