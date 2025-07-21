@@ -14,16 +14,33 @@ export default function PasswordManager() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [passwordStatus, setPasswordStatus] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Sadece admin kullanıcıları bu sayfaya erişebilir
-    const currentUser = simpleAuthManager.getCurrentUser();
-    if (!currentUser || currentUser.role !== 'admin') {
-      router.push('/login');
-      return;
-    }
+    const checkAuthAndInitialize = async () => {
+      try {
+        // Wait a bit for the auth system to initialize
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Ensure auth is initialized
+        await simpleAuthManager.initialize();
+        
+        // Check if user is admin
+        const currentUser = simpleAuthManager.getCurrentUser();
+        if (!currentUser || currentUser.role !== 'admin') {
+          router.push('/login');
+          return;
+        }
 
-    updatePasswordStatus();
+        updatePasswordStatus();
+        setIsInitializing(false);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        router.push('/login');
+      }
+    };
+
+    checkAuthAndInitialize();
   }, [router]);
 
   const updatePasswordStatus = () => {
@@ -77,7 +94,7 @@ export default function PasswordManager() {
     }
   };
 
-  if (!passwordStatus) {
+  if (isInitializing || !passwordStatus) {
     return <div className="flex items-center justify-center min-h-screen">Yükleniyor...</div>;
   }
 
