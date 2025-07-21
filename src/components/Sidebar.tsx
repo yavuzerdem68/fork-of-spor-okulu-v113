@@ -20,7 +20,8 @@ import {
   FileText,
   Settings,
   Shield,
-  LogOut
+  LogOut,
+  Upload
 } from 'lucide-react';
 
 const fadeInUp = {
@@ -58,6 +59,7 @@ export default function Sidebar({ sidebarOpen = true, setSidebarOpen, currentPat
   const sidebarItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard" },
     { icon: Users, label: "Sporcular", href: "/athletes" },
+    { icon: Upload, label: "Veli Formları", href: "/form-integration" },
     { icon: Zap, label: "Antrenörler", href: "/coaches" },
     { icon: Calendar, label: "Antrenmanlar", href: "/trainings" },
     { icon: UserCheck, label: "Yoklama", href: "/attendance" },
