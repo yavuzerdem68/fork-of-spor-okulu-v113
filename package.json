@@ -7,26 +7,11 @@
   },
   "scripts": {
     "dev": "next dev",
-    "dev:desktop": "next dev",
-    "dev:local-win": "next dev",
-    "dev:local-unix": "next dev",
-    "dev:cloud": "cp next.config.cloud.mjs next.config.mjs && next dev",
     "build": "next build",
-    "build:desktop": "next build",
-    "build:cloud": "cp next.config.cloud.mjs next.config.mjs && next build",
     "start": "next start",
-    "start:desktop": "next start",
-    "start:cloud": "next start",
     "lint": "next lint",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "type-check": "tsc --noEmit",
     "clean": "rimraf .next",
-    "fresh-start": "npm run clean && npm run dev",
-    "debug": "npm run clean && npm run dev",
-    "deploy:vercel": "cp next.config.cloud.mjs next.config.mjs && vercel --prod",
-    "deploy:preview": "cp next.config.cloud.mjs next.config.mjs && vercel"
+    "fresh-start": "npm run clean && npm run dev"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",

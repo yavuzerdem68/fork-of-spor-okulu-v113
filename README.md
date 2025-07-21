@@ -1,85 +1,76 @@
-# SportsCRM - Masaüstü Spor Okulu Yönetim Sistemi
+# G7 Spor Okulu - Lokal CRM Sistemi
 
-Tamamen localStorage tabanlı, masaüstü kullanımı için optimize edilmiş spor okulu yönetim sistemi.
+Tamamen lokal çalışan, basit ve etkili spor okulu yönetim sistemi.
 
-## 🖥️ Masaüstü Sürümü Özellikleri
+## ÖNEMLİ NOT
+Bu sistem tamamen lokal çalışır:
+- ✅ İnternet bağlantısı gerektirmez
+- ✅ Veriler sadece bilgisayarınızda saklanır
+- ✅ GitHub senkronizasyonu YOK
+- ✅ Cloud sistemler YOK
+- ✅ Karmaşık konfigürasyon YOK
 
-- **Tamamen Offline**: İnternet bağlantısı gerektirmez
-- **localStorage Tabanlı**: Tüm veriler yerel olarak saklanır
-- **Hızlı Başlatma**: Tek tıkla çalıştırma (`start-local-safe.bat`)
-- **Windows Optimize**: Windows sistemler için özel optimizasyonlar
-- **Güvenli**: Windows Defender uyumlu
+## Özellikler
 
-## 🚀 Hızlı Başlatma
+- 🏃‍♂️ **Sporcu Yönetimi**: Sporcu kayıt ve takip
+- 💰 **Aidat Takibi**: Ödeme takibi ve borç hesaplama
+- 📅 **Antrenman Yönetimi**: Antrenman planlama ve yoklama
+- 👨‍🏫 **Antrenör Yönetimi**: Antrenör profilleri
+- 📊 **Raporlama**: Basit raporlar
+- 📱 **Responsive**: Tüm cihazlarda çalışır
 
-### Windows için:
+## Hızlı Başlangıç
+
+### Windows Kullanıcıları
 ```bash
-# Çift tıklayın:
-start-local-safe.bat
+start-clean.bat
 ```
 
-### Manuel Başlatma:
+### Mac/Linux Kullanıcıları
+```bash
+chmod +x start-clean.sh
+./start-clean.sh
+```
+
+### Manuel Kurulum
 ```bash
 npm install
 npm run dev
 ```
 
-## 📋 Sistem Gereksinimleri
+## Giriş Bilgileri
+- **Email**: yavuz@g7spor.org
+- **Şifre**: 444125yA/
 
-- **Node.js**: 20.x veya üzeri
-- **İşletim Sistemi**: Windows 10/11
-- **RAM**: Minimum 4GB
-- **Disk Alanı**: 500MB
+## Tarayıcıda Açın
+http://localhost:3000
 
-## 🏗️ Teknolojiler
+## Veri Yedekleme
+- Ayarlar > Veri Yedekleme sayfasından JSON export yapın
+- Dosyayı güvenli yerde saklayın
+- Gerektiğinde import edin
 
-- **Next.js 14**: React framework
-- **TypeScript**: Tip güvenliği
-- **Tailwind CSS**: Modern CSS framework
-- **localStorage**: Veri saklama
-- **Framer Motion**: Animasyonlar
+## Sorun Giderme
 
-## 📁 Proje Yapısı
+### Port Hatası
+```bash
+npm run dev -- -p 3001
+```
 
-- `src/pages/`: Uygulama sayfaları
-- `src/components/`: Yeniden kullanılabilir bileşenler
-- `src/lib/`: Yardımcı kütüphaneler
-- `src/utils/`: Güvenlik ve performans araçları
-- `data/`: localStorage verileri
-- `start-local-safe.bat`: Güvenli başlatma scripti
+### Temizlik
+```bash
+npm run clean
+npm run fresh-start
+```
 
-## 🔐 Varsayılan Giriş Bilgileri
+### Veri Sıfırlama
+- Tarayıcı Developer Tools > Application > Local Storage
+- localhost:3000 altındaki tüm verileri silin
 
-### Yönetici:
-- **Email**: admin@sportscr.com
-- **Şifre**: admin123
+## Sistem Gereksinimleri
+- Node.js 18+
+- Modern tarayıcı (Chrome, Firefox, Safari, Edge)
 
-### Test Hesapları:
-Sistem ilk çalıştırıldığında otomatik olarak test hesapları oluşturulur.
+---
 
-## 🛠️ Sorun Giderme
-
-Sorun yaşıyorsanız:
-
-1. `diagnose-nodejs.bat` çalıştırın
-2. `fix-npm-installation.bat` ile NPM'i onarın
-3. `emergency-start.bat` ile acil durum modunu deneyin
-
-## 📚 Dokümantasyon
-
-- `HIZLI-BASLATMA.md`: Detaylı başlatma rehberi
-- `NPM-PATH-HATASI-COZUMU.md`: NPM sorunları için çözümler
-- `WINDOWS-DEFENDER-COZUMU.md`: Güvenlik ayarları
-
-## 🎯 Özellikler
-
-- **Sporcu Yönetimi**: Kayıt, güncelleme, takip
-- **Aidat Takibi**: Ödeme durumları ve raporlar
-- **Antrenman Programları**: Planlama ve takip
-- **Veli Paneli**: Çocukların durumunu görme
-- **Antrenör Paneli**: Sporcu yönetimi
-- **Raporlama**: Detaylı analiz ve raporlar
-
-## 📞 Destek
-
-Bu masaüstü sürümü tamamen offline çalışır ve harici destek gerektirmez.
+**Basit, Güvenilir, Lokal** - Karmaşık sistemler olmadan spor okulu yönetimi.

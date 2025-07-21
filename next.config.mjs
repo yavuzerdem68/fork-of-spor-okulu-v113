@@ -4,9 +4,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Masaüstü sürümü - API routes kullanabilmek için export kapalı
-  trailingSlash: true,
-  skipTrailingSlashRedirect: true,
+  trailingSlash: false,
   images: {
     unoptimized: true,
     domains: ["assets.co.dev", "images.unsplash.com", "localhost"],
@@ -14,16 +12,9 @@ const nextConfig = {
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
-
   env: {
-    // Masaüstü sürümü - localStorage tabanlı
-    NEXT_PUBLIC_BASE_PATH: '',
-    NEXT_PUBLIC_APP_MODE: 'desktop',
+    NEXT_PUBLIC_APP_MODE: 'local',
   },
-  publicRuntimeConfig: {
-    basePath: '',
-    appMode: 'desktop',
-  }
 };
 
 export default nextConfig;
