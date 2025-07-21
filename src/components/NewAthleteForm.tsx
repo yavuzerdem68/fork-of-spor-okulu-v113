@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput, sanitizeHtml } from "@/utils/security";
 
-import { storageManager } from "@/lib/storage-adapter";
+
 
 const sports = [
   "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
@@ -352,35 +352,14 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
         // Update existing athlete
         finalStudentData = { ...athlete, ...studentData };
         
-        try {
-          // Try WordPress storage first
-          await storageManager.updateAthlete(athlete.id, finalStudentData);
-          
-          // Update localStorage as backup
-          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
-          const updatedStudents = existingStudents.map((student: any) => 
-            student.id === athlete.id ? finalStudentData : student
-          );
-          localStorage.setItem('students', JSON.stringify(updatedStudents));
-          
-          const adapterType = storageManager.getAdapterType();
-          if (adapterType === 'wordpress') {
-            toast.success("Sporcu bilgileri başarıyla güncellendi ve WordPress'e kaydedildi!");
-          } else {
-            toast.success("Sporcu bilgileri başarıyla güncellendi!");
-          }
-        } catch (storageError) {
-          console.warn('Storage manager failed, using fallback:', storageError);
-          
-          // Fallback to localStorage and GitHub
-          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
-          const updatedStudents = existingStudents.map((student: any) => 
-            student.id === athlete.id ? finalStudentData : student
-          );
-          localStorage.setItem('students', JSON.stringify(updatedStudents));
-          
-          toast.success("Sporcu bilgileri güncellendi!");
-        }
+        // Update localStorage
+        const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+        const updatedStudents = existingStudents.map((student: any) => 
+          student.id === athlete.id ? finalStudentData : student
+        );
+        localStorage.setItem('students', JSON.stringify(updatedStudents));
+        
+        toast.success("Sporcu bilgileri başarıyla güncellendi!");
       } else {
         // Create new athlete
         finalStudentData = {
@@ -393,32 +372,12 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           createdBy: 'admin'
         };
         
-        try {
-          // Try WordPress storage first
-          const savedId = await storageManager.saveAthlete(finalStudentData);
-          console.log('Athlete saved with ID:', savedId);
-          
-          // Update localStorage as backup
-          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
-          existingStudents.push(finalStudentData);
-          localStorage.setItem('students', JSON.stringify(existingStudents));
-          
-          const adapterType = storageManager.getAdapterType();
-          if (adapterType === 'wordpress') {
-            toast.success("Sporcu başarıyla kaydedildi ve WordPress'e kaydedildi!");
-          } else {
-            toast.success("Sporcu başarıyla kaydedildi!");
-          }
-        } catch (storageError) {
-          console.warn('Storage manager failed, using fallback:', storageError);
-          
-          // Fallback to localStorage and GitHub
-          const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
-          existingStudents.push(finalStudentData);
-          localStorage.setItem('students', JSON.stringify(existingStudents));
-          
-          toast.success("Sporcu kaydedildi!");
-        }
+        // Save to localStorage
+        const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
+        existingStudents.push(finalStudentData);
+        localStorage.setItem('students', JSON.stringify(existingStudents));
+        
+        toast.success("Sporcu başarıyla kaydedildi!");
       }
       
       onClose();
