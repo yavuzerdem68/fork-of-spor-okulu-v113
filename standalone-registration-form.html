@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spor Okulu Kayıt Formu</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 24px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .card-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-row {
+            display: grid;
+            gap: 16px;
+        }
+
+        .form-row.cols-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .form-row.cols-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        @media (max-width: 768px) {
+            .form-row.cols-2,
+            .form-row.cols-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+
+        .required {
+            color: #ef4444;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .checkbox-item:hover {
+            background-color: #f9fafb;
+        }
+
+        .selected-sports {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        .sport-badge {
+            background: #3b82f6;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .sport-badge .remove {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .photo-upload {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .photo-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 16px;
+            display: block;
+        }
+
+        .photo-placeholder {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 36px;
+            color: #9ca3af;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #d1d5db;
+            color: #374151;
+        }
+
+        .btn-outline:hover {
+            background: #f9fafb;
+        }
+
+        .btn-large {
+            padding: 16px 32px;
+            font-size: 16px;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+        }
+
+        .error-text {
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .border-error {
+            border-color: #dc2626 !important;
+        }
+
+        .success-page {
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .success-icon {
+            width: 64px;
+            height: 64px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            color: white;
+            font-size: 24px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Icons using Unicode symbols */
+        .icon-user::before { content: "👤"; }
+        .icon-users::before { content: "👥"; }
+        .icon-phone::before { content: "📞"; }
+        .icon-mail::before { content: "📧"; }
+        .icon-location::before { content: "📍"; }
+        .icon-heart::before { content: "❤️"; }
+        .icon-trophy::before { content: "🏆"; }
+        .icon-camera::before { content: "📷"; }
+        .icon-upload::before { content: "📤"; }
+        .icon-send::before { content: "📨"; }
+        .icon-check::before { content: "✅"; }
+        .icon-remove::before { content: "❌"; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-header">
+                <h1 class="card-title">Spor Okulu Kayıt Formu</h1>
+                <p class="card-description">
+                    Lütfen aşağıdaki formu eksiksiz doldurun. Form doldurulduktan sonra e-posta ile 
+                    spor okulu yönetimine gönderilecektir.
+                </p>
+            </div>
+        </div>
+
+        <!-- Success Page (Hidden by default) -->
+        <div id="successPage" class="card hidden">
+            <div class="success-page">
+                <div class="success-icon">
+                    <span class="icon-check"></span>
+                </div>
+                <h2 style="color: #10b981; margin-bottom: 16px;">Form Başarıyla Gönderildi!</h2>
+                <p style="margin-bottom: 24px;">
+                    Sporcu kayıt formunuz başarıyla oluşturuldu ve e-posta ile gönderildi.
+                </p>
+                <div class="alert alert-success">
+                    <strong>Önemli:</strong> Sporcu kayıt formunuz e-posta ile spor okulu yönetimine gönderildi. 
+                    Kayıt işleminiz en kısa sürede değerlendirilecektir.
+                </div>
+                <button type="button" class="btn btn-primary" onclick="resetForm()">
+                    Yeni Form Doldur
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Form -->
+        <form id="registrationForm" onsubmit="handleSubmit(event)">
+            <!-- Error Alert -->
+            <div id="errorAlert" class="alert alert-error hidden">
+                <span id="errorMessage"></span>
+            </div>
+
+            <!-- Öğrenci Bilgileri -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">
+                        <span class="icon-user"></span>
+                        Öğrenci Bilgileri
+                    </h2>
+                </div>
+                <div class="card-content">
+                    <!-- Photo Upload -->
+                    <div class="photo-upload">
+                        <div id="photoPreview" class="photo-placeholder">
+                            <span class="icon-camera"></span>
+                        </div>
+                        <p style="margin-bottom: 16px;">
+                            <strong>Sporcu Fotoğrafı</strong><br>
+                            <small>Kayıt sırasında sporcu fotoğrafı ekleyebilirsiniz (Opsiyonel)</small>
+                        </p>
+                        <input type="file" id="photoInput" accept="image/*" style="display: none;" onchange="handlePhotoUpload(event)">
+                        <button type="button" class="btn btn-outline" onclick="document.getElementById('photoInput').click()">
+                            <span class="icon-upload"></span>
+                            Fotoğraf Seç
+                        </button>
+                        <button type="button" id="removePhotoBtn" class="btn btn-secondary hidden" onclick="removePhoto()">
+                            <span class="icon-remove"></span>
+                            Kaldır
+                        </button>
+                        <p style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+                            Desteklenen formatlar: JPG, PNG, GIF (Maksimum 5MB)
+                        </p>
+                    </div>
+
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label for="studentName">Ad <span class="required">*</span></label>
+                            <input type="text" id="studentName" name="studentName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="studentSurname">Soyad <span class="required">*</span></label>
+                            <input type="text" id="studentSurname" name="studentSurname" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label for="studentTcNo">T.C. Kimlik No <span class="required">*</span></label>
+                            <input type="text" id="studentTcNo" name="studentTcNo" maxlength="11" placeholder="11 haneli TC kimlik numarası" required>
+                            <div id="studentTcError" class="error-text hidden"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="studentBirthDate">Doğum Tarihi <span class="required">*</span></label>
+                            <input type="date" id="studentBirthDate" name="studentBirthDate" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label>Cinsiyet <span class="required">*</span></label>
+                            <div class="radio-group">
+                                <div class="radio-item">
+                                    <input type="radio" id="genderMale" name="studentGender" value="erkek" required>
+                                    <label for="genderMale">Erkek</label>
+                                </div>
+                                <div class="radio-item">
+                                    <input type="radio" id="genderFemale" name="studentGender" value="kız" required>
+                                    <label for="genderFemale">Kız</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="studentClass">Sınıf</label>
+                            <input type="text" id="studentClass" name="studentClass" placeholder="Örn: 5. Sınıf">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentSchool">Okul</label>
+                        <input type="text" id="studentSchool" name="studentSchool" placeholder="Öğrencinin devam ettiği okul">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Katılmak İstediği Spor Branşları <span class="required">*</span> (Birden fazla seçebilirsiniz)</label>
+                        <div id="selectedSports" class="selected-sports"></div>
+                        <div class="checkbox-grid" id="sportsGrid">
+                            <!-- Sports will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fiziksel Bilgiler -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">
+                        <span class="icon-heart"></span>
+                        Fiziksel Bilgiler
+                    </h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-row cols-3">
+                        <div class="form-group">
+                            <label for="studentHeight">Boy (cm)</label>
+                            <input type="number" id="studentHeight" name="studentHeight" placeholder="170">
+                        </div>
+                        <div class="form-group">
+                            <label for="studentWeight">Kilo (kg)</label>
+                            <input type="number" id="studentWeight" name="studentWeight" placeholder="65">
+                        </div>
+                        <div class="form-group">
+                            <label for="bloodType">Kan Grubu</label>
+                            <select id="bloodType" name="bloodType">
+                                <option value="">Kan grubu seçin</option>
+                                <option value="A+">A Rh+</option>
+                                <option value="A-">A Rh-</option>
+                                <option value="B+">B Rh+</option>
+                                <option value="B-">B Rh-</option>
+                                <option value="AB+">AB Rh+</option>
+                                <option value="AB-">AB Rh-</option>
+                                <option value="0+">0 Rh+</option>
+                                <option value="0-">0 Rh-</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label for="dominantHand">Dominant El</label>
+                            <select id="dominantHand" name="dominantHand">
+                                <option value="">Seçiniz</option>
+                                <option value="sag">Sağ</option>
+                                <option value="sol">Sol</option>
+                                <option value="her-ikisi">Her İkisi</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="dominantFoot">Dominant Ayak</label>
+                            <select id="dominantFoot" name="dominantFoot">
+                                <option value="">Seçiniz</option>
+                                <option value="sag">Sağ</option>
+                                <option value="sol">Sol</option>
+                                <option value="her-ikisi">Her İkisi</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Veli Bilgileri -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">
+                        <span class="icon-users"></span>
+                        Veli Bilgileri
+                    </h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label for="parentName">Veli Adı <span class="required">*</span></label>
+                            <input type="text" id="parentName" name="parentName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="parentSurname">Veli Soyadı <span class="required">*</span></label>
+                            <input type="text" id="parentSurname" name="parentSurname" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label for="parentTcNo">Veli T.C. Kimlik No <span class="required">*</span></label>
+                            <input type="text" id="parentTcNo" name="parentTcNo" maxlength="11" placeholder="11 haneli TC kimlik numarası" required>
+                            <div id="parentTcError" class="error-text hidden"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="parentRelation">Yakınlık Derecesi <span class="required">*</span></label>
+                            <select id="parentRelation" name="parentRelation" required>
+                                <option value="">Seçiniz</option>
+                                <option value="anne">Anne</option>
+                                <option value="baba">Baba</option>
+                                <option value="vasi">Vasi</option>
+                                <option value="büyükanne">Büyükanne</option>
+                                <option value="büyükbaba">Büyükbaba</option>
+                                <option value="diğer">Diğer</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row cols-3">
+                        <div class="form-group">
+                            <label for="parentPhone">Telefon Numarası <span class="required">*</span></label>
+                            <input type="tel" id="parentPhone" name="parentPhone" placeholder="0555 123 45 67" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="parentEmail">Email Adresi <span class="required">*</span></label>
+                            <input type="email" id="parentEmail" name="parentEmail" placeholder="veli@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="parentOccupation">Meslek</label>
+                            <input type="text" id="parentOccupation" name="parentOccupation" placeholder="Meslek bilgisi">
+                        </div>
+                    </div>
+
+                    <!-- İkinci Veli Bilgileri -->
+                    <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
+                        <h4 style="margin-bottom: 16px;">İkinci Veli Bilgileri (Opsiyonel)</h4>
+                        <div class="form-row cols-2">
+                            <div class="form-group">
+                                <label for="secondParentName">İkinci Veli Adı</label>
+                                <input type="text" id="secondParentName" name="secondParentName">
+                            </div>
+                            <div class="form-group">
+                                <label for="secondParentSurname">İkinci Veli Soyadı</label>
+                                <input type="text" id="secondParentSurname" name="secondParentSurname">
+                            </div>
+                        </div>
+
+                        <div class="form-row cols-3">
+                            <div class="form-group">
+                                <label for="secondParentPhone">Telefon Numarası</label>
+                                <input type="tel" id="secondParentPhone" name="secondParentPhone" placeholder="0555 123 45 67">
+                            </div>
+                            <div class="form-group">
+                                <label for="secondParentEmail">Email Adresi</label>
+                                <input type="email" id="secondParentEmail" name="secondParentEmail" placeholder="veli2@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="secondParentRelation">Yakınlık Derecesi</label>
+                                <select id="secondParentRelation" name="secondParentRelation">
+                                    <option value="">Seçiniz</option>
+                                    <option value="anne">Anne</option>
+                                    <option value="baba">Baba</option>
+                                    <option value="vasi">Vasi</option>
+                                    <option value="büyükanne">Büyükanne</option>
+                                    <option value="büyükbaba">Büyükbaba</option>
+                                    <option value="diğer">Diğer</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- İletişim Bilgileri -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">
+                        <span class="icon-location"></span>
+                        İletişim Bilgileri
+                    </h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <label for="address">Adres <span class="required">*</span></label>
+                        <textarea id="address" name="address" placeholder="Tam adres bilgisi" required></textarea>
+                    </div>
+
+                    <div class="form-row cols-3">
+                        <div class="form-group">
+                            <label for="city">İl <span class="required">*</span></label>
+                            <select id="city" name="city" required>
+                                <option value="">İl seçiniz</option>
+                                <!-- Cities will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="district">İlçe <span class="required">*</span></label>
+                            <input type="text" id="district" name="district" placeholder="İlçe" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="postalCode">Posta Kodu</label>
+                            <input type="text" id="postalCode" name="postalCode" placeholder="34000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sağlık Bilgileri -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">
+                        <span class="icon-heart"></span>
+                        Sağlık Bilgileri
+                    </h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <label>Kronik hastalık veya sağlık sorunu var mı? <span class="required">*</span></label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="healthYes" name="hasHealthIssues" value="evet" required onchange="toggleHealthDetails()">
+                                <label for="healthYes">Evet</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="healthNo" name="hasHealthIssues" value="hayır" required onchange="toggleHealthDetails()">
+                                <label for="healthNo">Hayır</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="healthDetails" class="form-group hidden">
+                        <label for="healthIssuesDetail">Sağlık sorunu detayı</label>
+                        <textarea id="healthIssuesDetail" name="healthIssuesDetail" placeholder="Lütfen detayları belirtin"></textarea>
+                    </div>
+
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label for="medications">Kullandığı İlaçlar</label>
+                            <textarea id="medications" name="medications" placeholder="Varsa kullandığı ilaçları belirtin"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="allergies">Alerjiler</label>
+                            <textarea id="allergies" name="allergies" placeholder="Bilinen alerjileri belirtin"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-row cols-3">
+                        <div class="form-group">
+                            <label for="emergencyContactName">Acil Durum İletişim Kişisi <span class="required">*</span></label>
+                            <input type="text" id="emergencyContactName" name="emergencyContactName" placeholder="Ad Soyad" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="emergencyContactPhone">Acil Durum Telefonu <span class="required">*</span></label>
+                            <input type="tel" id="emergencyContactPhone" name="emergencyContactPhone" placeholder="0555 123 45 67" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="emergencyContactRelation">Yakınlık Derecesi <span class="required">*</span></label>
+                            <input type="text" id="emergencyContactRelation" name="emergencyContactRelation" placeholder="Anne, Baba, vb." required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="specialDiet">Özel Diyet İhtiyacı</label>
+                        <textarea id="specialDiet" name="specialDiet" placeholder="Varsa özel diyet ihtiyaçlarını belirtin"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sporcu Geçmişi -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">
+                        <span class="icon-trophy"></span>
+                        Sporcu Geçmişi
+                    </h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <label for="previousSportsExperience">Daha Önce Spor Deneyimi Var mı?</label>
+                        <textarea id="previousSportsExperience" name="previousSportsExperience" placeholder="Daha önce yaptığı sporlar, süre, seviye vb."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="previousClubs">Daha Önce Üye Olduğu Kulüpler</label>
+                        <textarea id="previousClubs" name="previousClubs" placeholder="Varsa daha önce üye olduğu kulüpler"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="achievements">Başarılar ve Ödüller</label>
+                        <textarea id="achievements" name="achievements" placeholder="Varsa sporda elde ettiği başarılar"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sportsGoals">Spordaki Hedefleri</label>
+                        <textarea id="sportsGoals" name="sportsGoals" placeholder="Sporda ulaşmak istediği hedefler"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diğer Bilgiler -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">Diğer Bilgiler</h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <label for="howDidYouHear">Spor okulunu nasıl duydunuz?</label>
+                        <select id="howDidYouHear" name="howDidYouHear">
+                            <option value="">Seçiniz</option>
+                            <option value="internet">İnternet</option>
+                            <option value="sosyal-medya">Sosyal Medya</option>
+                            <option value="arkadas-tavsiye">Arkadaş Tavsiyesi</option>
+                            <option value="gazete-dergi">Gazete/Dergi</option>
+                            <option value="okul">Okul</option>
+                            <option value="diğer">Diğer</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="expectations">Spor okulundan beklentileriniz</label>
+                        <textarea id="expectations" name="expectations" placeholder="Spor okulundan beklentilerinizi belirtin"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onaylar -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">Onaylar</h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="agreementAccepted" name="agreementAccepted" required>
+                            <label for="agreementAccepted">
+                                Spor okulu kurallarını ve şartlarını okudum, kabul ediyorum. <span class="required">*</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="dataProcessingAccepted" name="dataProcessingAccepted" required>
+                            <label for="dataProcessingAccepted">
+                                Kişisel verilerimin işlenmesine ve KVKK kapsamında kullanılmasına onay veriyorum. <span class="required">*</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="photoVideoPermission" name="photoVideoPermission">
+                            <label for="photoVideoPermission">
+                                Çocuğumun antrenman ve etkinliklerde çekilen fotoğraf/videolarının paylaşılmasına izin veriyorum.
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div style="text-align: center; margin-top: 32px;">
+                <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
+                    <span class="icon-send"></span>
+                    <span id="submitText">Formu Gönder</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Configuration
+        const API_ENDPOINT = 'https://yrtndlooyuamztzl-g9q59dgy8.preview.co.dev/api/send-form'; // Change this to your API endpoint
+        const USE_LOCAL_DOWNLOAD = false; // Set to true to download JSON instead of sending email
+
+        // Sports list
+        const sports = [
+            "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
+            "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
+            "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim", "Hareket Eğitimi"
+        ];
+
+        // Cities list
+        const cities = [
+            "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin",
+            "Aydın", "Balıkesir", "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale",
+            "Çankırı", "Çorum", "Denizli", "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum",
+            "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari", "Hatay", "Isparta", "Mersin",
+            "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir", "Kocaeli",
+            "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş",
+            "Nevşehir", "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas",
+            "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak"
+        ];
+
+        let selectedSports = [];
+        let selectedPhoto = null;
+
+        // Initialize form
+        document.addEventListener('DOMContentLoaded', function() {
+            populateSports();
+            populateCities();
+            setupTCValidation();
+        });
+
+        // Populate sports checkboxes
+        function populateSports() {
+            const sportsGrid = document.getElementById('sportsGrid');
+            sports.forEach(sport => {
+                const div = document.createElement('div');
+                div.className = 'checkbox-item';
+                div.innerHTML = `
+                    <input type="checkbox" id="sport-${sport}" value="${sport}" onchange="handleSportSelection('${sport}', this.checked)">
+                    <label for="sport-${sport}">${sport}</label>
+                `;
+                sportsGrid.appendChild(div);
+            });
+        }
+
+        // Populate cities dropdown
+        function populateCities() {
+            const citySelect = document.getElementById('city');
+            cities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+
+        // Handle sport selection
+        function handleSportSelection(sport, checked) {
+            if (checked) {
+                if (!selectedSports.includes(sport)) {
+                    selectedSports.push(sport);
+                }
+            } else {
+                selectedSports = selectedSports.filter(s => s !== sport);
+            }
+            updateSelectedSportsDisplay();
+        }
+
+        // Update selected sports display
+        function updateSelectedSportsDisplay() {
+            const container = document.getElementById('selectedSports');
+            container.innerHTML = '';
+            
+            selectedSports.forEach(sport => {
+                const badge = document.createElement('div');
+                badge.className = 'sport-badge';
+                badge.innerHTML = `
+                    ${sport}
+                    <span class="remove" onclick="removeSport('${sport}')">×</span>
+                `;
+                container.appendChild(badge);
+            });
+        }
+
+        // Remove sport
+        function removeSport(sport) {
+            selectedSports = selectedSports.filter(s => s !== sport);
+            document.getElementById(`sport-${sport}`).checked = false;
+            updateSelectedSportsDisplay();
+        }
+
+        // Handle photo upload
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Check file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showError("Fotoğraf boyutu 5MB'dan küçük olmalıdır");
+                return;
+            }
+
+            // Check file type
+            if (!file.type.startsWith('image/')) {
+                showError("Lütfen geçerli bir resim dosyası seçin");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedPhoto = e.target.result;
+                const preview = document.getElementById('photoPreview');
+                preview.innerHTML = `<img src="${selectedPhoto}" class="photo-preview" alt="Sporcu Fotoğrafı">`;
+                document.getElementById('removePhotoBtn').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Remove photo
+        function removePhoto() {
+            selectedPhoto = null;
+            document.getElementById('photoInput').value = '';
+            document.getElementById('photoPreview').innerHTML = '<span class="icon-camera"></span>';
+            document.getElementById('removePhotoBtn').classList.add('hidden');
+        }
+
+        // TC Kimlik No validation
+        function validateTCKimlikNo(tcNo) {
+            if (!tcNo || tcNo.length !== 11) {
+                return { isValid: false, error: "TC Kimlik No 11 haneli olmalıdır" };
+            }
+
+            if (!/^\d+$/.test(tcNo)) {
+                return { isValid: false, error: "TC Kimlik No sadece rakam içermelidir" };
+            }
+
+            if (tcNo[0] === '0') {
+                return { isValid: false, error: "TC Kimlik No 0 ile başlayamaz" };
+            }
+
+            // TC Kimlik No algorithm
+            const digits = tcNo.split('').map(Number);
+            const oddSum = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+            const evenSum = digits[1] + digits[3] + digits[5] + digits[7];
+            
+            const check1 = (oddSum * 7 - evenSum) % 10;
+            const check2 = (oddSum + evenSum + digits[9]) % 10;
+
+            if (check1 !== digits[9] || check2 !== digits[10]) {
+                return { isValid: false, error: "Geçersiz TC Kimlik No" };
+            }
+
+            return { isValid: true };
+        }
+
+        // Setup TC validation
+        function setupTCValidation() {
+            const studentTcInput = document.getElementById('studentTcNo');
+            const parentTcInput = document.getElementById('parentTcNo');
+
+            studentTcInput.addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '').slice(0, 11);
+                validateTCField('studentTcNo', 'studentTcError');
+            });
+
+            parentTcInput.addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '').slice(0, 11);
+                validateTCField('parentTcNo', 'parentTcError');
+            });
+        }
+
+        // Validate TC field
+        function validateTCField(fieldId, errorId) {
+            const field = document.getElementById(fieldId);
+            const errorDiv = document.getElementById(errorId);
+            const validation = validateTCKimlikNo(field.value);
+
+            if (field.value && !validation.isValid) {
+                field.classList.add('border-error');
+                errorDiv.textContent = validation.error;
+                errorDiv.classList.remove('hidden');
+            } else {
+                field.classList.remove('border-error');
+                errorDiv.classList.add('hidden');
+            }
+        }
+
+        // Toggle health details
+        function toggleHealthDetails() {
+            const healthDetails = document.getElementById('healthDetails');
+            const hasHealthIssues = document.querySelector('input[name="hasHealthIssues"]:checked');
+            
+            if (hasHealthIssues && hasHealthIssues.value === 'evet') {
+                healthDetails.classList.remove('hidden');
+            } else {
+                healthDetails.classList.add('hidden');
+            }
+        }
+
+        // Show error
+        function showError(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorAlert.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Hide error
+        function hideError() {
+            document.getElementById('errorAlert').classList.add('hidden');
+        }
+
+        // Calculate age
+        function calculateAge(birthDate) {
+            if (!birthDate) return "";
+            const today = new Date();
+            const birth = new Date(birthDate);
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age.toString();
+        }
+
+        // Collect form data
+        function collectFormData() {
+            const formData = new FormData(document.getElementById('registrationForm'));
+            const data = {};
+
+            // Collect all form fields
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+
+            // Add selected sports
+            data.selectedSports = selectedSports;
+
+            // Add photo
+            if (selectedPhoto) {
+                data.photo = selectedPhoto;
+            }
+
+            // Add calculated age
+            if (data.studentBirthDate) {
+                data.studentAge = calculateAge(data.studentBirthDate);
+            }
+
+            // Add metadata
+            data.submissionDate = new Date().toISOString();
+            data.formVersion = "1.0";
+
+            return data;
+        }
+
+        // Download JSON file
+        function downloadJSON(data) {
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const fileName = `sporcu-kayit-${data.studentName}-${data.studentSurname}-${new Date().toISOString().split('T')[0]}.json`;
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Send form via API
+        async function sendFormViaAPI(data) {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ formData: data }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Form gönderilirken bir hata oluştu');
+            }
+
+            return await response.json();
+        }
+
+        // Handle form submission
+        async function handleSubmit(event) {
+            event.preventDefault();
+            hideError();
+
+            // Validate TC numbers
+            const studentTcValidation = validateTCKimlikNo(document.getElementById('studentTcNo').value);
+            const parentTcValidation = validateTCKimlikNo(document.getElementById('parentTcNo').value);
+
+            if (!studentTcValidation.isValid) {
+                showError("Öğrenci TC Kimlik numarası geçersiz: " + studentTcValidation.error);
+                return;
+            }
+
+            if (!parentTcValidation.isValid) {
+                showError("Veli TC Kimlik numarası geçersiz: " + parentTcValidation.error);
+                return;
+            }
+
+            // Validate sports selection
+            if (selectedSports.length === 0) {
+                showError("Lütfen en az bir spor branşı seçin");
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const originalText = submitText.textContent;
+            
+            submitBtn.disabled = true;
+            submitText.textContent = 'Form Gönderiliyor...';
+            document.getElementById('registrationForm').classList.add('loading');
+
+            try {
+                const formData = collectFormData();
+
+                if (USE_LOCAL_DOWNLOAD) {
+                    // Download JSON file
+                    downloadJSON(formData);
+                    showSuccessPage();
+                } else {
+                    // Send via API
+                    await sendFormViaAPI(formData);
+                    showSuccessPage();
+                }
+            } catch (error) {
+                showError(error.message || 'Form gönderilirken bir hata oluştu. Lütfen tekrar deneyin.');
+            } finally {
+                // Reset loading state
+                submitBtn.disabled = false;
+                submitText.textContent = originalText;
+                document.getElementById('registrationForm').classList.remove('loading');
+            }
+        }
+
+        // Show success page
+        function showSuccessPage() {
+            document.getElementById('registrationForm').classList.add('hidden');
+            document.getElementById('successPage').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('registrationForm').reset();
+            selectedSports = [];
+            selectedPhoto = null;
+            updateSelectedSportsDisplay();
+            removePhoto();
+            hideError();
+            
+            document.getElementById('successPage').classList.add('hidden');
+            document.getElementById('registrationForm').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
