@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload, Download, FileText } from "lucide-react";
+import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload, Send, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput } from "@/utils/security";
@@ -281,12 +281,25 @@ export default function ParentRegistrationForm() {
     }
 
     try {
-      // Form başarıyla dolduruldu, dosya indirme işlemi başlat
-      downloadFormData();
-      setSuccess(true);
-      toast.success("Form başarıyla dolduruldu! Dosya indirildi.");
+      // Send form via email
+      const response = await fetch('/api/send-form', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ formData }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setSuccess(true);
+        toast.success("Form başarıyla gönderildi! E-posta ile iletildi.");
+      } else {
+        setError(result.message || "Form gönderilirken bir hata oluştu. Lütfen tekrar deneyin.");
+      }
     } catch (err) {
-      setError("Form işleme sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+      setError("Form gönderilirken bir hata oluştu. Lütfen tekrar deneyin.");
     }
     
     setLoading(false);
@@ -303,15 +316,15 @@ export default function ParentRegistrationForm() {
               </div>
               <CardTitle className="text-2xl text-green-600">Form Başarıyla Gönderildi!</CardTitle>
               <CardDescription className="text-lg">
-                Sporcu kayıt formunuz başarıyla oluşturuldu ve bilgisayarınıza indirildi.
+                Sporcu kayıt formunuz başarıyla oluşturuldu ve e-posta ile gönderildi.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Önemli:</strong> İndirilen JSON dosyasını spor okulu yönetimine ulaştırın. 
-                  Bu dosya sporcu kaydınızın tamamlanması için gereklidir.
+                  <strong>Önemli:</strong> Sporcu kayıt formunuz e-posta ile spor okulu yönetimine gönderildi. 
+                  Kayıt işleminiz en kısa sürede değerlendirilecektir.
                 </AlertDescription>
               </Alert>
               
@@ -346,8 +359,8 @@ export default function ParentRegistrationForm() {
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold text-primary">Spor Okulu Kayıt Formu</CardTitle>
             <CardDescription className="text-lg">
-              Lütfen aşağıdaki formu eksiksiz doldurun. Form doldurulduktan sonra bir dosya indirilecek, 
-              bu dosyayı spor okulu yönetimine ulaştırın.
+              Lütfen aşağıdaki formu eksiksiz doldurun. Form doldurulduktan sonra e-posta ile 
+              spor okulu yönetimine gönderilecektir.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -1084,7 +1097,8 @@ export default function ParentRegistrationForm() {
 
           <div className="flex justify-center">
             <Button type="submit" disabled={loading} size="lg" className="w-full max-w-md">
-              {loading ? "Form Hazırlanıyor..." : "Formu Tamamla ve İndir"}
+              <Send className="w-4 h-4 mr-2" />
+              {loading ? "Form Gönderiliyor..." : "Formu Gönder"}
             </Button>
           </div>
         </form>
