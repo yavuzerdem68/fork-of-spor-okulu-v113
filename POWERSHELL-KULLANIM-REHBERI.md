@@ -3,6 +3,41 @@
 
 Bu rehber PowerShell kullanıcıları için hazırlanmıştır.
 
+## ⚠️ ÖNEMLİ: EXECUTION POLICY SORUNU
+
+Eğer aşağıdaki hatayı alıyorsanız:
+```
+The file cannot be loaded. The file is not digitally signed.
+```
+
+**ÇÖZÜM:** Önce execution policy fix scriptini çalıştırın:
+```powershell
+.\fix-powershell-policy.ps1
+```
+
+Bu script size 3 seçenek sunar:
+1. **Geçici çözüm** - Sadece mevcut oturum için
+2. **Kalıcı çözüm** - Kullanıcı için kalıcı ayar  
+3. **Dosya unblock** - Sadece bu dosyaları unblock et
+
+### Alternatif Hızlı Çözümler:
+
+**Seçenek 1: Geçici Bypass (Önerilen)**
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+```
+
+**Seçenek 2: Dosyaları Unblock Et**
+```powershell
+Unblock-File -Path ".\build-local.ps1"
+Unblock-File -Path ".\build-wordpress.ps1"
+```
+
+**Seçenek 3: Kalıcı Ayar (Dikkatli Kullanın)**
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
 ## 🚀 HIZLI BAŞLATMA
 
 ### PowerShell'de Build Script'leri Çalıştırma:

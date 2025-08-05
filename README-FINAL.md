@@ -16,7 +16,7 @@ npm run dev
 # Windows Command Prompt
 build-wordpress.bat
 
-# PowerShell
+# PowerShell (Execution policy hatası alırsanız önce: .\fix-powershell-policy.ps1)
 .\build-wordpress.ps1
 
 # Linux/Mac
@@ -73,6 +73,7 @@ npm run build:wordpress
 ├── build-wordpress.bat         # Windows - WordPress build
 ├── build-local.ps1             # PowerShell - Lokal build
 ├── build-wordpress.ps1         # PowerShell - WordPress build
+├── fix-powershell-policy.ps1   # PowerShell execution policy fix
 ├── HIBRIT-DEPLOYMENT-REHBERI.md # Detaylı rehber
 ├── POWERSHELL-KULLANIM-REHBERI.md # PowerShell rehberi
 └── README-FINAL.md             # Bu dosya
@@ -152,9 +153,10 @@ npm start
 3. Environment variable'ları kontrol edin
 
 ### PowerShell Sorunları:
-1. **Script çalışmıyor:** `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
-2. **Dosya bulunamadı:** `.\build-wordpress.ps1` formatını kullanın
-3. **Detaylı rehber:** `POWERSHELL-KULLANIM-REHBERI.md` dosyasını inceleyin
+1. **Execution Policy hatası:** `.\fix-powershell-policy.ps1` scriptini çalıştırın
+2. **Manuel çözüm:** `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
+3. **Dosya bulunamadı:** `.\build-wordpress.ps1` formatını kullanın
+4. **Detaylı rehber:** `POWERSHELL-KULLANIM-REHBERI.md` dosyasını inceleyin
 
 ## 📞 DESTEK
 
