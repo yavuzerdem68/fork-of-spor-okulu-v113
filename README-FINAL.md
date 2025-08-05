@@ -13,8 +13,14 @@ npm run dev
 
 ### WordPress Dağıtımı:
 ```bash
+# Windows Command Prompt
 build-wordpress.bat
-# out/ klasörünü WordPress'e yükleyin
+
+# PowerShell
+.\build-wordpress.ps1
+
+# Linux/Mac
+npm run build:wordpress
 ```
 
 ## 📋 YÖNETİCİ GİRİŞ BİLGİLERİ
@@ -60,13 +66,16 @@ build-wordpress.bat
 ## 📁 DOSYA YAPISI
 
 ```
-├── next.config.mjs          # Hibrit konfigürasyon
-├── package.json             # Güncellenmiş script'ler
-├── .htaccess               # WordPress routing
-├── build-local.bat         # Lokal build
-├── build-wordpress.bat     # WordPress build
-├── HIBRIT-DEPLOYMENT-REHBERI.md
-└── README-FINAL.md         # Bu dosya
+├── next.config.mjs              # Hibrit konfigürasyon
+├── package.json                 # Güncellenmiş script'ler
+├── .htaccess                   # WordPress routing
+├── build-local.bat             # Windows - Lokal build
+├── build-wordpress.bat         # Windows - WordPress build
+├── build-local.ps1             # PowerShell - Lokal build
+├── build-wordpress.ps1         # PowerShell - WordPress build
+├── HIBRIT-DEPLOYMENT-REHBERI.md # Detaylı rehber
+├── POWERSHELL-KULLANIM-REHBERI.md # PowerShell rehberi
+└── README-FINAL.md             # Bu dosya
 ```
 
 ## 🌐 WORDPRESS DAĞITIMI
@@ -141,6 +150,11 @@ npm start
 1. Node.js versiyonunu kontrol edin (20.x önerili)
 2. `npm run clean` sonrası tekrar build yapın
 3. Environment variable'ları kontrol edin
+
+### PowerShell Sorunları:
+1. **Script çalışmıyor:** `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
+2. **Dosya bulunamadı:** `.\build-wordpress.ps1` formatını kullanın
+3. **Detaylı rehber:** `POWERSHELL-KULLANIM-REHBERI.md` dosyasını inceleyin
 
 ## 📞 DESTEK
 
