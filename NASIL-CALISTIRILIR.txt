@@ -1,0 +1,30 @@
+================================
+SPOR OKULU CRM - ÇALIŞTIRMA REHBERİ
+================================
+
+1. PowerShell veya Command Prompt açın
+
+2. Bu klasöre gidin:
+   cd "D:\Downloads\fork-of-spor-okulu-v113-main\fork-of-spor-okulu-v113-main"
+
+3. Şu komutu çalıştırın:
+   npm run dev
+
+4. Tarayıcınızda şu adresi açın:
+   http://localhost:3000
+
+5. Giriş bilgileri:
+   Email: yavuz@g7spor.org
+   Şifre: 444125yA/
+
+================================
+NOT: İlk kurulumda "npm install" komutunu da çalıştırmanız gerekebilir.
+================================
+
+HIZLI BAŞLATMA:
+- PowerShell açın
+- npm run dev yazın
+- Enter'a basın
+- Tarayıcıda localhost:3000'e gidin
+
+Bu kadar! 😊
