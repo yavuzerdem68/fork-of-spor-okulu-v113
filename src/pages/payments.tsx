@@ -385,12 +385,74 @@ export default function Payments() {
     return Math.round(amount * 100) / 100;
   };
 
-  // FIXED: Calculate amounts correctly to match dashboard
+  // FIXED: Calculate amounts correctly to match dashboard - Use account balances instead of payment status
+  const calculateBalanceAmounts = () => {
+    let totalPending = 0;
+    let totalOverdue = 0;
+    let totalCredit = 0;
+    let totalPaid = 0;
+    
+    athletes.forEach((athlete: any) => {
+      const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
+      const balance = accountEntries.reduce((total: number, entry: any) => {
+        const amount = parseFloat(String(entry.amountIncludingVat || 0).replace(',', '.')) || 0;
+        return entry.type === 'debit' 
+          ? total + amount
+          : total - amount;
+      }, 0);
+      
+      // Round to 2 decimal places to avoid floating point errors - SAME AS DASHBOARD
+      const roundedBalance = Math.round(balance * 100) / 100;
+      
+      if (roundedBalance > 0) {
+        // Positive balance = debt - determine if overdue or pending
+        const debitEntries = accountEntries.filter((entry: any) => entry.type === 'debit');
+        const latestDebit = debitEntries.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        
+        let dueDate = new Date();
+        if (latestDebit && latestDebit.dueDate) {
+          dueDate = new Date(latestDebit.dueDate);
+        } else if (latestDebit) {
+          dueDate = new Date(latestDebit.date);
+          dueDate.setMonth(dueDate.getMonth() + 1); // Due date is 1 month after charge date
+        }
+        
+        const isOverdue = new Date() > dueDate;
+        if (isOverdue) {
+          totalOverdue += roundedBalance;
+        } else {
+          totalPending += roundedBalance;
+        }
+      } else if (roundedBalance < 0) {
+        // Negative balance = credit (overpayment)
+        totalCredit += Math.abs(roundedBalance);
+      }
+      
+      // Calculate paid amount from credit entries
+      const creditEntries = accountEntries.filter((entry: any) => entry.type === 'credit');
+      const totalCreditAmount = creditEntries.reduce((sum: number, entry: any) => {
+        const amount = parseFloat(String(entry.amountIncludingVat || 0).replace(',', '.')) || 0;
+        return sum + amount;
+      }, 0);
+      totalPaid += totalCreditAmount;
+    });
+    
+    return {
+      pending: Math.round(totalPending * 100) / 100,
+      overdue: Math.round(totalOverdue * 100) / 100,
+      credit: Math.round(totalCredit * 100) / 100,
+      paid: Math.round(totalPaid * 100) / 100
+    };
+  };
+  
+  const balanceAmounts = calculateBalanceAmounts();
+  
+  // Use balance-based calculations to match dashboard
   const totalAmount = formatAmount(payments.reduce((sum, payment) => sum + payment.amount, 0));
-  const paidAmount = formatAmount(payments.filter(p => p.status === "Ödendi").reduce((sum, payment) => sum + payment.amount, 0));
-  const pendingAmount = formatAmount(payments.filter(p => p.status === "Bekliyor").reduce((sum, payment) => sum + payment.amount, 0));
-  const overdueAmount = formatAmount(payments.filter(p => p.status === "Gecikmiş").reduce((sum, payment) => sum + payment.amount, 0));
-  const creditAmount = formatAmount(payments.filter(p => p.status === "Alacaklı").reduce((sum, payment) => sum + payment.amount, 0));
+  const paidAmount = formatAmount(balanceAmounts.paid);
+  const pendingAmount = formatAmount(balanceAmounts.pending);
+  const overdueAmount = formatAmount(balanceAmounts.overdue);
+  const creditAmount = formatAmount(balanceAmounts.credit);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
