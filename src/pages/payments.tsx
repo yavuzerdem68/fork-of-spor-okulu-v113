@@ -299,7 +299,7 @@ export default function Payments() {
     activeAthletes.forEach((athlete: any) => {
       const accountEntries = JSON.parse(localStorage.getItem(`account_${athlete.id}`) || '[]');
       
-      // Calculate balance (debit - credit) with proper number handling
+      // Calculate balance (debit - credit) with proper number handling - SAME AS DASHBOARD
       const balance = accountEntries.reduce((total: number, entry: any) => {
         const amount = parseFloat(String(entry.amountIncludingVat || 0).replace(',', '.')) || 0;
         return entry.type === 'debit' 
@@ -307,11 +307,11 @@ export default function Payments() {
           : total - amount;
       }, 0);
       
-      // Round to 2 decimal places to avoid floating point errors
+      // Round to 2 decimal places to avoid floating point errors - SAME AS DASHBOARD
       const roundedBalance = Math.round(balance * 100) / 100;
       
-      // Only create payment entry if there's a positive balance (debt)
-      if (roundedBalance > 0) {
+      // FIXED: Create payment entries for ALL non-zero balances (both positive and negative)
+      if (roundedBalance !== 0) {
         // Check if payment already exists for this athlete
         const paymentExists = existingPayments.some((payment: any) => 
           payment.athleteId === athlete.id && payment.isGenerated
@@ -330,23 +330,37 @@ export default function Payments() {
             dueDate.setMonth(dueDate.getMonth() + 1); // Due date is 1 month after charge date
           }
           
-          const isOverdue = new Date() > dueDate;
+          // FIXED: Determine status based on balance amount
+          let status = "";
+          let description = "";
+          
+          if (roundedBalance > 0) {
+            // Positive balance = debt
+            const isOverdue = new Date() > dueDate;
+            status = isOverdue ? "Gecikmiş" : "Bekliyor";
+            description = `Toplam Borç Bakiyesi`;
+          } else {
+            // Negative balance = credit (overpayment)
+            status = "Alacaklı";
+            description = `Fazla Ödeme (Alacak)`;
+          }
           
           generatedPayments.push({
             id: `generated_${athlete.id}_balance`,
             athleteId: athlete.id,
             athleteName: `${athlete.studentName} ${athlete.studentSurname}`,
             parentName: `${athlete.parentName} ${athlete.parentSurname}`,
-            amount: roundedBalance,
+            amount: Math.abs(roundedBalance), // Always show positive amount
             method: '',
             paymentDate: null,
-            status: isOverdue ? "Gecikmiş" : "Bekliyor",
+            status: status,
             sport: athlete.sportsBranches?.[0] || athlete.selectedSports?.[0] || 'Genel',
             invoiceNumber: `BAL-${athlete.id}`,
             dueDate: dueDate.toISOString().split('T')[0],
-            description: `Toplam Borç Bakiyesi`,
+            description: description,
             accountEntryId: null,
-            isGenerated: true
+            isGenerated: true,
+            isCredit: roundedBalance < 0 // Flag to identify credit entries
           });
         }
       }
@@ -371,10 +385,12 @@ export default function Payments() {
     return Math.round(amount * 100) / 100;
   };
 
+  // FIXED: Calculate amounts correctly to match dashboard
   const totalAmount = formatAmount(payments.reduce((sum, payment) => sum + payment.amount, 0));
   const paidAmount = formatAmount(payments.filter(p => p.status === "Ödendi").reduce((sum, payment) => sum + payment.amount, 0));
   const pendingAmount = formatAmount(payments.filter(p => p.status === "Bekliyor").reduce((sum, payment) => sum + payment.amount, 0));
   const overdueAmount = formatAmount(payments.filter(p => p.status === "Gecikmiş").reduce((sum, payment) => sum + payment.amount, 0));
+  const creditAmount = formatAmount(payments.filter(p => p.status === "Alacaklı").reduce((sum, payment) => sum + payment.amount, 0));
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -384,6 +400,8 @@ export default function Payments() {
         return <Badge variant="outline">Bekliyor</Badge>;
       case "Gecikmiş":
         return <Badge variant="destructive">Gecikmiş</Badge>;
+      case "Alacaklı":
+        return <Badge className="bg-purple-100 text-purple-800 border-purple-200">Alacaklı</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -2582,9 +2600,9 @@ export default function Payments() {
             </div>
           </motion.div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards - FIXED: Added Alacaklı card and corrected calculations */}
           <motion.div 
-            className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8"
             variants={fadeInUp}
             initial="initial"
             animate="animate"
@@ -2636,6 +2654,18 @@ export default function Payments() {
                 </div>
               </CardContent>
             </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Alacaklı</p>
+                    <p className="text-2xl font-bold text-purple-600">₺{creditAmount.toLocaleString()}</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
 
           {/* Tabs */}
@@ -2671,6 +2701,7 @@ export default function Payments() {
                             <SelectItem value="Ödendi">Ödendi</SelectItem>
                             <SelectItem value="Bekliyor">Bekliyor</SelectItem>
                             <SelectItem value="Gecikmiş">Gecikmiş</SelectItem>
+                            <SelectItem value="Alacaklı">Alacaklı</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
