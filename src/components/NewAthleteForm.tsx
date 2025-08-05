@@ -10,7 +10,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload, UserPlus, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput, sanitizeHtml } from "@/utils/security";
@@ -40,6 +41,7 @@ interface NewAthleteFormProps {
 }
 
 export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps) {
+  const [registrationType, setRegistrationType] = useState<'parent' | 'adult' | null>(athlete ? 'parent' : null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tcErrors, setTcErrors] = useState({
@@ -388,6 +390,640 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
     setLoading(false);
   };
 
+  // If no registration type is selected and not editing, show selection dialog
+  if (!registrationType && !athlete) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">Yeni Sporcu Kaydı</h2>
+          <p className="text-muted-foreground">Kayıt türünü seçin</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+            onClick={() => setRegistrationType('parent')}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Users className="w-8 h-8 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Velisi Olduğum Sporcu</h3>
+                  <p className="text-sm text-muted-foreground">
+                    18 yaş altı çocuğunuz için kayıt yapın. Veli bilgileri ve çocuğun detayları gereklidir.
+                  </p>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  • Veli bilgileri zorunlu
+                  • Çocuk için kayıt
+                  • Sağlık bilgileri
+                  • Okul bilgileri
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+            onClick={() => setRegistrationType('adult')}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <GraduationCap className="w-8 h-8 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Yetişkin Kayıt Formu</h3>
+                  <p className="text-sm text-muted-foreground">
+                    18 yaş üstü bireysel kayıt. Kendi adınıza sporcu kaydı yapın.
+                  </p>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  • Bireysel kayıt
+                  • Veli bilgisi gereksiz
+                  • Kişisel bilgiler
+                  • Spor geçmişi
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={onClose}>
+            İptal
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Adult registration form
+  if (registrationType === 'adult') {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Yetişkin Sporcu Kaydı</h2>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setRegistrationType(null)}
+          >
+            ← Geri Dön
+          </Button>
+        </div>
+
+        {/* Kişisel Bilgiler */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <User className="w-5 h-5" />
+              <span>Kişisel Bilgiler</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Photo Upload Section */}
+            <div className="flex flex-col items-center space-y-4 p-4 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+              <div className="flex flex-col items-center space-y-3">
+                <Avatar className="w-24 h-24">
+                  <AvatarImage src={selectedPhoto || ""} />
+                  <AvatarFallback className="text-lg">
+                    {formData.studentName && formData.studentSurname 
+                      ? getInitials(formData.studentName, formData.studentSurname)
+                      : <Camera className="w-8 h-8" />
+                    }
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div className="text-center">
+                  <Label className="text-sm font-medium">Fotoğraf</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Profil fotoğrafınızı ekleyebilirsiniz (Opsiyonel)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Fotoğraf Seç
+                </Button>
+                
+                {selectedPhoto && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={removePhoto}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Kaldır
+                  </Button>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+              
+              <p className="text-xs text-muted-foreground text-center">
+                Desteklenen formatlar: JPG, PNG, GIF (Maksimum 5MB)
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="studentName">Ad *</Label>
+                <Input
+                  id="studentName"
+                  value={formData.studentName}
+                  onChange={(e) => handleInputChange("studentName", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="studentSurname">Soyad *</Label>
+                <Input
+                  id="studentSurname"
+                  value={formData.studentSurname}
+                  onChange={(e) => handleInputChange("studentSurname", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="studentTcNo">T.C. Kimlik No *</Label>
+                <Input
+                  id="studentTcNo"
+                  value={formData.studentTcNo}
+                  onChange={(e) => handleTcNoChange("studentTcNo", e.target.value)}
+                  maxLength={11}
+                  placeholder="11 haneli TC kimlik numarası"
+                  className={tcErrors.studentTcNo ? "border-red-500" : ""}
+                  required
+                />
+                {tcErrors.studentTcNo && (
+                  <p className="text-sm text-red-500 mt-1">{tcErrors.studentTcNo}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="studentBirthDate">Doğum Tarihi *</Label>
+                <Input
+                  id="studentBirthDate"
+                  type="date"
+                  value={formData.studentBirthDate}
+                  onChange={(e) => handleInputChange("studentBirthDate", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label>Cinsiyet *</Label>
+                <RadioGroup 
+                  value={formData.studentGender} 
+                  onValueChange={(value) => handleInputChange("studentGender", value)}
+                  className="flex space-x-4 mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="erkek" id="erkek-adult" />
+                    <Label htmlFor="erkek-adult">Erkek</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="kadın" id="kadın-adult" />
+                    <Label htmlFor="kadın-adult">Kadın</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              <div>
+                <Label htmlFor="parentOccupation">Meslek</Label>
+                <Input
+                  id="parentOccupation"
+                  placeholder="Meslek bilgisi"
+                  value={formData.parentOccupation}
+                  onChange={(e) => handleInputChange("parentOccupation", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="parentPhone">Telefon Numarası *</Label>
+                <Input
+                  id="parentPhone"
+                  type="tel"
+                  placeholder="0555 123 45 67"
+                  value={formData.parentPhone}
+                  onChange={(e) => handleInputChange("parentPhone", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="parentEmail">Email Adresi *</Label>
+                <Input
+                  id="parentEmail"
+                  type="email"
+                  placeholder="email@example.com"
+                  value={formData.parentEmail}
+                  onChange={(e) => handleInputChange("parentEmail", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="licenseNumber">Lisans Numarası</Label>
+              <Input
+                id="licenseNumber"
+                placeholder="Sporcu lisans numarası (opsiyonel)"
+                value={formData.licenseNumber}
+                onChange={(e) => handleInputChange("licenseNumber", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Katılmak İstediği Spor Branşları * (Birden fazla seçebilirsiniz)</Label>
+              
+              {/* Selected Sports Display */}
+              {formData.selectedSports.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2 mb-4">
+                  {formData.selectedSports.map((sport) => (
+                    <Badge key={sport} variant="default" className="flex items-center gap-1">
+                      {sport}
+                      <X 
+                        className="h-3 w-3 cursor-pointer" 
+                        onClick={() => handleSportSelection(sport, false)}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              
+              <div className="grid md:grid-cols-3 gap-3 mt-2">
+                {sports.map((sport) => (
+                  <div key={sport} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`adult-${sport}`}
+                      checked={formData.selectedSports.includes(sport)}
+                      onCheckedChange={(checked) => handleSportSelection(sport, checked as boolean)}
+                    />
+                    <Label htmlFor={`adult-${sport}`} className="text-sm">{sport}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Fiziksel Bilgiler */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Heart className="w-5 h-5" />
+              <span>Fiziksel Bilgiler</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="studentHeight">Boy (cm)</Label>
+                <Input
+                  id="studentHeight"
+                  type="number"
+                  placeholder="170"
+                  value={formData.studentHeight}
+                  onChange={(e) => handleInputChange("studentHeight", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="studentWeight">Kilo (kg)</Label>
+                <Input
+                  id="studentWeight"
+                  type="number"
+                  placeholder="65"
+                  value={formData.studentWeight}
+                  onChange={(e) => handleInputChange("studentWeight", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="bloodType">Kan Grubu</Label>
+                <Select value={formData.bloodType} onValueChange={(value) => handleInputChange("bloodType", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Kan grubu seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A+">A Rh+</SelectItem>
+                    <SelectItem value="A-">A Rh-</SelectItem>
+                    <SelectItem value="B+">B Rh+</SelectItem>
+                    <SelectItem value="B-">B Rh-</SelectItem>
+                    <SelectItem value="AB+">AB Rh+</SelectItem>
+                    <SelectItem value="AB-">AB Rh-</SelectItem>
+                    <SelectItem value="0+">0 Rh+</SelectItem>
+                    <SelectItem value="0-">0 Rh-</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="dominantHand">Dominant El</Label>
+                <Select value={formData.dominantHand} onValueChange={(value) => handleInputChange("dominantHand", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sag">Sağ</SelectItem>
+                    <SelectItem value="sol">Sol</SelectItem>
+                    <SelectItem value="her-ikisi">Her İkisi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="dominantFoot">Dominant Ayak</Label>
+                <Select value={formData.dominantFoot} onValueChange={(value) => handleInputChange("dominantFoot", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sag">Sağ</SelectItem>
+                    <SelectItem value="sol">Sol</SelectItem>
+                    <SelectItem value="her-ikisi">Her İkisi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="sportsPosition">Tercih Edilen Pozisyon</Label>
+                <Input
+                  id="sportsPosition"
+                  placeholder="Örn: Kaleci, Forvet, Guard"
+                  value={formData.sportsPosition}
+                  onChange={(e) => handleInputChange("sportsPosition", e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* İletişim Bilgileri */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <MapPin className="w-5 h-5" />
+              <span>İletişim Bilgileri</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="address">Adres *</Label>
+              <Textarea
+                id="address"
+                placeholder="Tam adres bilgisi"
+                value={formData.address}
+                onChange={(e) => handleInputChange("address", e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="city">İl *</Label>
+                <Select value={formData.city} onValueChange={(value) => handleInputChange("city", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="İl seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cities.map((city) => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="district">İlçe *</Label>
+                <Input
+                  id="district"
+                  placeholder="İlçe"
+                  value={formData.district}
+                  onChange={(e) => handleInputChange("district", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="postalCode">Posta Kodu</Label>
+                <Input
+                  id="postalCode"
+                  placeholder="34000"
+                  value={formData.postalCode}
+                  onChange={(e) => handleInputChange("postalCode", e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sağlık Bilgileri */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Heart className="w-5 h-5" />
+              <span>Sağlık Bilgileri</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Kronik hastalık veya sağlık sorunu var mı? *</Label>
+              <RadioGroup 
+                value={formData.hasHealthIssues} 
+                onValueChange={(value) => handleInputChange("hasHealthIssues", value)}
+                className="flex space-x-4 mt-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="evet" id="health-yes-adult" />
+                  <Label htmlFor="health-yes-adult">Evet</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="hayır" id="health-no-adult" />
+                  <Label htmlFor="health-no-adult">Hayır</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {formData.hasHealthIssues === "evet" && (
+              <div>
+                <Label htmlFor="healthIssuesDetail">Sağlık sorunu detayı</Label>
+                <Textarea
+                  id="healthIssuesDetail"
+                  placeholder="Lütfen detayları belirtin"
+                  value={formData.healthIssuesDetail}
+                  onChange={(e) => handleInputChange("healthIssuesDetail", e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="emergencyContactName">Acil Durum İletişim Kişisi *</Label>
+                <Input
+                  id="emergencyContactName"
+                  placeholder="Ad Soyad"
+                  value={formData.emergencyContactName}
+                  onChange={(e) => handleInputChange("emergencyContactName", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="emergencyContactPhone">Acil Durum Telefonu *</Label>
+                <Input
+                  id="emergencyContactPhone"
+                  type="tel"
+                  placeholder="0555 123 45 67"
+                  value={formData.emergencyContactPhone}
+                  onChange={(e) => handleInputChange("emergencyContactPhone", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="emergencyContactRelation">Yakınlık Derecesi *</Label>
+                <Input
+                  id="emergencyContactRelation"
+                  placeholder="Eş, Kardeş, Arkadaş vb."
+                  value={formData.emergencyContactRelation}
+                  onChange={(e) => handleInputChange("emergencyContactRelation", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Spor Geçmişi */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Trophy className="w-5 h-5" />
+              <span>Spor Geçmişi ve Hedefler</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="previousClubs">Önceki Kulüp Deneyimleri</Label>
+              <Textarea
+                id="previousClubs"
+                placeholder="Daha önce üye olduğunuz spor kulüpleri varsa belirtin"
+                value={formData.previousClubs}
+                onChange={(e) => handleInputChange("previousClubs", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="achievements">Başarılar ve Ödüller</Label>
+              <Textarea
+                id="achievements"
+                placeholder="Aldığınız ödüller, başarılar, dereceler varsa belirtin"
+                value={formData.achievements}
+                onChange={(e) => handleInputChange("achievements", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="sportsGoals">Spor Hedefleri</Label>
+              <Textarea
+                id="sportsGoals"
+                placeholder="Sporda ulaşmak istediğiniz hedefler"
+                value={formData.sportsGoals}
+                onChange={(e) => handleInputChange("sportsGoals", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="previousSportsExperience">Önceki Spor Deneyimi</Label>
+              <Textarea
+                id="previousSportsExperience"
+                placeholder="Daha önce yaptığınız sporlar varsa belirtin"
+                value={formData.previousSportsExperience}
+                onChange={(e) => handleInputChange("previousSportsExperience", e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Onaylar */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Onaylar</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="agreement-adult"
+                checked={formData.agreementAccepted}
+                onCheckedChange={(checked) => handleInputChange("agreementAccepted", checked)}
+              />
+              <Label htmlFor="agreement-adult" className="text-sm leading-relaxed">
+                Spor okulu kurallarını ve şartlarını okudum, kabul ediyorum. *
+              </Label>
+            </div>
+
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="dataProcessing-adult"
+                checked={formData.dataProcessingAccepted}
+                onCheckedChange={(checked) => handleInputChange("dataProcessingAccepted", checked)}
+              />
+              <Label htmlFor="dataProcessing-adult" className="text-sm leading-relaxed">
+                Kişisel verilerimin işlenmesine ve KVKK kapsamında kullanılmasına onay veriyorum. *
+              </Label>
+            </div>
+
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="photoVideo-adult"
+                checked={formData.photoVideoPermission}
+                onCheckedChange={(checked) => handleInputChange("photoVideoPermission", checked)}
+              />
+              <Label htmlFor="photoVideo-adult" className="text-sm leading-relaxed">
+                Antrenman ve etkinliklerde çekilen fotoğraf/videolarımın paylaşılmasına izin veriyorum.
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end space-x-2">
+          <Button type="button" variant="outline" onClick={() => setRegistrationType(null)}>
+            Geri
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? "Kayıt yapılıyor..." : "Sporcu Kaydet"}
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
+  // Parent/child registration form (existing form)
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
@@ -396,6 +1032,20 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">Velisi Olduğum Sporcu Kaydı</h2>
+        {!athlete && (
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setRegistrationType(null)}
+          >
+            ← Geri Dön
+          </Button>
+        )}
+      </div>
 
       {/* Öğrenci Bilgileri */}
       <Card>
