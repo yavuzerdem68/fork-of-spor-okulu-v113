@@ -10,10 +10,15 @@
     "dev:local": "next dev",
     "dev:local-win": "next dev",
     "build": "next build",
+    "build:local": "next build",
+    "build:wordpress": "cross-env WORDPRESS_MODE=true next build",
     "start": "next start",
     "lint": "next lint",
-    "clean": "rimraf .next",
-    "fresh-start": "npm run clean && npm run dev"
+    "clean": "rimraf .next out",
+    "fresh-start": "npm run clean && npm run dev",
+    "export": "next export",
+    "deploy:wordpress": "npm run build:wordpress && npm run copy-htaccess",
+    "copy-htaccess": "cp .htaccess out/.htaccess 2>/dev/null || copy .htaccess out\\.htaccess 2>nul || echo 'htaccess copy completed or not needed'"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
