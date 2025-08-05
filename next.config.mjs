@@ -1,10 +1,8 @@
-/** @type {import('next').NextConfig} */
-
 const isWordPressMode = process.env.WORDPRESS_MODE === 'true';
 
-console.log(`Building in ${isWordPressMode ? 'WordPress' : 'Local'} mode`);
+console.log('Building in', isWordPressMode ? 'WordPress' : 'Local', 'mode');
 
-let nextConfig = {
+const nextConfig = {
   reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true,
@@ -23,40 +21,29 @@ let nextConfig = {
 };
 
 if (isWordPressMode) {
-  nextConfig = {
-    ...nextConfig,
-    output: 'export',
-    trailingSlash: true,
-    skipTrailingSlashRedirect: true,
-    assetPrefix: '/spor-okulu',
+  nextConfig.output = 'export';
+  nextConfig.trailingSlash = true;
+  nextConfig.skipTrailingSlashRedirect = true;
+  nextConfig.assetPrefix = '/spor-okulu';
+  nextConfig.basePath = '/spor-okulu';
+  nextConfig.images.domains.push("www.g7spor.org");
+  nextConfig.env.NEXT_PUBLIC_APP_MODE = 'wordpress';
+  nextConfig.env.WORDPRESS_API_URL = 'https://www.g7spor.org/wp-json/wp/v2';
+  nextConfig.env.WORDPRESS_SITE_URL = 'https://www.g7spor.org';
+  nextConfig.env.NEXT_PUBLIC_BASE_PATH = '/spor-okulu';
+  nextConfig.publicRuntimeConfig = {
     basePath: '/spor-okulu',
-    images: {
-      ...nextConfig.images,
-      domains: [...nextConfig.images.domains, "www.g7spor.org"],
-    },
-    webpack: (config, context) => {
-      config.optimization.minimize = true;
-      
-      if (context.isServer === false) {
-        config.output.publicPath = '/spor-okulu/_next/';
-      }
-      
-      config.output.assetModuleFilename = 'static/media/[name].[hash][ext]';
-      
-      return config;
-    },
-    generateBuildId: async () => {
-      return 'static-build-' + Date.now();
-    },
-    env: {
-      NEXT_PUBLIC_APP_MODE: 'wordpress',
-      WORDPRESS_API_URL: 'https://www.g7spor.org/wp-json/wp/v2',
-      WORDPRESS_SITE_URL: 'https://www.g7spor.org',
-      NEXT_PUBLIC_BASE_PATH: '/spor-okulu',
-    },
-    publicRuntimeConfig: {
-      basePath: '/spor-okulu',
-    },
+  };
+  nextConfig.webpack = function(config, context) {
+    config.optimization.minimize = true;
+    if (context.isServer === false) {
+      config.output.publicPath = '/spor-okulu/_next/';
+    }
+    config.output.assetModuleFilename = 'static/media/[name].[hash][ext]';
+    return config;
+  };
+  nextConfig.generateBuildId = async function() {
+    return 'static-build-' + Date.now();
   };
 }
 
