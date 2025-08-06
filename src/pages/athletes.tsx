@@ -2000,7 +2000,7 @@ export default function Athletes() {
                   </DialogTrigger>
                   <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Yeni Sporcu Kaydı</DialogTitle>
+                      <DialogTitle>Sporcu Kaydı</DialogTitle>
                       <DialogDescription>
                         Veli kayıt formu + sporcu bilgileri aşamasından kayıt yapmamış sporcu eklemek için tüm bilgileri girin
                       </DialogDescription>
