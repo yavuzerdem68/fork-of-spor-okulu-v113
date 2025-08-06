@@ -634,32 +634,7 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           <p className="text-muted-foreground">Kayıt türünü seçin</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
-            onClick={() => setRegistrationType('login')}
-          >
-            <CardContent className="p-6 text-center">
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <LogIn className="w-8 h-8 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Veli/Sporcu Girişi</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Mevcut hesabınızla giriş yapın veya yeni hesap oluşturun.
-                  </p>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  • Hesap girişi
-                  • Güvenli kayıt
-                  • Veli hesabı oluşturma
-                  • Sporcu hesabı oluşturma
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
             onClick={() => setRegistrationType('parent')}
@@ -695,7 +670,7 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
                   <GraduationCap className="w-8 h-8 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Yetişkin Kayıt Formu</h3>
+                  <h3 className="text-lg font-semibold mb-2">Üye Kaydı</h3>
                   <p className="text-sm text-muted-foreground">
                     18 yaş üstü bireysel kayıt. Kendi adınıza sporcu kaydı yapın.
                   </p>
