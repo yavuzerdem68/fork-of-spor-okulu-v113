@@ -138,7 +138,7 @@ export default function Login() {
                     </TabsTrigger>
                     <TabsTrigger value="parent" className="flex items-center space-x-2">
                       <Users className="w-4 h-4" />
-                      <span>Veli</span>
+                      <span>Veli/Sporcu</span>
                     </TabsTrigger>
                   </TabsList>
 
@@ -280,7 +280,7 @@ export default function Login() {
                         </div>
 
                         <Button type="submit" className="w-full" disabled={loading}>
-                          {loading ? "Giriş yapılıyor..." : "Veli Girişi"}
+                          {loading ? "Giriş yapılıyor..." : "Veli/Sporcu Girişi"}
                         </Button>
                       </div>
                     </motion.form>
@@ -288,7 +288,7 @@ export default function Login() {
                 </Tabs>
 
                 <div className="mt-6 text-center">
-                  <Link href="/parent-signup" className="text-sm text-primary hover:underline block">
+                  <Link href="/parent-registration-form" className="text-sm text-primary hover:underline block">
                     Hesabınız yok mu? Kayıt olun
                   </Link>
                 </div>
