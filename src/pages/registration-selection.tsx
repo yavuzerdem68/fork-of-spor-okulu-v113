@@ -132,7 +132,7 @@ export default function RegistrationSelection() {
                       <User className="w-10 h-10 text-secondary" />
                     </div>
                     <h2 className="text-2xl font-bold text-foreground mb-3">
-                      Yetişkin Kaydı
+                      Üye Kaydı
                     </h2>
                     <p className="text-muted-foreground mb-6">
                       18 yaş üstü bireysel sporcu kaydı yapın
@@ -145,7 +145,7 @@ export default function RegistrationSelection() {
                     variant="secondary"
                     onClick={() => handleSelection('adult')}
                   >
-                    Yetişkin Kaydı Yap
+                    Üye Kaydı Yap
                   </Button>
                   
                   <div className="mt-4 text-sm text-muted-foreground">
