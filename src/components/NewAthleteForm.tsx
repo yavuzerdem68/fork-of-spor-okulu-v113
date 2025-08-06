@@ -630,7 +630,7 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold mb-2">Sporcu Kaydı</h2>
+          <h2 className="text-2xl font-bold mb-2">Yeni Sporcu Kaydı</h2>
           <p className="text-muted-foreground">Kayıt türünü seçin</p>
         </div>
 
