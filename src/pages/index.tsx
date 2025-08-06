@@ -314,7 +314,7 @@ export default function Home() {
                 </Tabs>
 
                 <div className="mt-6 text-center">
-                  <Link href="/parent-registration-form" className="text-sm text-primary hover:underline block">
+                  <Link href="/registration-selection" className="text-sm text-primary hover:underline block">
                     Hesabınız yok mu? Kayıt olun
                   </Link>
                 </div>

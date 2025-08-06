@@ -1,4 +1,5 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,12 +15,7 @@ import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Came
 import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput } from "@/utils/security";
-
-const sports = [
-  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
-  "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
-  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim", "Hareket Eğitimi"
-];
+import { SPORTS_BRANCHES } from "@/lib/sports-branches";
 
 const cities = [
   "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin",
@@ -33,6 +29,8 @@ const cities = [
 ];
 
 export default function ParentRegistrationForm() {
+  const router = useRouter();
+  const [registrationType, setRegistrationType] = useState<'child' | 'adult'>('child');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -42,6 +40,13 @@ export default function ParentRegistrationForm() {
   });
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get registration type from URL parameter
+  useEffect(() => {
+    if (router.query.type) {
+      setRegistrationType(router.query.type as 'child' | 'adult');
+    }
+  }, [router.query.type]);
 
   const [formData, setFormData] = useState({
     // Öğrenci Bilgileri
@@ -547,7 +552,7 @@ export default function ParentRegistrationForm() {
                 )}
                 
                 <div className="grid md:grid-cols-3 gap-3 mt-2">
-                  {sports.map((sport) => (
+                  {SPORTS_BRANCHES.map((sport) => (
                     <div key={sport} className="flex items-center space-x-2">
                       <Checkbox
                         id={sport}
