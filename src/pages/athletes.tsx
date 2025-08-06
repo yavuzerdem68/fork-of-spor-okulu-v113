@@ -1995,7 +1995,7 @@ export default function Athletes() {
                   <DialogTrigger asChild>
                     <Button>
                       <Plus className="w-4 h-4 mr-2" />
-                      Yeni Sporcu
+                      Sporcu Kaydı
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
