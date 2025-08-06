@@ -11,18 +11,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload, UserPlus, GraduationCap } from "lucide-react";
+import { User, Users, Phone, Mail, MapPin, Heart, Trophy, AlertTriangle, X, Camera, Upload, UserPlus, GraduationCap, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { validateTCKimlikNo, cleanTCKimlikNo } from "@/util/tcValidation";
 import { sanitizeInput, sanitizeHtml } from "@/utils/security";
+import { SPORTS_BRANCHES } from "@/lib/sports-branches";
 
-
-
-const sports = [
-  "Basketbol", "Hentbol", "Yüzme", "Akıl ve Zeka Oyunları", "Satranç", "Futbol", "Voleybol",
-  "Tenis", "Badminton", "Masa Tenisi", "Atletizm", "Jimnastik", "Karate", "Taekwondo",
-  "Judo", "Boks", "Güreş", "Halter", "Bisiklet", "Kayak", "Buz Pateni", "Eskrim", "Hareket Eğitimi"
-];
+const sports = SPORTS_BRANCHES;
 
 const cities = [
   "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin",
@@ -41,7 +36,7 @@ interface NewAthleteFormProps {
 }
 
 export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps) {
-  const [registrationType, setRegistrationType] = useState<'parent' | 'adult' | null>(athlete ? 'parent' : null);
+  const [registrationType, setRegistrationType] = useState<'parent' | 'adult' | 'login' | null>(athlete ? 'parent' : null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tcErrors, setTcErrors] = useState({
@@ -50,6 +45,14 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
   });
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(athlete?.photo || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Login form data
+  const [loginData, setLoginData] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    isNewAccount: false
+  });
 
   const [formData, setFormData] = useState({
     // Öğrenci Bilgileri
@@ -374,7 +377,63 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
           createdBy: 'admin'
         };
         
-        // Save to localStorage
+        // Create user account based on registration type
+        const existingAccounts = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+        
+        if (registrationType === 'parent') {
+          // Create parent account if it doesn't exist
+          const parentEmail = formData.parentEmail;
+          const existingParentAccount = existingAccounts.find((acc: any) => acc.email === parentEmail);
+          
+          if (!existingParentAccount) {
+            const parentAccount = {
+              id: Date.now().toString() + '_parent',
+              email: parentEmail,
+              password: 'temp123', // Temporary password - should be changed by user
+              name: `${formData.parentName} ${formData.parentSurname}`,
+              tcNo: formData.parentTcNo,
+              phone: formData.parentPhone,
+              accountType: 'parent',
+              createdAt: new Date().toISOString(),
+              children: [finalStudentData.id] // Link to child
+            };
+            
+            existingAccounts.push(parentAccount);
+            toast.success("Veli hesabı oluşturuldu! Geçici şifre: temp123 (Lütfen değiştirin)");
+          } else {
+            // Add child to existing parent account
+            if (!existingParentAccount.children) {
+              existingParentAccount.children = [];
+            }
+            existingParentAccount.children.push(finalStudentData.id);
+          }
+        } else if (registrationType === 'adult') {
+          // Create adult account
+          const adultEmail = formData.parentEmail; // Using parentEmail field for adult's email
+          const existingAdultAccount = existingAccounts.find((acc: any) => acc.email === adultEmail);
+          
+          if (!existingAdultAccount) {
+            const adultAccount = {
+              id: Date.now().toString() + '_adult',
+              email: adultEmail,
+              password: 'temp123', // Temporary password - should be changed by user
+              name: `${formData.studentName} ${formData.studentSurname}`,
+              tcNo: formData.studentTcNo,
+              phone: formData.parentPhone, // Using parentPhone field for adult's phone
+              accountType: 'adult',
+              createdAt: new Date().toISOString(),
+              athleteId: finalStudentData.id // Link to own athlete record
+            };
+            
+            existingAccounts.push(adultAccount);
+            toast.success("Sporcu hesabı oluşturuldu! Geçici şifre: temp123 (Lütfen değiştirin)");
+          }
+        }
+        
+        // Save updated accounts
+        localStorage.setItem('user_accounts', JSON.stringify(existingAccounts));
+        
+        // Save athlete to localStorage
         const existingStudents = JSON.parse(localStorage.getItem('students') || '[]');
         existingStudents.push(finalStudentData);
         localStorage.setItem('students', JSON.stringify(existingStudents));
@@ -390,16 +449,217 @@ export default function NewAthleteForm({ onClose, athlete }: NewAthleteFormProps
     setLoading(false);
   };
 
+  // Handle login form submission
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    // Basic validation
+    if (!loginData.email || !loginData.password) {
+      setError("Email ve şifre alanları zorunludur");
+      setLoading(false);
+      return;
+    }
+
+    if (loginData.isNewAccount && loginData.password !== loginData.confirmPassword) {
+      setError("Şifreler eşleşmiyor");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Get existing accounts
+      const existingAccounts = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+      
+      if (loginData.isNewAccount) {
+        // Check if account already exists
+        const existingAccount = existingAccounts.find((acc: any) => acc.email === loginData.email);
+        if (existingAccount) {
+          setError("Bu email adresi ile zaten bir hesap bulunmaktadır");
+          setLoading(false);
+          return;
+        }
+
+        // Create new account
+        const newAccount = {
+          id: Date.now().toString(),
+          email: loginData.email,
+          password: loginData.password, // In real app, this should be hashed
+          createdAt: new Date().toISOString(),
+          accountType: 'parent' // Will be determined by registration type
+        };
+
+        existingAccounts.push(newAccount);
+        localStorage.setItem('user_accounts', JSON.stringify(existingAccounts));
+        
+        // Set current user
+        localStorage.setItem('current_user', JSON.stringify(newAccount));
+        
+        toast.success("Hesap başarıyla oluşturuldu! Şimdi sporcu kaydı yapabilirsiniz.");
+        
+        // Proceed to registration form
+        setRegistrationType('parent'); // Default to parent registration
+      } else {
+        // Login existing account
+        const account = existingAccounts.find((acc: any) => 
+          acc.email === loginData.email && acc.password === loginData.password
+        );
+        
+        if (!account) {
+          setError("Email veya şifre hatalı");
+          setLoading(false);
+          return;
+        }
+
+        // Set current user
+        localStorage.setItem('current_user', JSON.stringify(account));
+        
+        toast.success("Giriş başarılı! Sporcu kaydı yapabilirsiniz.");
+        
+        // Proceed to registration form
+        setRegistrationType('parent'); // Default to parent registration
+      }
+    } catch (err) {
+      setError("Giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+    }
+    
+    setLoading(false);
+  };
+
+  // Login form
+  if (registrationType === 'login') {
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">Veli/Sporcu Girişi</h2>
+          <p className="text-muted-foreground">
+            {loginData.isNewAccount ? "Yeni hesap oluşturun" : "Mevcut hesabınızla giriş yapın"}
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="p-6">
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex items-center justify-center space-x-4 mb-6">
+                <Button
+                  type="button"
+                  variant={!loginData.isNewAccount ? "default" : "outline"}
+                  onClick={() => setLoginData(prev => ({ ...prev, isNewAccount: false }))}
+                >
+                  Giriş Yap
+                </Button>
+                <Button
+                  type="button"
+                  variant={loginData.isNewAccount ? "default" : "outline"}
+                  onClick={() => setLoginData(prev => ({ ...prev, isNewAccount: true }))}
+                >
+                  Yeni Hesap
+                </Button>
+              </div>
+
+              <div>
+                <Label htmlFor="email">Email Adresi *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="email@example.com"
+                  value={loginData.email}
+                  onChange={(e) => setLoginData(prev => ({ ...prev, email: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="password">Şifre *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Şifrenizi girin"
+                  value={loginData.password}
+                  onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {loginData.isNewAccount && (
+                <div>
+                  <Label htmlFor="confirmPassword">Şifre Tekrar *</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Şifrenizi tekrar girin"
+                    value={loginData.confirmPassword}
+                    onChange={(e) => setLoginData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-between space-x-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setRegistrationType(null)}
+                >
+                  ← Geri Dön
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading 
+                    ? "İşleniyor..." 
+                    : (loginData.isNewAccount ? "Hesap Oluştur" : "Giriş Yap")
+                  }
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // If no registration type is selected and not editing, show selection dialog
   if (!registrationType && !athlete) {
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold mb-2">Yeni Sporcu Kaydı</h2>
+          <h2 className="text-2xl font-bold mb-2">Sporcu Kayıt Sistemi</h2>
           <p className="text-muted-foreground">Kayıt türünü seçin</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+            onClick={() => setRegistrationType('login')}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                  <LogIn className="w-8 h-8 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Veli/Sporcu Girişi</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Mevcut hesabınızla giriş yapın veya yeni hesap oluşturun.
+                  </p>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  • Hesap girişi
+                  • Güvenli kayıt
+                  • Veli hesabı oluşturma
+                  • Sporcu hesabı oluşturma
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
             onClick={() => setRegistrationType('parent')}

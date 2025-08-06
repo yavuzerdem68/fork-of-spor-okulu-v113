@@ -7,24 +7,10 @@ export const SPORTS_BRANCHES = [
   "Yüzme",
   "Akıl ve Zeka Oyunları",
   "Satranç",
-  "Futbol",
-  "Voleybol",
-  "Tenis",
-  "Badminton",
-  "Masa Tenisi",
-  "Atletizm",
-  "Jimnastik",
-  "Karate",
-  "Taekwondo",
-  "Judo",
-  "Boks",
-  "Güreş",
-  "Halter",
-  "Bisiklet",
-  "Kayak",
-  "Buz Pateni",
-  "Eskrim",
-  "Hareket Eğitimi"
+  "Hareket Eğitimi",
+  "Yoga",
+  "Pilates",
+  "Cimnastik"
 ] as const;
 
 export type SportsBranch = typeof SPORTS_BRANCHES[number];
